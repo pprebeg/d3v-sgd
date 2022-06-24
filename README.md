@@ -1,2 +1,2 @@
 # d3v-sgd
-d3v Ship Grillage Design
+Design visualizer for  Ship Grillage Design

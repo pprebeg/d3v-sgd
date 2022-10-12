@@ -10,7 +10,7 @@ from timeit import default_timer as timer
 start = timer()
 
 # Ucitavanje topologije iz datoteke
-filename = '..\\examples\\hc_var_1.txt'
+filename = '../grillage savefiles\\hc_var_1.txt'
 hc_variant = GrillageModelData(filename).read_file()
 
 # Generacija mreze
@@ -133,7 +133,7 @@ def TestPlatingNodes():
 # Test_element_size_flange_width(hc_variant, BeamOrientation.LONGITUDINAL, 1, 1)    # Dimenzije elementa prirubnice za odabrani segment
 # Test_element_size_plating_zone(hc_variant, 1)
 # Test_ALL_element_size_plating_zone(hc_variant)
-Test_element_size_mesh(hc_variant)                                                # Konacno odabrane dimenzije mreze po x i y
+# Test_element_size_mesh(hc_variant)                                                # Konacno odabrane dimenzije mreze po x i y
 # Test_get_mesh_dim_x(hc_variant, 2)                                                # Odabrana x dimenzija za neko polje oplate
 # Test_get_mesh_dim_y(hc_variant, 2)                                                # Odabrana y dimenzija za neko polje oplate
 # Test_get_number_of_quads(hc_variant, 2)

@@ -18,7 +18,7 @@ Assumptions:
 
 """
 
-from grillage_model import *
+from grillage.grillage_model import *
 
 
 class FENode:

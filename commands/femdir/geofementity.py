@@ -4,8 +4,8 @@ from enum import Enum
 import numpy as np
 import pathlib
 from typing import List, Dict
-from femdir.oofemenum import FEMElementType
-from femdir.primitives import Icosphere,Cylinder
+from oofemenum import FEMElementType
+from primitives import Icosphere,Cylinder
 
 class ViewType(Enum):
     """!

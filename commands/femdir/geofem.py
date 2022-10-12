@@ -1,10 +1,10 @@
 from typing import List, Dict
-from femdir.geofementity import *
-from femdir.oofemin import OOFEMAnalysisModel
+from geofementity import *
+from oofemin import OOFEMAnalysisModel
 #d3v imports
 from geometry import BBox
 from selection import SelectionInfo
-from extendedgeometry import ConnectedModel,ModelBasedGeometry
+#from extendedgeometry import ConnectedModel,ModelBasedGeometry
 
 
 #helper methods
@@ -36,8 +36,8 @@ def get_float_list_from_string(line: str,delim:str = ' '):
     return flist
 
 
-
-class GeoFEM(ConnectedModel):
+#class GeoFEM(ConnectedModel):
+class GeoFEM():
     def __init__(self):
         super().__init__()
         self.nodes = {}
@@ -76,8 +76,10 @@ class GeoFEM(ConnectedModel):
         self.facetoelement:Dict[int,int] = {}
         self.nodetoelement:Dict[int,int] = {}
         #geometry handling
-        self._allfegeo= ModelBasedGeometry(self)
-        self._allnodgeo = ModelBasedGeometry(self)
+        #self._allfegeo= ModelBasedGeometry(self)
+        #self._allnodgeo = ModelBasedGeometry(self)
+        self._allfegeo = None
+        self._allnodgeo = None
         self._allnodgeo._show_mesh_wireframe = False
         self.addgeometry(self._allfegeo)
         self.addgeometry(self._allnodgeo)

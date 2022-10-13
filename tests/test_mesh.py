@@ -1,20 +1,21 @@
 """
-Modul za prikaz diskretizaciju ucitanog modela
+Modul za testiranje diskretizacije učitanog modela
 
 """
 
-# from FEM_mesh import *
-from grillage.FEM_mesh import *
+from femdir.grillage_mesh import *
 from timeit import default_timer as timer
 
 start = timer()
 
 # Ucitavanje topologije iz datoteke
-filename = '../grillage savefiles\\hc_var_1.txt'
+filename = '../grillage savefiles\\hc_var_2_savefile.txt'
 hc_variant = GrillageModelData(filename).read_file()
 
 # Generacija mreze
-mesh1 = FEMesh(hc_variant)                  # Izrada FEMesh objekta
+mesh1 = GrillageMesh(hc_variant)    # Izrada GrillageMesh objekta
+mesh1.flange_aspect_ratio = 7       # Postavljanje aspektnog odnosa elemenata prirubnica jakih nosača i oplate uz struk jakih nosača
+mesh1.plate_aspect_ratio = 4        # Postavljanje aspektnog odnosa elemenata oplate i strukova jakih nosača
 
 """
 # mesh1.GenerateNodes(hc_variant)               # Generacija cvorova
@@ -26,25 +27,27 @@ mesh1 = FEMesh(hc_variant)                  # Izrada FEMesh objekta
 
 def Test_element_size_stiffener_spacing(grillage, plate_id):
     plate = grillage.plating()[plate_id]
-    dims = FEMesh.element_size_stiffener_spacing(mesh1, plate)
+    dims = GrillageMesh.element_size_stiffener_spacing(mesh1, plate)
 
     print("Dimenzije quad elementa oplate uz jedan element između ukrepa, uzdužno:", dims[0], "mm, poprečno:", dims[1], "mm")
 
 
-def Test_element_size_flange_width(grillage, direction: BeamOrientation, psm_id, segment_id):
+def Test_element_size_flange_width(grillage, direction: BeamDirection, psm_id, segment_id, aspect_ratio):
     segment = None
-    if direction == BeamOrientation.LONGITUDINAL:
-        segment = grillage.longitudinal_members()[psm_id].segments[segment_id]
-    elif direction == BeamOrientation.TRANSVERSE:
+
+    if direction == BeamDirection.LONGITUDINAL:
         segment = grillage.longitudinal_members()[psm_id].segments[segment_id]
 
-    dim = FEMesh.element_size_flange_width(grillage, segment)
+    elif direction == BeamDirection.TRANSVERSE:
+        segment = grillage.transverse_members()[psm_id].segments[segment_id]
+
+    dim = GrillageMesh.element_size_flange_width(grillage, segment, aspect_ratio)
     print("Maksimalna dimenzija elementa prirubnice prema aspektnom odnosu:", dim, "mm")
 
 
 def Test_element_size_plating_zone(grillage, plate_id):
     plate = grillage.plating()[plate_id]
-    dims = FEMesh.element_size_plating_zone(mesh1, grillage, plate)
+    dims = GrillageMesh.element_size_plating_zone(mesh1, grillage, plate)
 
     dim_x = dims[0]
     dim_y = dims[1]
@@ -61,7 +64,7 @@ def Test_ALL_element_size_plating_zone(grillage):
     for stupac in range(0, n_y):
         for redak in range(0, n_x):
             plate = grillage.plating()[plate_id]
-            polje1[stupac, redak] = FEMesh.element_size_plating_zone(mesh1, grillage, plate)[0]
+            polje1[stupac, redak] = GrillageMesh.element_size_plating_zone(mesh1, grillage, plate)[0]
             plate_id += 1
     print("Sve x dimenzije elemenata: \n", polje1, "\n")
 
@@ -70,35 +73,44 @@ def Test_ALL_element_size_plating_zone(grillage):
     for stupac in range(0, n_y):
         for redak in range(0, n_x):
             plate = grillage.plating()[plate_id]
-            polje1[stupac, redak] = FEMesh.element_size_plating_zone(mesh1, grillage, plate)[1]
+            polje1[stupac, redak] = GrillageMesh.element_size_plating_zone(mesh1, grillage, plate)[1]
             plate_id += 1
     print("Sve y dimenzije elemenata: \n", polje1)
 
 
 def Test_element_size_mesh(grillage):
-    FEMesh.element_size_mesh(mesh1, grillage)
+    GrillageMesh.element_size_mesh(mesh1, grillage)
     print("Konačno odabrane dimenzije mreže po x:", mesh1.mesh_dim_x)
     print("Konačno odabrane dimenzije mreže po y:", mesh1.mesh_dim_y)
 
 
 def Test_get_mesh_dim_x(grillage, plate_id):
-    FEMesh.element_size_mesh(mesh1, grillage)
+    GrillageMesh.element_size_mesh(mesh1, grillage)
     plate = grillage.plating()[plate_id]
-    print(FEMesh.get_mesh_dim_x(mesh1, plate))
+    print(GrillageMesh.get_mesh_dim_x(mesh1, plate))
 
 
 def Test_get_mesh_dim_y(grillage, plate_id):
-    FEMesh.element_size_mesh(mesh1, grillage)
+    GrillageMesh.element_size_mesh(mesh1, grillage)
     plate = grillage.plating()[plate_id]
-    print(FEMesh.get_mesh_dim_y(mesh1, plate))
+    print(GrillageMesh.get_mesh_dim_y(mesh1, plate))
 
 
+def Test_all_plating_zones_mesh_dimensions(grillage):
+    GrillageMesh.element_size_mesh(mesh1, grillage)
+    for plate in grillage.plating().values():
+        dim_x = GrillageMesh.get_mesh_dim_x(mesh1, plate)
+        dim_y = GrillageMesh.get_mesh_dim_y(mesh1, plate)
+        print("Zona oplate ID:", plate.id, ",   dim_x =", "{:.1f}".format(dim_x), "mm", ",   dim_y =", "{:.1f}".format(dim_y), "mm")
+
+
+"""
 def Test_get_number_of_quads(grillage, plate_id):
-    FEMesh.element_size_mesh(mesh1, grillage)
+    GrillageMesh.element_size_mesh(mesh1, grillage)
 
     plate = grillage.plating()[plate_id]
-    FEMesh.get_number_of_quads(mesh1, grillage, plate)
-
+    GrillageMesh.get_number_of_quads(mesh1, grillage, plate)
+"""
 
 """
 def TestGenerateNodes():
@@ -129,15 +141,17 @@ def TestPlatingNodes():
 """
 
 # print(FEMesh.find_closest_divisor(4935, 660))
-# Test_element_size_stiffener_spacing(hc_variant, 2)                                # Dimenzije elementa oplate za odabranu zonu
-# Test_element_size_flange_width(hc_variant, BeamOrientation.LONGITUDINAL, 1, 1)    # Dimenzije elementa prirubnice za odabrani segment
-# Test_element_size_plating_zone(hc_variant, 1)
+# Test_element_size_stiffener_spacing(hc_variant, 1)   # Dimenzije elementa oplate za odabranu zonu prema razmaku ukrepa
+# Test_element_size_flange_width(hc_variant, BeamOrientation.TRANSVERSE, 1, 1)    # Dimenzije elementa prirubnice za odabrani segment
+# Test_element_size_plating_zone(hc_variant, 1)         # Dimenzije elemenata na odabranoj zoni oplate prema razmaku ukrepa i ar prirubnice
 # Test_ALL_element_size_plating_zone(hc_variant)
-# Test_element_size_mesh(hc_variant)                                                # Konacno odabrane dimenzije mreze po x i y
-# Test_get_mesh_dim_x(hc_variant, 2)                                                # Odabrana x dimenzija za neko polje oplate
-# Test_get_mesh_dim_y(hc_variant, 2)                                                # Odabrana y dimenzija za neko polje oplate
-# Test_get_number_of_quads(hc_variant, 2)
+# Test_element_size_mesh(hc_variant)                    # Konacno odabrane dimenzije mreze po x i y
+# Test_get_mesh_dim_x(hc_variant, 2)                    # Odabrana x dimenzija za neko polje oplate
+# Test_get_mesh_dim_y(hc_variant, 2)                    # Odabrana y dimenzija za neko polje oplate
+# Test_all_plating_zones_mesh_dimensions(hc_variant)    # Odabrane x i y dimenzije elemenata za sva polja oplate
 
+# ***** WIP ******
+# Test_get_number_of_quads(hc_variant, 2)
 # TestGenerateNodes()                           # Ispis cvorova i njihovih koordinata
 # TestCheckNodeOverlap(hc_variant)
 # MeshTest()                                    # Ispis elemenata, property ID, cvorova elemenata i koordinata

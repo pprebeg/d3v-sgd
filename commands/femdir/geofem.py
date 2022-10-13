@@ -1,6 +1,6 @@
 from typing import List, Dict
-from geofementity import *
-from oofemin import OOFEMAnalysisModel
+from femdir.geofementity import *
+from femdir.oofemin import OOFEMAnalysisModel
 #d3v imports
 from geometry import BBox
 from selection import SelectionInfo

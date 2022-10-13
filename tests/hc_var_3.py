@@ -30,7 +30,7 @@ hc_var_3.add_corrosion_addition(tc)
 # Beam property
 initial_longitudinal_beam = TBeamProperty(1, 1089, 10, 230, 16, ST24)       # inicijalni longitudinal T beam prop
 initial_transverse_beam = TBeamProperty(2, 1089, 10, 545, 40, ST24)         # inicijalni transverse T beam prop
-initial_edge_beam = TBeamProperty(3, 1089, 10, 150, 16, ST24)               # inicijalni rubni L beam prop
+initial_edge_beam = LBeamProperty(3, 1089, 10, 150, 16, ST24)               # inicijalni rubni L beam prop
 initial_stiffener = HatBeamProperty(4, 220, 6, 220, 80, AH36)               # inicijalna ukrepa
 center_girder = TBeamProperty(5, 1089, 10, 560, 40, ST24)
 
@@ -50,7 +50,7 @@ stifflayout2 = StiffenerLayout(2, initial_stiffener, "number", 2)
 hc_var_3.add_stiffener_layout(stifflayout1)                                   # dodavanje stiffener layouta u dictionary
 hc_var_3.add_stiffener_layout(stifflayout2)
 
-stiff_dir = BeamOrientation.TRANSVERSE                                        # inicijalna orijentacija ukrepa na svim zonama oplate
+stiff_dir = BeamDirection.TRANSVERSE                                        # inicijalna orijentacija ukrepa na svim zonama oplate
 
 # Generacija topologije
 hc_var_3.generate_prim_supp_members()                                   # Generacija svih jakih nosaca
@@ -69,7 +69,7 @@ Grillage.set_all_transverse_PSM(hc_var_3, 4.325, 4.935, 4.935)
 Grillage.set_plating_prop_transversals(hc_var_3, 1, "stiff_layout", stifflayout2)
 Grillage.set_plating_prop_transversals(hc_var_3, 4, "stiff_layout", stifflayout2)
 
-Grillage.set_plating_prop_symmetric(hc_var_3, 2, "stiff_dir", BeamOrientation.LONGITUDINAL)
+Grillage.set_plating_prop_symmetric(hc_var_3, 2, "stiff_dir", BeamDirection.LONGITUDINAL)
 Grillage.set_plating_prop_symmetric(hc_var_3, 2, "stiff_layout", stifflayout2)
 
 # Izmjena svojstava nosaca

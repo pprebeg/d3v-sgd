@@ -51,7 +51,7 @@ stifflayout2 = StiffenerLayout(2, initial_stiffener, "spacing", 0.935)
 hc_var_1.add_stiffener_layout(stifflayout1)                                   # dodavanje stiffener layouta u dictionary
 hc_var_1.add_stiffener_layout(stifflayout2)
 
-stiff_dir = BeamOrientation.TRANSVERSE                                        # inicijalna orijentacija ukrepa na svim zonama oplate
+stiff_dir = BeamDirection.TRANSVERSE                                        # inicijalna orijentacija ukrepa na svim zonama oplate
 
 # Generacija topologije
 hc_var_1.generate_prim_supp_members()                                   # Generacija svih jakih nosaca

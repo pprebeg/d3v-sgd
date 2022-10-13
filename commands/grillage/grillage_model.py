@@ -38,7 +38,7 @@ import itertools
 from enum import Enum
 
 
-class BeamOrientation(Enum):
+class BeamDirection(Enum):
     TRANSVERSE = 0
     LONGITUDINAL = 1
 
@@ -715,10 +715,10 @@ class VariableSection(BeamProperty):
 
 
 class PrimarySuppMem:
-    def __init__(self, idbeam, direction: BeamOrientation, rel_dist, grillage):
+    def __init__(self, idbeam, direction: BeamDirection, rel_dist, grillage):
         self._id = idbeam
         self._segments = []                             # List of segments for each primary supporting member
-        self._direction: BeamOrientation = direction    # Direction of the primary supporting member
+        self._direction: BeamDirection = direction    # Direction of the primary supporting member
         self._rel_dist = float(rel_dist)                # Relative distance - position of the primary supporting member
         self._grillage = grillage
         self._symmetric_member = None
@@ -736,12 +736,12 @@ class PrimarySuppMem:
     @property
     def end_nodes(self):
         # Segmenet end node coordinates
-        if self._direction == BeamOrientation.LONGITUDINAL:  # Longitudinal primary supporting members
+        if self._direction == BeamDirection.LONGITUDINAL:  # Longitudinal primary supporting members
             node1 = Node(1, 0, self._rel_dist * self._grillage.B_overall, 0)
             node2 = Node(2, self._grillage.L_overall, self._rel_dist * self._grillage.B_overall, 0)
             return node1.coords, node2.coords
 
-        if self._direction == BeamOrientation.TRANSVERSE:  # Transverse primary supporting members
+        if self._direction == BeamDirection.TRANSVERSE:  # Transverse primary supporting members
             node1 = Node(1, self._rel_dist * self._grillage.L_overall, 0, 0)
             node2 = Node(2, self._rel_dist * self._grillage.L_overall, self._grillage.B_overall, 0)
             return node1.coords, node2.coords
@@ -864,9 +864,9 @@ class Segment:
         # Segment length
         rel_dist1 = self._cross_member1.rel_dist
         rel_dist2 = self._cross_member2.rel_dist
-        if self._primary_supp_mem.direction == BeamOrientation.LONGITUDINAL:
+        if self._primary_supp_mem.direction == BeamDirection.LONGITUDINAL:
             return (rel_dist2 - rel_dist1) * self._primary_supp_mem.grillage.L_overall
-        if self._primary_supp_mem.direction == BeamOrientation.TRANSVERSE:
+        if self._primary_supp_mem.direction == BeamDirection.TRANSVERSE:
             return (rel_dist2 - rel_dist1) * self._primary_supp_mem.grillage.B_overall
 
     def get_attplate(self):
@@ -879,9 +879,9 @@ class Segment:
             if plate.test_plate_segment(self):
                 tps.append(plate.plate_prop.tp)
 
-                if self._primary_supp_mem.direction == BeamOrientation.TRANSVERSE:
+                if self._primary_supp_mem.direction == BeamDirection.TRANSVERSE:
                     spn.append(0.5 * Plate.plate_longitudinal_dim(plate))
-                if self._primary_supp_mem.direction == BeamOrientation.LONGITUDINAL:
+                if self._primary_supp_mem.direction == BeamDirection.LONGITUDINAL:
                     spn.append(0.5 * Plate.plate_transverse_dim(plate))
 
                 att_plating_n += 1
@@ -900,10 +900,10 @@ class Segment:
         bp_seg = 0
         bp = 0
         for sp in spn:
-            if self._primary_supp_mem.direction == BeamOrientation.LONGITUDINAL:
+            if self._primary_supp_mem.direction == BeamDirection.LONGITUDINAL:
                 bp = np.minimum(0.165 * self._primary_supp_mem.grillage.L_overall, sp)
             bp_seg += bp                # Attached plate width for longitudinal segments
-            if self._primary_supp_mem.direction == BeamOrientation.TRANSVERSE:
+            if self._primary_supp_mem.direction == BeamDirection.TRANSVERSE:
                 bp = np.minimum(0.165 * self._primary_supp_mem.grillage.B_overall, sp)
                 bp_seg += bp            # Attached plate width for transverse segments
         return bp_seg * 1000, tpsr_seg  # Returns attached plate width and thickness, both in [mm]
@@ -966,7 +966,7 @@ class Plate:
         self._id = idplate
         self._plate_prop = plate_prop
         self._stiff_layout = stiff_layout
-        self._stiff_dir: BeamOrientation = stiff_dir
+        self._stiff_dir: BeamDirection = stiff_dir
         self._ref_edge: Ref = ref_edge      # Starting segment for layouts defined by spacing between stiffeners
         self._segments = [long_seg1, trans_seg1, long_seg2, trans_seg2]
         self._symmetric_plate_zones = []
@@ -987,11 +987,11 @@ class Plate:
 
     def test_plate_between_psm(self, test_member1: PrimarySuppMem, test_member2: PrimarySuppMem):
         # Primary supporting member association test
-        if test_member1.direction and test_member2.direction == BeamOrientation.LONGITUDINAL:
+        if test_member1.direction and test_member2.direction == BeamDirection.LONGITUDINAL:
             if self.long_seg1.primary_supp_mem is test_member1 and self.long_seg2.primary_supp_mem is test_member2:
                 return True
             return False
-        elif test_member1.direction and test_member2.direction == BeamOrientation.TRANSVERSE:
+        elif test_member1.direction and test_member2.direction == BeamDirection.TRANSVERSE:
             if self.trans_seg1.primary_supp_mem is test_member1 and self.trans_seg2.primary_supp_mem is test_member2:
                 return True
             return False    # Returns true if the plate zone is located between two adjacent primary supporting members
@@ -1006,12 +1006,12 @@ class Plate:
 
     def get_reference_segment(self):
         # Reference segment for stiffener placement
-        if self._stiff_dir == BeamOrientation.LONGITUDINAL:
+        if self._stiff_dir == BeamDirection.LONGITUDINAL:
             if self._ref_edge == Ref.EDGE1:
                 return self._segments[0]
             elif self._ref_edge == Ref.EDGE2:
                 return self._segments[2]
-        if self._stiff_dir == BeamOrientation.TRANSVERSE:
+        if self._stiff_dir == BeamDirection.TRANSVERSE:
             if self._ref_edge == Ref.EDGE1:
                 return self._segments[1]
             elif self._ref_edge == Ref.EDGE2:
@@ -1019,9 +1019,9 @@ class Plate:
 
     def get_path_length(self):
         # Returns the stiffener path length based on orientation - dimension of the plating zone perpendicular to stiffener direction
-        if self._stiff_dir == BeamOrientation.LONGITUDINAL:
+        if self._stiff_dir == BeamDirection.LONGITUDINAL:
             return self.plate_transverse_dim()
-        if self._stiff_dir == BeamOrientation.TRANSVERSE:
+        if self._stiff_dir == BeamDirection.TRANSVERSE:
             return self.plate_longitudinal_dim()
 
     def get_stiffener_spacing(self):  # Returns stiffener spacing on any plating zone regardless of definition type
@@ -1053,9 +1053,9 @@ class Plate:
         unit_ref_vector = ref_vector / ref_vector_magnitude                     # Unit reference vector
         normal_vector = np.array((0, 0, 1))                                     # Vector normal to the plating surface
         # U slucaju oplate sa prelukom, vektor normale nije (0,0,1) !!!
-        if self.stiff_dir == BeamOrientation.LONGITUDINAL:
+        if self.stiff_dir == BeamDirection.LONGITUDINAL:
             perpendicular_vector = np.cross(normal_vector, unit_ref_vector)
-        elif self.stiff_dir == BeamOrientation.TRANSVERSE:
+        elif self.stiff_dir == BeamDirection.TRANSVERSE:
             perpendicular_vector = np.cross(unit_ref_vector, normal_vector)
 
         spacing_vector = perpendicular_vector * self.get_stiffener_spacing()    # Vector with magnitude of stiffener spacing
@@ -1285,12 +1285,12 @@ class Grillage:
 
         # Generate longitudinal primary supporting members
         for i_long in range(1, self._N_longitudinal + 1):
-            current_member = PrimarySuppMem(i_long, BeamOrientation.LONGITUDINAL, (i_long - 1) * delta_yrel, self)
+            current_member = PrimarySuppMem(i_long, BeamDirection.LONGITUDINAL, (i_long - 1) * delta_yrel, self)
             self._longitudinal_memb[i_long] = current_member
 
         # Generate transverse primary supporting members
         for i_trans in range(1, self._N_transverse + 1):
-            current_member = PrimarySuppMem(i_trans, BeamOrientation.TRANSVERSE, (i_trans - 1) * delta_xrel, self)
+            current_member = PrimarySuppMem(i_trans, BeamDirection.TRANSVERSE, (i_trans - 1) * delta_xrel, self)
             self._transverse_memb[i_trans] = current_member
 
     def generate_segments(self, beamprop_longitudinal, beamprop_transverse, beamprop_edge):
@@ -1307,9 +1307,9 @@ class Grillage:
                 beam.generate_segment(beamprop_transverse)
 
     def get_oposite_dir_beams(self, direction):
-        if direction == BeamOrientation.LONGITUDINAL:  # Longitudinal primary supporting members
+        if direction == BeamDirection.LONGITUDINAL:  # Longitudinal primary supporting members
             return self._transverse_memb
-        elif direction == BeamOrientation.TRANSVERSE:
+        elif direction == BeamDirection.TRANSVERSE:
             return self._longitudinal_memb
         else:
             print('Unkonown beam direction', direction)
@@ -1427,7 +1427,7 @@ class Grillage:
         dim_x = plate.plate_longitudinal_dim()
         dim_y = plate.plate_transverse_dim()
 
-        if stiff_direction == BeamOrientation.LONGITUDINAL:
+        if stiff_direction == BeamDirection.LONGITUDINAL:
             if plate.stiff_layout.beam_prop is HatBeamProperty:
                 if dim_x > stiff_spacing:
                     ss = stiff_spacing - 0.5 * HatBeamProperty.getS1_Hat(plate.stiff_layout.beam_prop, self.corrosion_addition()[1])
@@ -1444,7 +1444,7 @@ class Grillage:
                     ls = stiff_spacing
             return ss, ls   # Returns the length, in [m], of the shorter and longer side of the plate panel
 
-        elif stiff_direction == BeamOrientation.TRANSVERSE:
+        elif stiff_direction == BeamDirection.TRANSVERSE:
             if plate.stiff_layout.beam_prop is HatBeamProperty:
                 if dim_y > stiff_spacing:
                     ss = stiff_spacing - 0.5 * HatBeamProperty.getS1_Hat(plate.stiff_layout.beam_prop, self.corrosion_addition()[1])
@@ -1490,7 +1490,7 @@ class Grillage:
         adjacent_plates = self.get_adjacent_plates(test_plate)
         for i in range(0, len(adjacent_plates)):
             common_segment = self.plate_common_segment(test_plate, adjacent_plates[i])
-            if common_segment.primary_supp_mem.direction == BeamOrientation.TRANSVERSE:
+            if common_segment.primary_supp_mem.direction == BeamDirection.TRANSVERSE:
                 adjacent_plate_list.append(adjacent_plates[i])
         return adjacent_plate_list
 
@@ -1501,7 +1501,7 @@ class Grillage:
         adjacent_plates = self.get_adjacent_plates(test_plate)
         for i in range(0, len(adjacent_plates)):
             common_segment = self.plate_common_segment(test_plate, adjacent_plates[i])
-            if common_segment.primary_supp_mem.direction == BeamOrientation.LONGITUDINAL:
+            if common_segment.primary_supp_mem.direction == BeamDirection.LONGITUDINAL:
                 adjacent_plate_list.append(adjacent_plates[i])
         return adjacent_plate_list
 
@@ -1825,7 +1825,7 @@ class Grillage:
                 plate2 = plate[1]   # Second plating zone of plate combinations
                 spacing1 = Plate.get_stiffener_spacing(plate1)
                 spacing2 = Plate.get_stiffener_spacing(plate2)
-                if plate1.stiff_dir == BeamOrientation.LONGITUDINAL and plate2.stiff_dir == BeamOrientation.LONGITUDINAL and spacing1 != spacing2:
+                if plate1.stiff_dir == BeamDirection.LONGITUDINAL and plate2.stiff_dir == BeamDirection.LONGITUDINAL and spacing1 != spacing2:
                     print("Stiffener spacing of longitudinal stiffeners on plating zones between adjacent longitudinal primary supporting members",
                           psm_1.id, "and", psm_2.id, "do not match! \n", "     Plating zone", plate1.id, "has stiffener spacing of",
                           spacing1, "m", ", while plating zone", plate2.id, "has spacing of", spacing2, "m")
@@ -1843,7 +1843,7 @@ class Grillage:
                 plate2 = plate[1]   # Second plating zone of plate combinations
                 spacing1 = Plate.get_stiffener_spacing(plate1)
                 spacing2 = Plate.get_stiffener_spacing(plate2)
-                if plate1.stiff_dir == BeamOrientation.TRANSVERSE and plate2.stiff_dir == BeamOrientation.TRANSVERSE and spacing1 != spacing2:
+                if plate1.stiff_dir == BeamDirection.TRANSVERSE and plate2.stiff_dir == BeamDirection.TRANSVERSE and spacing1 != spacing2:
                     print("Stiffener spacing of transverse stiffeners on plating zones between adjacent transverse primary supporting members",
                           psm_1.id, "and", psm_2.id, "do not match! \n", "     Plating zone", plate1.id, "has stiffener spacing of",
                           spacing1, "m", ", while plating zone", plate2.id, "has spacing of", spacing2, "m")
@@ -2125,7 +2125,7 @@ class GrillageModelData:
             for i in range(line_start, line_end):
                 line = lines[i]
                 split = line.split(",")
-                current_member = PrimarySuppMem(int(split[0]), BeamOrientation[split[1].strip()], float(split[2]), grillage_variant)
+                current_member = PrimarySuppMem(int(split[0]), BeamDirection[split[1].strip()], float(split[2]), grillage_variant)
                 Grillage.longitudinal_members(grillage_variant)[i_member] = current_member
                 i_member += 1
 
@@ -2136,7 +2136,7 @@ class GrillageModelData:
             for i in range(line_start, line_end):
                 line = lines[i]
                 split = line.split(",")
-                current_member = PrimarySuppMem(int(split[0]), BeamOrientation[split[1].strip()], float(split[2]), grillage_variant)
+                current_member = PrimarySuppMem(int(split[0]), BeamDirection[split[1].strip()], float(split[2]), grillage_variant)
                 Grillage.transverse_members(grillage_variant)[i_member] = current_member
                 i_member += 1
 
@@ -2179,7 +2179,7 @@ class GrillageModelData:
                 long_seg2 = Grillage.longitudinal_members(grillage_variant)[int(split[6])].segments[int(split[7]) - 1]
                 trans_seg2 = Grillage.transverse_members(grillage_variant)[int(split[8])].segments[int(split[9]) - 1]
                 stifflayout = Grillage.stiffener_layouts(grillage_variant)[int(split[10])]
-                stiff_dir = BeamOrientation[split[11].strip()]
+                stiff_dir = BeamDirection[split[11].strip()]
                 ref_edge = Ref[split[12].strip()]
                 curr_plate = Plate(int(split[0]), plate_prop, long_seg1, trans_seg1, long_seg2, trans_seg2, stifflayout, stiff_dir, ref_edge)
                 Grillage.add_plating(grillage_variant, curr_plate)

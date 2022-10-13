@@ -20,84 +20,28 @@ Assumptions:
 
 from grillage.grillage_model import *
 
+# import femdir.geofementity as gfe
+# import femdir.geofem as gfem
 
-class FENode:
-    def __init__(self, node_id: int, x=0.0, y=0.0, z=0.0):
-        self._id = node_id
-        self._coords = np.array([x, y, z])
-
-    @property
-    def id(self):
-        return self._id
-
-    @property
-    def coords(self):
-        return self._coords
+# from femdir.geofem import *
+from femdir.geofementity import *
 
 
-class QuadElement:
-    def __init__(self, quad_id: int, property_id, node1: FENode, node2: FENode, node3: FENode, node4: FENode):
-        self._id = quad_id
-        self._property_id = property_id
-        self._node1 = node1
-        self._node2 = node2
-        self._node3 = node3
-        self._node4 = node4
-
-    @property
-    def id(self):
-        return self._id
-
-    @property
-    def property_id(self):
-        return self._property_id
-
-    @property_id.setter
-    def property_id(self, value):
-        self._property_id = value
-
-    @property
-    def node1(self):
-        return self._node1
-
-    @node1.setter
-    def node1(self, value):
-        self._node1 = value
-
-    @property
-    def node2(self):
-        return self._node2
-
-    @node2.setter
-    def node2(self, value):
-        self._node2 = value
-
-    @property
-    def node3(self):
-        return self._node3
-
-    @node3.setter
-    def node3(self, value):
-        self._node3 = value
-
-    @property
-    def node4(self):
-        return self._node4
-
-    @node4.setter
-    def node4(self, value):
-        self._node4 = value
-
-
-class FEMesh:
+# class GrillageMesh(gfem.GeoFEM):
+# class GrillageMesh(GeoFEM):
+class GrillageMesh:
     def __init__(self, grillage: Grillage):
+        # super().__init__()
         self._grillage = grillage
         self._plating_mesh_dim = {}
-        self._mesh_dim_x = []       # List of mesh x dimensions in the longitudinal direction
-        self._mesh_dim_y = []       # List of mesh y dimensions in the transverse direction
-        self._nodes = {}
-        self._elements = {}
-        self._plating_nodes = []        # Preimenovati da se zna da sadrzi samo referentni ID cvorova oplate
+        self._mesh_dim_x = []               # List of mesh x dimensions in the longitudinal direction
+        self._mesh_dim_y = []               # List of mesh y dimensions in the transverse direction
+        self._plating_nodes = []        # Preimenovati da se zna da sadrži samo referentni ID grupe čvorova oplate *** WIP
+        self._flange_aspect_ratio = 4.0     # Maximum aspect ratio value for primary supporting member flange quad elements
+        self._plate_aspect_ratio = 4.0      # Maximum aspect ratio value for plating and primary supporting member web quad elements
+
+    def add_element(self, el_id, el_property, nodes):
+        pass
 
     def plating_mesh_dim(self):
         return self._plating_mesh_dim
@@ -113,20 +57,24 @@ class FEMesh:
     def mesh_dim_y(self):
         return self._mesh_dim_y
 
-    def nodes(self):
-        return self._nodes
-
-    def add_nodes(self, node: FENode):
-        self._nodes[node.id] = node
-
-    def elements(self):
-        return self._elements
-
-    def add_elements(self, element: QuadElement):
-        self._elements[element.id] = element
-
     def plating_nodes(self):
         return self._plating_nodes
+
+    @property
+    def flange_aspect_ratio(self):
+        return self._flange_aspect_ratio
+
+    @flange_aspect_ratio.setter
+    def flange_aspect_ratio(self, value):
+        self._flange_aspect_ratio = value
+
+    @property
+    def plate_aspect_ratio(self):
+        return self._plate_aspect_ratio
+
+    @plate_aspect_ratio.setter
+    def plate_aspect_ratio(self, value):
+        self._plate_aspect_ratio = value
 
     @staticmethod
     def find_closest_divisor(length, value):
@@ -159,12 +107,15 @@ class FEMesh:
                 n = res[min_div_id]
                 return n
 
+    # Metoda za identifikaciju čvora preko koordinata *** WIP
+    """
     def IdentifyNode(self, x, y, z):
         # Returns FENode ID located at coordinates x, y ,z
         for i in FEMesh.nodes(self).keys():
             coords = FEMesh.nodes(self)[i].coords
             if coords[0] == x and coords[1] == y and coords[2] == z:
                 return FEMesh.nodes(self)[i].id
+    """
 
     def CheckNodeOverlap(self):
         pass
@@ -173,22 +124,21 @@ class FEMesh:
         # Returns the quad element size, based only on stiffener spacing and assuming one element between stiffeners for a plating zone
         stiff_spacing = Plate.get_stiffener_spacing(plate) * 1000   # Stiffener spacing in [mm]
 
-        if plate.stiff_dir == BeamOrientation.LONGITUDINAL:
+        if plate.stiff_dir == BeamDirection.LONGITUDINAL:
             L = Plate.plate_longitudinal_dim(plate) * 1000          # Longitudinal plating zone dimension [mm]
             dim_y = stiff_spacing                                   # Distance between nodes in the transverse (y) direction
             dim_x = L / self.find_closest_divisor(L, dim_y)         # Distance between nodes in the longitudinal (x) direction
             return np.array([dim_x, dim_y])
 
-        elif plate.stiff_dir == BeamOrientation.TRANSVERSE:
+        elif plate.stiff_dir == BeamDirection.TRANSVERSE:
             B = Plate.plate_transverse_dim(plate) * 1000            # Transverse plating zone dimension [mm]
             dim_x = stiff_spacing                                   # Distance between nodes in the longitudinal (x) direction
             dim_y = B / self.find_closest_divisor(B, dim_x)         # Distance between nodes in the transverse (y) direction
             return np.array([dim_x, dim_y])
 
-    @staticmethod
-    def element_size_flange_width(grillage, segment: Segment):
+    def element_size_flange_width(self, grillage, segment: Segment):
         # Returns the maximum quad element length based on flange width and maximum allowed aspect ratio for a segment
-        max_aspect_ratio = 4    # Nezavisno
+        max_aspect_ratio = self._flange_aspect_ratio
         dim_max = 0.0
         beam_property = segment.beam_prop
         bf_net = segment.beam_prop.bf - grillage.corrosion_addition()[1].tc
@@ -204,7 +154,7 @@ class FEMesh:
 
     def element_size_plating_zone(self, grillage, plate: Plate):
         # Returns the quad element size based on stiffener spacing and maximum allowed aspect ratio for a plating zone
-        max_aspect_ratio = 4
+        plate_aspect_ratio = self._plate_aspect_ratio
         dim_p = self.element_size_stiffener_spacing(plate)
         dim_xp = dim_p[0]
         dim_yp = dim_p[1]
@@ -216,16 +166,16 @@ class FEMesh:
 
         dim_xf = np.minimum(dim_xf1, dim_xf2)   # Minimum element x dimension based on flange element aspect ratio
         dim_yf = np.minimum(dim_yf1, dim_yf2)   # Minimum element y dimension based on flange element aspect ratio
-        # print("Zona oplate", plate.id, "Max dim_xf =", dim_xf, ", max dim_yf =", dim_yf)
+
         dim_x = dim_xp  # Initial element size along x axis is based on stiffener spacing
         dim_y = dim_yp  # Initial element size along y axis is based on stiffener spacing
 
-        if plate.stiff_dir == BeamOrientation.TRANSVERSE:
+        if plate.stiff_dir == BeamDirection.TRANSVERSE:
             if dim_x > dim_xf:                         # If element size based on stiffener spacing along x asis is larger than flange aspect ratio allows for
                 div_round_up = np.ceil(dim_x / dim_xf)       # Equal division of elements between transverse stiffeners
                 dim_x = dim_x / div_round_up                    # If ordinary stiffeners are oriented transversely, x dimension has to be divided into equal parts
 
-                if dim_y / dim_x > max_aspect_ratio:    # Checks plating element aspect ratio after reducing dim_x for transverse stiffeners
+                if dim_y / dim_x > plate_aspect_ratio:    # Checks plating element aspect ratio after reducing dim_x for transverse stiffeners
                     div_round_up = np.ceil(dim_y / dim_x)
                     dim_y = dim_y / div_round_up
 
@@ -233,20 +183,19 @@ class FEMesh:
                 div_round_up = np.ceil(dim_y / dim_yf)
                 dim_y = dim_y / div_round_up
 
-        if plate.stiff_dir == BeamOrientation.LONGITUDINAL:
+        if plate.stiff_dir == BeamDirection.LONGITUDINAL:
             if dim_y > dim_yf:                         # If element size based on stiffener spacing along y asis is larger than flange aspect ratio allows for
                 div_round_up = np.ceil(dim_y / dim_yf)       # Equal division of elements between longitudinal stiffeners
                 dim_y = dim_y / div_round_up                    # If ordinary stiffeners are oriented longitudinally, y dimension has to be divided into equal parts
 
-                if dim_x / dim_y > max_aspect_ratio:    # Checks plating element aspect ratio after reducing dim_y for longitudinal stiffeners
+                if dim_x / dim_y > plate_aspect_ratio:    # Checks plating element aspect ratio after reducing dim_y for longitudinal stiffeners
                     div_round_up = np.ceil(dim_x / dim_y)
                     dim_x = dim_x / div_round_up
 
             if dim_x > dim_xf:                      # Checks flange element aspect ratio for longitudinal stiffeners
                 div_round_up = np.ceil(dim_x / dim_xf)
                 dim_x = dim_x / div_round_up
-                # print("Zona oplate", plate.id, "dim_x =", dim_x, "div =", div_round_up)
-                # print("Zona oplate", plate.id, "dim_x =", dim_x, ", dim_y =", dim_y)
+
         return np.array((dim_x, dim_y))
 
     def element_size_mesh(self, grillage):
@@ -292,7 +241,7 @@ class FEMesh:
                     dim_y = plating_mesh_dim_y[plate_id]    # Quad element size in the y direction for plate in list plating_zones
                     dim_y_list.append(dim_y)
 
-                    if stiff_dir == BeamOrientation.LONGITUDINAL:    # If dimension y is limited by longitudinal stiffener spacing
+                    if stiff_dir == BeamDirection.LONGITUDINAL:    # If dimension y is limited by longitudinal stiffener spacing
                         restriction_y = True        # Dimension restriction along y axis exists because there are longitudinal stiffeners
                         self._mesh_dim_y[i_long - 1] = dim_y
 
@@ -327,7 +276,7 @@ class FEMesh:
                     dim_x = plating_mesh_dim_x[plate_id]
                     dim_x_list.append(dim_x)
 
-                    if stiff_dir == BeamOrientation.TRANSVERSE:      # If dimension x is limited by transverse stiffener spacing
+                    if stiff_dir == BeamDirection.TRANSVERSE:      # If dimension x is limited by transverse stiffener spacing
                         restriction_x = True        # Dimension restriction along x axis exists because there are transverse stiffeners
                         self._mesh_dim_x[i_tran - 1] = dim_x
 
@@ -368,62 +317,64 @@ class FEMesh:
         else:
             print("ERROR: Mesh y dimensions list is blank! Calculate mesh quad element size first.")
 
-    def get_number_of_quads(self, grillage, plate: Plate):
-        """
-        :param grillage: Selected grillage variant.
-        :param plate: Selected plating zone.
-        :return: Number of quad elements for any plating zone between Primary Supporting Members.
-        """
+    # Metoda za određivanje broja i pozicioniranje elemenata veličine dim_x, dim_y na polju oplate *** WIP
+    # def get_number_of_quads(self, grillage, plate: Plate):
+    #     """
+    #     :param grillage: Selected grillage variant.
+    #     :param plate: Selected plating zone.
+    #     :return: Number of quad elements for any plating zone between Primary Supporting Members.
+    #     """
+    #
+    #     bf_LS1 = plate.long_seg1.beam_prop.bf - grillage.corrosion_addition()[1].tc     # Net flange width of longitudinal segment 1 - L
+    #     bf_LS2 = plate.long_seg2.beam_prop.bf - grillage.corrosion_addition()[1].tc     # Net flange width of longitudinal segment 2 - T
+    #     bf_TS1 = plate.trans_seg1.beam_prop.bf - grillage.corrosion_addition()[1].tc    # Net flange width of transverse segment 1 - T
+    #     bf_TS2 = plate.trans_seg2.beam_prop.bf - grillage.corrosion_addition()[1].tc    # Net flange width of transverse segment 2 - T
+    #
+    #     # IZRAZI VRIJEDE KADA JE JEDAN UZDUŽNI NOSAČ RUBI L PROFIL, A OSTALI T!
+    #     # POSTAVITI ISPITIVANJE KOJI JE KAKAV TIP U KONAČNOM KODU
+    #     rem_dist_x = plate.plate_longitudinal_dim() * 1000 - (bf_TS1 / 2) - (bf_TS2 / 2)  # Remaining distance along x axis with flange width excluded
+    #     rem_dist_y = plate.plate_transverse_dim() * 1000 - bf_LS1 - (bf_LS2 / 2)
+    #
+    #     dim_x = self.get_mesh_dim_x(plate)
+    #     dim_y = self.get_mesh_dim_y(plate)
+    #
+    #     # Kada bi se ostatak jednoliko rasporedio - ali ne može zbog pozicija ukrepa!
+    #     """
+    #     rem_dim_x = plate.plate_longitudinal_dim() * 1000 - bf_TS1 / 2 - bf_TS2 / 2     # Remaining distance along x axis with flange width excluded
+    #     rem_dim_y = plate.plate_transverse_dim() * 1000 - bf_LS1 - bf_LS2 / 2           # Remaining distance along y axis with flange width excluded
+    #
+    #     floor_x = np.floor_divide(rem_dim_x, dim_x)     # Number of elements with dimension dim_x that fit in length rem_dim_x
+    #     floor_y = np.floor_divide(rem_dim_y, dim_y)     # Number of elements with dimension dim_y that fit in length rem_dim_y
+    #     mod_x = np.mod(rem_dim_x, dim_x)    # Remainder distance along x axis, [mm] - half of this distance is added to the first and last element
+    #     mod_y = np.mod(rem_dim_y, dim_y)    # Remainder distance along y axis, [mm] - half of this distance is added to the first and last element
+    #     print("mod_x", mod_x, ", mod_y", mod_y)
+    #     print("floor_x =", floor_x, ", floor_y =", floor_y)
+    #     """
+    #
+    #     stiffener_offset = np.round(plate.get_equal_stiffener_offset() * 1000, 4)
+    #
+    #     if plate.stiff_dir == BeamOrientation.TRANSVERSE:
+    #         rem_dim_x1 = np.round(stiffener_offset - bf_TS1 / 2, 4)     # Element x dimension next to transverse segment 1  (left)
+    #         rem_dim_x2 = np.round(stiffener_offset - bf_TS2 / 2, 4)     # Element x dimension next to transverse segment 2  (right)
+    #
+    #         n_elem_plate_y = plate.plate_transverse_dim() * 1000 / dim_y    # Number of elements with dim_y that fit in transverse plate dimension
+    #         n_elem_dim_y = n_elem_plate_y - 2                               # Number of plate elements that will have dimension dim_y
+    #
+    #         l_zone_dim_y = n_elem_dim_y * dim_y
+    #         rem_dim_y = (rem_dist_y - l_zone_dim_y) / 2
+    #
+    #         print(rem_dim_y)
+    #         # print(rem_dim_x1, rem_dim_x2)
+    #         # print(rem_dim_y1, rem_dim_y2)
+    #
+    #     # print(bf_LS1, bf_LS2, bf_TS1, bf_TS2)
+    #
+    #     # print("dim_x =", dim_x, ", dim_y =", dim_y)
+    #     # print("rem_dist_x =", rem_dist_x, ", rem_dist_y =", rem_dist_y)
+    #     # print("Stiffener offset od jakih nosača", stiffener_offset)
 
-        bf_LS1 = plate.long_seg1.beam_prop.bf - grillage.corrosion_addition()[1].tc     # Net flange width of longitudinal segment 1 - L
-        bf_LS2 = plate.long_seg2.beam_prop.bf - grillage.corrosion_addition()[1].tc     # Net flange width of longitudinal segment 2 - T
-        bf_TS1 = plate.trans_seg1.beam_prop.bf - grillage.corrosion_addition()[1].tc    # Net flange width of transverse segment 1 - T
-        bf_TS2 = plate.trans_seg2.beam_prop.bf - grillage.corrosion_addition()[1].tc    # Net flange width of transverse segment 2 - T
 
-        # IZRAZI VRIJEDE KADA JE JEDAN UZDUŽNI NOSAČ RUBI L PROFIL, A OSTALI T!
-        # POSTAVITI ISPITIVANJE KOJI JE KAKAV TIP U KONAČNOM KODU
-        rem_dist_x = plate.plate_longitudinal_dim() * 1000 - (bf_TS1 / 2) - (bf_TS2 / 2)  # Remaining distance along x axis with flange width excluded
-        rem_dist_y = plate.plate_transverse_dim() * 1000 - bf_LS1 - (bf_LS2 / 2)
-
-        dim_x = self.get_mesh_dim_x(plate)
-        dim_y = self.get_mesh_dim_y(plate)
-
-        # Kada bi se ostatak jednoliko rasporedio - ali ne može zbog pozicija ukrepa!
-        """
-        rem_dim_x = plate.plate_longitudinal_dim() * 1000 - bf_TS1 / 2 - bf_TS2 / 2     # Remaining distance along x axis with flange width excluded
-        rem_dim_y = plate.plate_transverse_dim() * 1000 - bf_LS1 - bf_LS2 / 2           # Remaining distance along y axis with flange width excluded
-        
-        floor_x = np.floor_divide(rem_dim_x, dim_x)     # Number of elements with dimension dim_x that fit in length rem_dim_x
-        floor_y = np.floor_divide(rem_dim_y, dim_y)     # Number of elements with dimension dim_y that fit in length rem_dim_y
-        mod_x = np.mod(rem_dim_x, dim_x)    # Remainder distance along x axis, [mm] - half of this distance is added to the first and last element
-        mod_y = np.mod(rem_dim_y, dim_y)    # Remainder distance along y axis, [mm] - half of this distance is added to the first and last element
-        print("mod_x", mod_x, ", mod_y", mod_y)
-        print("floor_x =", floor_x, ", floor_y =", floor_y)        
-        """
-
-        stiffener_offset = np.round(plate.get_equal_stiffener_offset() * 1000, 4)
-
-        if plate.stiff_dir == BeamOrientation.TRANSVERSE:
-            rem_dim_x1 = np.round(stiffener_offset - bf_TS1 / 2, 4)     # Element x dimension next to transverse segment 1  (left)
-            rem_dim_x2 = np.round(stiffener_offset - bf_TS2 / 2, 4)     # Element x dimension next to transverse segment 2  (right)
-
-            n_elem_plate_y = plate.plate_transverse_dim() * 1000 / dim_y    # Number of elements with dim_y that fit in transverse plate dimension
-            n_elem_dim_y = n_elem_plate_y - 2                               # Number of plate elements that will have dimension dim_y
-
-            l_zone_dim_y = n_elem_dim_y * dim_y
-            rem_dim_y = (rem_dist_y - l_zone_dim_y) / 2
-
-            print(rem_dim_y)
-            # print(rem_dim_x1, rem_dim_x2)
-            # print(rem_dim_y1, rem_dim_y2)
-
-        # print(bf_LS1, bf_LS2, bf_TS1, bf_TS2)
-
-        # print("dim_x =", dim_x, ", dim_y =", dim_y)
-        # print("rem_dist_x =", rem_dist_x, ", rem_dist_y =", rem_dist_y)
-        # print("Stiffener offset od jakih nosača", stiffener_offset)
-
-
+# Generacija čvorova i elemenata - metoda bez preklapanja *** WIP (razrađeno samo za prve dvije zone oplate)
 """
     def GenerateNodes(self, grillage):
         plate_id = 1

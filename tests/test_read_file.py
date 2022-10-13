@@ -345,10 +345,10 @@ def SimetricniNosaci(grillage):
             print(" Simetricni mu je nosac br.", grillage.transverse_members()[i_poprecni].symmetric_member.id, "\n")
 
 
-def TrazilicaPripadnogPoljaOplate(grillage, smjer_segmenta: BeamOrientation, id_nosaca, id_segmenta):
+def TrazilicaPripadnogPoljaOplate(grillage, smjer_segmenta: BeamDirection, id_nosaca, id_segmenta):
     #   Trazilica polja oplate kojemu pripada odabrani segment
 
-    if smjer_segmenta == BeamOrientation.LONGITUDINAL:
+    if smjer_segmenta == BeamDirection.LONGITUDINAL:
         segment_uzd = grillage.longitudinal_members()[id_nosaca].segments[id_segmenta]
         for i_plate in grillage.plating().keys():
             plate = grillage.plating()[i_plate]
@@ -356,7 +356,7 @@ def TrazilicaPripadnogPoljaOplate(grillage, smjer_segmenta: BeamOrientation, id_
             if test:
                 print("Jaki nosac broj:", id_nosaca, "segment ID:", id_segmenta, "definira polje oplate broj", i_plate)
 
-    elif smjer_segmenta == BeamOrientation.TRANSVERSE:
+    elif smjer_segmenta == BeamDirection.TRANSVERSE:
         segment_pop = grillage.transverse_members()[id_nosaca].segments[id_segmenta]
         for i_plate in grillage.plating().keys():
             plate = grillage.plating()[i_plate]
@@ -389,7 +389,7 @@ def ProvjeraSpacinga(grillage):
     for plate in grillage.plating().keys():
         oplata = grillage.plating()[plate]
         stiffener_direction = oplata.stiff_dir
-        if stiffener_direction == BeamOrientation.LONGITUDINAL:
+        if stiffener_direction == BeamDirection.LONGITUDINAL:
             girder_spacing = Plate.plate_longitudinal_dim(oplata)
             girder_span = grillage.L_overall
 
@@ -399,7 +399,7 @@ def ProvjeraSpacinga(grillage):
                   ", span =", girder_span, "m,   Provjera prema 2.2.3:",
                   PrimarySuppMemSpacingCheck(girder_spacing, girder_span))
 
-        elif stiffener_direction == BeamOrientation.TRANSVERSE:
+        elif stiffener_direction == BeamDirection.TRANSVERSE:
             girder_spacing = Plate.plate_transverse_dim(oplata)
             girder_span = grillage.B_overall
             print("Provjera prema 2.2.3 za sva polja oplate:", PrimarySuppMemSpacingCheck(girder_spacing, girder_span))
@@ -674,7 +674,7 @@ def PlotGrillageTopology(grillage):
 # SimetricnaPoljaOplate(hc_variant)
 # KoordinateUkrepa(hc_variant)
 # SimetricniNosaci(hc_variant)
-# TrazilicaPripadnogPoljaOplate(hc_variant, BeamOrientation.TRANSVERSE, 2, 3)
+# TrazilicaPripadnogPoljaOplate(hc_variant, BeamDirection.TRANSVERSE, 2, 3)
 # MasaPoklopca(hc_variant)
 # ProvjeraSpacinga(hc_variant)
 # AsocijacijaOplateIjakihNosaca(hc_variant, 1)

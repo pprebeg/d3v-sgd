@@ -318,17 +318,17 @@ class GrillageMesh:
             print("ERROR: Mesh y dimensions list is blank! Calculate mesh quad element size first.")
 
     # Metoda za određivanje broja i pozicioniranje elemenata veličine dim_x, dim_y na polju oplate *** WIP
-    # def get_number_of_quads(self, grillage, plate: Plate):
+    # def get_number_of_quads(self, grillgeo, plate: Plate):
     #     """
-    #     :param grillage: Selected grillage variant.
+    #     :param grillgeo: Selected grillgeo variant.
     #     :param plate: Selected plating zone.
     #     :return: Number of quad elements for any plating zone between Primary Supporting Members.
     #     """
     #
-    #     bf_LS1 = plate.long_seg1.beam_prop.bf - grillage.corrosion_addition()[1].tc     # Net flange width of longitudinal segment 1 - L
-    #     bf_LS2 = plate.long_seg2.beam_prop.bf - grillage.corrosion_addition()[1].tc     # Net flange width of longitudinal segment 2 - T
-    #     bf_TS1 = plate.trans_seg1.beam_prop.bf - grillage.corrosion_addition()[1].tc    # Net flange width of transverse segment 1 - T
-    #     bf_TS2 = plate.trans_seg2.beam_prop.bf - grillage.corrosion_addition()[1].tc    # Net flange width of transverse segment 2 - T
+    #     bf_LS1 = plate.long_seg1.beam_prop.bf - grillgeo.corrosion_addition()[1].tc     # Net flange width of longitudinal segment 1 - L
+    #     bf_LS2 = plate.long_seg2.beam_prop.bf - grillgeo.corrosion_addition()[1].tc     # Net flange width of longitudinal segment 2 - T
+    #     bf_TS1 = plate.trans_seg1.beam_prop.bf - grillgeo.corrosion_addition()[1].tc    # Net flange width of transverse segment 1 - T
+    #     bf_TS2 = plate.trans_seg2.beam_prop.bf - grillgeo.corrosion_addition()[1].tc    # Net flange width of transverse segment 2 - T
     #
     #     # IZRAZI VRIJEDE KADA JE JEDAN UZDUŽNI NOSAČ RUBI L PROFIL, A OSTALI T!
     #     # POSTAVITI ISPITIVANJE KOJI JE KAKAV TIP U KONAČNOM KODU
@@ -376,9 +376,9 @@ class GrillageMesh:
 
 # Generacija čvorova i elemenata - metoda bez preklapanja *** WIP (razrađeno samo za prve dvije zone oplate)
 """
-    def GenerateNodes(self, grillage):
+    def GenerateNodes(self, grillgeo):
         plate_id = 1
-        plate_zone = grillage.plating()[plate_id]
+        plate_zone = grillgeo.plating()[plate_id]
         dim_x = self.plating_mesh_dim()[1][0]                                 # Element dimension along x axis, [mm]
         dim_y = self.plating_mesh_dim()[1][1]                                 # Element dimension along y axis, [mm]
         n_x = int((Plate.plate_longitudinal_dim(plate_zone) * 1000 / dim_x) + 1)    # Number of nodes along x axis
@@ -415,7 +415,7 @@ class GrillageMesh:
         # Generate plating zone nodes
         node_id = 1
         for plate_zone in range(1, len(self._plating_nodes) + 1):
-            segment1 = grillage.plating()[plate_zone].long_seg1     # Reference segment
+            segment1 = grillgeo.plating()[plate_zone].long_seg1     # Reference segment
             segment1_node1 = Segment.get_segment_node1(segment1)    # Reference node for generating plating zone FENodes
             dim_x = self.plating_mesh_dim()[plate_zone][0]    # Element dimension along x axis, [mm]
             dim_y = self.plating_mesh_dim()[plate_zone][1]    # Element dimension along y axis, [mm]
@@ -429,7 +429,7 @@ class GrillageMesh:
                     self.add_nodes(node)
                     node_id += 1
 
-    def GenerateElements(self, grillage):
+    def GenerateElements(self, grillgeo):
         # First plating zone ID = 1:
         dim_x = self.plating_mesh_dim()[1][0]               # Element dimension along x axis, [mm]
         dim_y = self.plating_mesh_dim()[1][1]               # Element dimension along y axis, [mm]
@@ -437,7 +437,7 @@ class GrillageMesh:
         # Generate elements starting with element ID = 1
         element_id = 1
         for node_array in range(0, len(self._plating_nodes)):
-            plate_zone = grillage.plating()[node_array + 1]
+            plate_zone = grillgeo.plating()[node_array + 1]
             n_x = int((Plate.plate_longitudinal_dim(plate_zone) * 1000 / dim_x) + 1)    # Number of nodes along x axis
             n_y = int((Plate.plate_transverse_dim(plate_zone) * 1000 / dim_y) + 1)      # Number of nodes along y axis
 

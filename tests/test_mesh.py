@@ -105,11 +105,11 @@ def Test_all_plating_zones_mesh_dimensions(grillage):
 
 
 """
-def Test_get_number_of_quads(grillage, plate_id):
-    GrillageMesh.element_size_mesh(mesh1, grillage)
+def Test_get_number_of_quads(grillgeo, plate_id):
+    GrillageMesh.element_size_mesh(mesh1, grillgeo)
 
-    plate = grillage.plating()[plate_id]
-    GrillageMesh.get_number_of_quads(mesh1, grillage, plate)
+    plate = grillgeo.plating()[plate_id]
+    GrillageMesh.get_number_of_quads(mesh1, grillgeo, plate)
 """
 
 """
@@ -118,8 +118,8 @@ def TestGenerateNodes():
         print("Node ID:", node, " Koordinate:", mesh1.nodes()[node].coords)
 
 
-def TestCheckNodeOverlap(grillage):
-    FEMesh.GenerateNodes(mesh1, grillage)
+def TestCheckNodeOverlap(grillgeo):
+    FEMesh.GenerateNodes(mesh1, grillgeo)
     FEMesh.CheckNodeOverlap(mesh1)
 
 

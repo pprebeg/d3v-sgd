@@ -7,7 +7,7 @@ Department of Naval Architecture and Ocean Engineering
 MODULE FOR GRILLAGE STRUCTURE DEFINITION
 
 
-Minimum input data for grillage definition with initial uniform spacing of all elements:
+Minimum input data for grillgeo definition with initial uniform spacing of all elements:
     Main dimensions: L, B
     Number of elements: longitudinal and transverse primary supporting members, stiffeners between primary supporting members
     Stiffener orientation: LONGITUDINAL / TRANSVERSE
@@ -36,7 +36,6 @@ Global coordinate system (csy):
 import numpy as np
 import itertools
 from enum import Enum
-
 
 class BeamDirection(Enum):
     TRANSVERSE = 0
@@ -912,7 +911,7 @@ class Segment:
     def Wmin(self):
         """
         :return: Minimum net section modulus of the given Segment. Corrosion addition is stored as
-                the first input value (ID = 1) in dictionary grillage.corrosion_addition
+                the first input value (ID = 1) in dictionary grillgeo.corrosion_addition
         """
         (bp, tp) = self.get_attplate()
         tc = self._primary_supp_mem.grillage.corrosion_addition()[1]
@@ -1073,7 +1072,7 @@ class Plate:
     def Wmin(self):
         """
         :return: Minimum net section modulus of stiffeners on the given plating zone. Corrosion addition is stored as
-                the first input value (ID = 1) in dictionary grillage.corrosion_addition
+                the first input value (ID = 1) in dictionary grillgeo.corrosion_addition
         """
         stiff_property = self.stiff_layout.beam_prop
         bp = self.get_stiffener_spacing() * 1000                                        # Stiffener spacing in [mm]
@@ -1157,7 +1156,7 @@ class Plate:
         return self._segments
 
 
-class Grillage:
+class Grillage():
     def __init__(self, L_overall, B_overall, N_longitudinal, N_transverse):
         self._L_overall = L_overall                 # Overall length, m
         self._B_overall = B_overall                 # Overall width, m
@@ -1522,7 +1521,7 @@ class Grillage:
         :return: Changes the Primary Supporting Member relative distance value based on input spacing value.
                 If both prim_supp_member_id and ref_member_id are the same, the Primary Supporting Member is moved from its
                 original position by the value of spacing in [m]. Edge members are fixed and can not be moved, their position is
-                determined by overall grillage dimensions.
+                determined by overall grillgeo dimensions.
         """
         primary_supp_member = self._longitudinal_memb[prim_supp_member_id]
         adjacent_member = self._longitudinal_memb[ref_member_id]
@@ -1546,7 +1545,7 @@ class Grillage:
         :return: Changes the Primary Supporting Member relative distance value based on input spacing value.
                 If both prim_supp_member_id and ref_member_id are the same, the Primary Supporting Member is moved from its
                 original position by the value of spacing in [m]. Edge members are fixed and can not be moved, their position is
-                determined by overall grillage dimensions.
+                determined by overall grillgeo dimensions.
         """
         primary_supp_member = self._transverse_memb[prim_supp_member_id]
         adjacent_member = self._transverse_memb[ref_member_id]
@@ -1581,7 +1580,7 @@ class Grillage:
                 sumcheck += args[i]
 
             if sumcheck != self.B_overall:
-                print("ERROR: The sum of entered spacing values of", sumcheck, "m does not match overall grillage width of", self.B_overall,
+                print("ERROR: The sum of entered spacing values of", sumcheck, "m does not match overall grillgeo width of", self.B_overall,
                       "m! Adjust spacing values to match or input one less spacing value.")
             else:
                 for psm_id in range(2, self.N_longitudinal):
@@ -1590,12 +1589,12 @@ class Grillage:
 
         elif n_inputs >= self.N_longitudinal:
             print("ERROR: Number of input spacing values for setting all longitudinal primary supporting member positions:", n_inputs,
-                  ", expected at most", self.N_longitudinal - 1, "spacing values for grillage with",
+                  ", expected at most", self.N_longitudinal - 1, "spacing values for grillgeo with",
                   self.N_longitudinal, "longitudinal primary supporting members.")
 
         else:
             print("ERROR: Number of input spacing values for setting all longitudinal primary supporting member positions:", n_inputs,
-                  ", expected at least", self.N_longitudinal - 2, "spacing values for grillage with",
+                  ", expected at least", self.N_longitudinal - 2, "spacing values for grillgeo with",
                   self.N_longitudinal, "longitudinal primary supporting members.")
 
     def set_all_transverse_PSM(self, *args):
@@ -1617,7 +1616,7 @@ class Grillage:
                 sumcheck += args[i]
 
             if sumcheck != self.L_overall:
-                print("ERROR: The sum of entered spacing values of", sumcheck, "m does not match overall grillage length of", self.L_overall,
+                print("ERROR: The sum of entered spacing values of", sumcheck, "m does not match overall grillgeo length of", self.L_overall,
                       "m! Adjust spacing values to match or input one less spacing value.")
             else:
                 for psm_id in range(2, self.N_transverse):
@@ -1626,12 +1625,12 @@ class Grillage:
 
         elif n_inputs >= self._N_transverse:
             print("ERROR: Number of input spacing values for setting all transverse primary supporting member positions:", n_inputs,
-                  ", expected at most", self.N_transverse - 1, "spacing values for grillage with",
+                  ", expected at most", self.N_transverse - 1, "spacing values for grillgeo with",
                   self.N_transverse, "transverse primary supporting members.")
 
         else:
             print("ERROR: Number of input spacing values for setting all transverse primary supporting member positions:", n_inputs,
-                  ", expected at least", self.N_transverse - 2, "spacing values for grillage with",
+                  ", expected at least", self.N_transverse - 2, "spacing values for grillgeo with",
                   self.N_transverse, "transverse primary supporting members.")
 
     def set_plating_prop_longitudinals(self, plate_id, plating_property, property_object):
@@ -1850,12 +1849,11 @@ class Grillage:
                     hc_check = False
         return hc_check
 
-
 class GrillageModelData:
     def __init__(self, filename: str):
         self._filename = filename
 
-    # Save grillage model to a file
+    # Save grillgeo model to a file
     def write_file(self, grillage: Grillage):
         n_longitudinal = str(len(Grillage.longitudinal_members(grillage).keys()))
         n_transverse = str(len(Grillage.transverse_members(grillage).keys()))
@@ -1876,7 +1874,7 @@ class GrillageModelData:
                               len(Grillage.transverse_members(grillage).keys()))
 
         with open(self._filename, "w") as f:
-            # Write input for grillage object - dimensions and number of primary supporting members
+            # Write input for grillgeo object - dimensions and number of primary supporting members
             f.write(grillage_length + "," + grillage_width + "," + n_longitudinal + "," + n_transverse + "\n")  # Grillage object
 
             # Write number of saved properties

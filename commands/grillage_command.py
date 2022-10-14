@@ -13,7 +13,9 @@ from signals import Signals
 from typing import Dict,List, Tuple
 from selinfo import SelectionInfo
 from core import Geometry
-from grillage.grillage_model import GrillageModelData,Grillage
+from grillage.grillage_model import GrillageModelData
+from grillage.grillage_model import Grillage
+from grillage.grillagemesher import GrillageGeometry
 
 class SGDCommand(Command):
     def __init__(self):
@@ -23,7 +25,7 @@ class SGDCommand(Command):
         self.app.registerIOHandler(importer)
         self._tree: QTreeView = self.mainwin.window.findChild(QTreeView, "geometryTree")
         #self._tree.hide()
-        self._grillage=None
+        self._grillgeo=None
         self.si=0
         self.menuMain = QMenu("Grillage")
         self.menuModel = QMenu("&Model")
@@ -38,17 +40,17 @@ class SGDCommand(Command):
 
 
 
-        Signals.get().geometryImported.connect(self.registerGrillage)
+        Signals.get().geometryImported.connect(self.register_grillage_geometry)
         Signals.get().selectionChanged.connect(self.registerSelection)
 
     def onNewHatchCover(self):
-        self._grillage = Grillage()
-        pass
+        grill= Grillage()
+        self._grillgeo = GrillageGeometry(grill)
 
     @Slot()
-    def registerGrillage(self, grillage):
-        if isinstance(grillage, Geometry):
-            self._grillage = grillage
+    def register_grillage_geometry(self, grillgeo):
+        if isinstance(grillgeo, GrillageGeometry):
+            self._grillgeo = grillgeo
 
     @Slot()
     def registerSelection(self, si):
@@ -67,17 +69,17 @@ class SGDCommand(Command):
             #     QApplication.instance().clipboard().setText(str(msg))
             #     QToolTip.showText(pos, msg, msecShowTime=10)
 
-	@property
-	def app(self):
-		return self._app
+        @property
+        def app(self):
+            return self._app
 
-	@property
-	def mainwin(self):
-		return self.app.mainFrame
+        @property
+        def mainwin(self):
+            return self.app.mainFrame
 
-	@property
-	def glwin(self):
-		return self.mainwin.glWin
+        @property
+        def glwin(self):
+            return self.mainwin.glWin
 
 
 class SGDImporter(IOHandler):
@@ -93,7 +95,7 @@ class SGDImporter(IOHandler):
         grillage = GrillageModelData(fileName).read_file()
         if grillage != None:
             os.chdir(os.path.dirname(fileName))
-            Signals.get().geometryImported.emit(grillage)
+            Signals.get().geometryImported.emit(GrillageGeometry(grillage))
 
     def getImportFormats(self):
         return (".gin")

@@ -116,6 +116,24 @@ class MaterialProperty:
         self._name = value
 
 
+class CorrosionAddition:
+    def __init__(self, id_, tc):
+        self._id_ = id_
+        self._tc = float(tc)
+
+    @property
+    def id(self):
+        return self._id_
+
+    @property
+    def tc(self):
+        return self._tc
+
+    @tc.setter
+    def tc(self, value):
+        self._tc = value
+
+
 class PlateProperty:
     def __init__(self, id_, tp, plate_mat):
         self._id_ = id_
@@ -142,23 +160,14 @@ class PlateProperty:
     def plate_mat(self, value):
         self._plate_mat = value
 
-
-class CorrosionAddition:
-    def __init__(self, id_, tc):
-        self._id_ = id_
-        self._tc = float(tc)
-
-    @property
-    def id(self):
-        return self._id_
-
-    @property
-    def tc(self):
-        return self._tc
-
-    @tc.setter
-    def tc(self, value):
-        self._tc = value
+    @staticmethod
+    def tp_net(corr_add: CorrosionAddition, tp):
+        # Net attached plating thickness
+        if tp > 0 and tp > corr_add.tc:
+            tp_net = tp - corr_add.tc
+        else:
+            tp_net = 0
+        return tp_net
 
 
 class BeamProperty:
@@ -202,6 +211,18 @@ class BeamProperty:
         elif wf <= wp:
             wmin = wf
             return wmin
+
+    @property
+    def beam_type(self):
+        if isinstance(self, TBeamProperty) and not \
+                (isinstance(self, FBBeamProperty) or isinstance(self, LBeamProperty)):
+            return "T"
+
+        elif isinstance(self, LBeamProperty):
+            return "L"
+
+        elif isinstance(self, FBBeamProperty):
+            return "FB"
 
 
 class TBeamProperty(BeamProperty):
@@ -283,15 +304,6 @@ class TBeamProperty(BeamProperty):
             tf_net = 0
         return tf_net
 
-    @staticmethod
-    def tp_net(corr_add: CorrosionAddition, tp):
-        # Net attached plating thickness
-        if tp > 0 and tp > corr_add.tc:
-            tp_net = tp - corr_add.tc
-        else:
-            tp_net = 0
-        return tp_net
-
     def getShArea_T(self, tp_gross, corr_add: CorrosionAddition):  # Net shear area of T profile - Ash, [cm2]
         hw = self.hw_net(corr_add, tp_gross)
         tw = self.tw_net(corr_add)
@@ -312,7 +324,7 @@ class TBeamProperty(BeamProperty):
         tw = self.tw_net(corr_add)
         bf = self.bf_net(corr_add)
         tf = self.tf_net(corr_add)
-        tp_net = self.tp_net(corr_add, tp_gross)
+        tp_net = PlateProperty.tp_net(corr_add, tp_gross)
         A = (bf * tf + hw * tw + bp * tp_net) * 0.01
         return A
 
@@ -321,7 +333,7 @@ class TBeamProperty(BeamProperty):
         tw = self.tw_net(corr_add)
         bf = self.bf_net(corr_add)
         tf = self.tf_net(corr_add)
-        tp = self.tp_net(corr_add, tp_gross)
+        tp = PlateProperty.tp_net(corr_add, tp_gross)
         A = self.getArea_I(bp, tp_gross, corr_add)
         zna = ((bf * tf * (tp + hw + tf * 0.5)) + (hw * tw * (tp + hw * 0.5) + (bp * (tp ** 2) * 0.5))) / (100 * A)
         return zna
@@ -335,7 +347,7 @@ class TBeamProperty(BeamProperty):
         tw = self.tw_net(corr_add)
         bf = self.bf_net(corr_add)
         tf = self.tf_net(corr_add)
-        tp = self.tp_net(corr_add, tp_gross)
+        tp = PlateProperty.tp_net(corr_add, tp_gross)
         zna = self.get_z_na_I(bp, tp_gross, corr_add)
         Iy = (bf * tf * ((tf ** 2) / 12 + (tf * 0.5 + hw + tp - zna) ** 2) + hw * tw * (
                 (hw ** 2) / 12 + (hw * 0.5 + tp - zna) ** 2) + bp * tp * (
@@ -1087,6 +1099,12 @@ class Plate:
         tp = self.plate_prop.tp                                                         # Plating thickness in [mm]
         corr_add = self.long_seg1.primary_supp_mem.grillage.corrosion_addition()[1]     # CorrosionAddition object
         return stiff_property.get_Iy_I(bp, tp, corr_add)
+
+    def tp_net(self):
+        tp_gross = self.plate_prop.tp
+        corr_add = self.long_seg1.primary_supp_mem.grillage.corrosion_addition()[1]
+        tp_net = PlateProperty.tp_net(corr_add, tp_gross)
+        return tp_net
 
     # Symmetric plating zones
     @property

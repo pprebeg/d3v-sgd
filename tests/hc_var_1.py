@@ -31,8 +31,9 @@ hc_var_1.add_corrosion_addition(tc)
 initial_longitudinal_beam = TBeamProperty(1, 1089, 10, 230, 16, ST24)       # inicijalni longitudinal T beam prop
 initial_transverse_beam = TBeamProperty(2, 1089, 10, 545, 40, ST24)         # inicijalni transverse T beam prop
 initial_edge_beam = LBeamProperty(3, 1089, 10, 150, 16, ST24)               # inicijalni rubni L beam prop
+# initial_edge_beam = FBBeamProperty(3, 1089, 10, ST24)               # inicijalni rubni FB beam prop
 initial_stiffener = HatBeamProperty(4, 220, 6, 220, 80, AH36)               # inicijalna ukrepa
-center_girder = TBeamProperty(5, 1089, 10, 560, 40, ST24)
+center_girder = TBeamProperty(5, 1089, 10, 560, 40, AH32)
 
 hc_var_1.add_beam_prop(initial_longitudinal_beam)       # PITANJE: Može li se ovo dodavanje preko add_property bolje izvesti?
 hc_var_1.add_beam_prop(initial_transverse_beam)
@@ -43,7 +44,13 @@ hc_var_1.add_beam_prop(center_girder)
 
 # Plate property
 plateprop1 = PlateProperty(1, 10, ST24)                                 # inicijalni plate property za cijeli poklopac
+plateprop2 = PlateProperty(2, 10, AH32)
+plateprop3 = PlateProperty(3, 9, ST24)
+plateprop4 = PlateProperty(4, 9, ST24)
 hc_var_1.add_plate_prop(plateprop1)
+hc_var_1.add_plate_prop(plateprop2)     # Dodatni plate property za testiranje identifikacije jednakih svojstava
+hc_var_1.add_plate_prop(plateprop3)
+hc_var_1.add_plate_prop(plateprop4)
 
 # Stiffener layouts
 stifflayout1 = StiffenerLayout(1, initial_stiffener, "spacing", 0.873)

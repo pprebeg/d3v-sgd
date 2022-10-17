@@ -13,9 +13,14 @@ from signals import Signals
 from typing import Dict,List, Tuple
 from selinfo import SelectionInfo
 from core import Geometry
+from grillage.grillage_model import Plate,PrimarySuppMem,Grillage,Segment, BeamDirection as bd
+from grillage.grillage_model import TBeamProperty,BulbBeamProperty,HatBeamProperty
 from grillage.grillage_model import GrillageModelData
 from grillage.grillage_model import Grillage
 from grillage.grillagemesher import GrillageGeometry
+
+from core import geometry_manager as manager
+import logging
 
 class SGDCommand(Command):
     def __init__(self):
@@ -23,11 +28,13 @@ class SGDCommand(Command):
         self._app = QApplication.instance()
         importer=SGDImporter()
         self.app.registerIOHandler(importer)
-        self._tree: QTreeView = self.mainwin.window.findChild(QTreeView, "geometryTree")
+        #self._tree: QTreeView = self.mainwin.window.findChild(QTreeView, "geometryTree")
         #self._tree.hide()
         self._grillgeo=None
-        self.si=0
+        self.selected_geometries=[]
         self.menuMain = QMenu("Grillage")
+        mb = self.mainwin.menuBar()
+        mb.addMenu(self.menuMain)
         self.menuModel = QMenu("&Model")
         self.menuFEM = QMenu("&FEM")
         self.menuAnalysis = QMenu("&Analysis")
@@ -35,13 +42,21 @@ class SGDCommand(Command):
         self.menuMain.addMenu(self.menuFEM)
         self.menuMain.addMenu(self.menuAnalysis)
 
+
+        self.menuMain.show()
+
         actionNewHatch = self.menuModel.addAction("&New Hatch Cover")
         actionNewHatch.triggered.connect(self.onNewHatchCover)
 
+        try:
+            Signals.get().importGeometry.connect(self.register_grillage_geometry)
+            manager.selected_geometry_changed.connect(self.onSelectedGeometryChanged)
+            print('OK')
+        except BaseException as error:
+            print('An exception occurred: {}'.format(error))
+        except:
+            print('Unknown exception occurred during signals connection')
 
-
-        Signals.get().geometryImported.connect(self.register_grillage_geometry)
-        Signals.get().selectionChanged.connect(self.registerSelection)
 
     def onNewHatchCover(self):
         grill= Grillage()
@@ -53,40 +68,27 @@ class SGDCommand(Command):
             self._grillgeo = grillgeo
 
     @Slot()
-    def registerSelection(self, si):
-        self.si = si
-        if si.isEmpty():
-            pass
-        else:
-            pass
-            # currDBB = self.si.getGeometry()
-            # print(self.dbbproblem)
-            # if isinstance(currDBB, DBBBaseAll):
-            #     pos: QPoint = self.mainwin.pos()
-            #     pos.setX(pos.x() + self.mainwin.glWin.dragInfo.wStartPos.x() + 20)
-            #     pos.setY(pos.y() + self.mainwin.glWin.size().height() - self.mainwin.glWin.dragInfo.wStartPos.y())
-            #     msg = currDBB.get_info()
-            #     QApplication.instance().clipboard().setText(str(msg))
-            #     QToolTip.showText(pos, msg, msecShowTime=10)
+    def onSelectedGeometryChanged(self, visible: List[Geometry], loaded: List[Geometry], selected: List[Geometry]):
+        self.selected_geometries=selected
 
-        @property
-        def app(self):
-            return self._app
+    @property
+    def app(self):
+        return self._app
 
-        @property
-        def mainwin(self):
-            return self.app.mainFrame
+    @property
+    def mainwin(self):
+        return self.app.mainFrame
 
-        @property
-        def glwin(self):
-            return self.mainwin.glWin
+    @property
+    def glwin(self):
+        return self.mainwin.glWin
 
 
 class SGDImporter(IOHandler):
     def __init__(self):
         super().__init__()
 
-    def importGeometry(self, fileName):
+    def do_import_geometry(self, fileName):
         if len(fileName) < 1:
             return
         filename_noext, file_extension = os.path.splitext(fileName)
@@ -95,7 +97,9 @@ class SGDImporter(IOHandler):
         grillage = GrillageModelData(fileName).read_file()
         if grillage != None:
             os.chdir(os.path.dirname(fileName))
-            Signals.get().geometryImported.emit(GrillageGeometry(grillage))
+            g=GrillageGeometry(grillage,filename_noext)
+            logging.debug("do_import_geometry: {}".format(g.guid))
+            return g
 
     def getImportFormats(self):
         return (".gin")

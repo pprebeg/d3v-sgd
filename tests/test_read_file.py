@@ -16,7 +16,7 @@ start = timer()
 
 # Ucitavanje topologije iz datoteke
 # filename = "hc_var_2.txt"
-filename = '../grillage savefiles\\hc_var_2_savefile.txt'
+filename = '../grillage savefiles/hc_var_2_savefile.gin'
 hc_variant = GrillageModelData(filename).read_file()
 
 # Ponovno spremanje ucitane topologije pod novim imenom "read_test.txt"

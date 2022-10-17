@@ -3,7 +3,9 @@ import openmesh as om
 import pygmsh as pg 
 import copy
 #import grillage_model as gm
-from grillage_model import Plate,PrimarySuppMem,Grillage,Segment, BeamDirection as bd,TBeamProperty,BulbBeamProperty,HatBeamProperty
+from grillage.grillage_model import BeamDirection as bd
+from grillage.grillage_model import Plate,PrimarySuppMem,Grillage,Segment
+from grillage.grillage_model import TBeamProperty,BulbBeamProperty,HatBeamProperty
 from core.geometry import Geometry
 from typing import List,Dict
 
@@ -14,6 +16,20 @@ class Invalid_Segment_id_Error(Exception):
 class Invalid_Stiff_dir(Exception):
 	pass
 
+def join_tria_meshes(mesh1:om.TriMesh,mesh2:om.TriMesh):
+	if mesh1.n_faces() ==0:
+		return  mesh2
+	elif mesh2.n_faces() ==0:
+		return  mesh1
+	fvs1 = mesh1.fv_indices()
+	points1 = mesh1.points()
+	fvs2 = mesh2.fv_indices()
+	points2 = mesh2.points()
+	npts1 = points1.shape[0]
+	fvs2 = fvs2+npts1
+	fvs = np.concatenate((fvs1,fvs2), axis=0)
+	points = np.concatenate((points1,points2), axis=0)
+	return om.TriMesh(points,fvs)
 
 def offset_line(line_points, line_evi, offset=3):
 	# boundary_vi = [0,5]
@@ -187,7 +203,7 @@ class PlateMesher():
 		
 		
 		#plate and stiff properties:
-		self.stiff_N = self.plate.get_stiffener_number()
+		self.stiff_N = int(self.plate.get_stiffener_number())
 		self.t = self.plate.plate_prop.tp/1000											#plate thickness [mm] so /1000
 		self.xlen = self.plate.plate_longitudinal_dim()								#x plate lenght	[m]
 		self.ylen = self.plate.plate_transverse_dim()								#y plate lenght	[m]		
@@ -209,7 +225,7 @@ class PlateMesher():
 		self.stiff_spacing = self.plate.get_stiffener_spacing()
 		
 		# min n of plate segments is equal to n_stiff
-		self.n_of_plate_segments_in_row = ((self.stiff_N + 1) * (self.plate_n_of_subdivision + 1))
+		self.n_of_plate_segments_in_row = int(((self.stiff_N + 1) * (self.plate_n_of_subdivision + 1)))
 		self.x_plate_segment_len = self.xlen / self.n_of_plate_segments_in_row
 		self.y_plate_segment_len = self.ylen / self.n_of_plate_segments_in_row
 		# print(self.ylen, self.y_plate_segment_len, self.stiff_N, self.stiff_spacing)
@@ -236,11 +252,11 @@ class PlateMesher():
 				plate_segment_mesh = move_mesh(plate_segment_mesh, move_vector)
 				self.plate_segments_meshes.append(plate_segment_mesh)
 		
-		return self.plate_segments_meshes
-		# plate_mesh = soft_merge_meshes(plate_segments_meshes)
+		#return self.plate_segments_meshes
+		plate_mesh = soft_merge_meshes(self.plate_segments_meshes)
 		# self.write_om_mesh(plate_mesh, "plate")
+		return plate_mesh
 
-		
 	def make_plate_segment_mesh(self):
 		plate_dims = np.array([self.x_plate_segment_len, self.y_plate_segment_len, self.t])
 		with pg.occ.geometry.Geometry() as geom:
@@ -546,9 +562,10 @@ class PlateMesher():
 
 
 class GrillageBaseGeometry(Geometry):
-	def __init__(self, mesh_resolution = 0.1, plate_n_of_subdivision = 0):
+	def __init__(self, name = '', mesh_resolution = 0.3, plate_n_of_subdivision = 0):
 		self.mesh_resolution =  mesh_resolution		#DO NOT GO BELOW 0.05 UNLESS YOU HAVE STRONG CPU
-		self.plate_n_of_subdivision = plate_n_of_subdivision		# 0 for no subdivisions
+		self.plate_n_of_subdivision = plate_n_of_subdivision		# 0 for no subdivision
+		super().__init__(name)
 		self._gen_mesh_or_subgeometry()
 		pass
 
@@ -557,42 +574,65 @@ class GrillageBaseGeometry(Geometry):
 
 	def _gen_mesh_or_subgeometry(self):
 		pass
+	def _appendmesh(self,mesh:om.TriMesh):
+		new_mesh = join_tria_meshes(mesh,self.mesh)
+		for sg in self.sub_geometry:
+			new_mesh = sg._appendmesh(new_mesh)
+		return new_mesh
 
 class PlateGeometry(GrillageBaseGeometry):
-	def __init__(self, plate: Plate, mesh_resolution = 0.1, plate_n_of_subdivision = 0):
+	def __init__(self, plate: Plate, name = '', mesh_resolution = 0.1, plate_n_of_subdivision = 0):
 		self._plate = plate
-		super().__init__(mesh_resolution,plate_n_of_subdivision)
+		super().__init__(name,mesh_resolution,plate_n_of_subdivision)
 
 	def _gen_mesh_or_subgeometry(self):
 		self.sub_geometry.clear()
 		mesher = PlateMesher(self._plate, self.mesh_resolution, self.plate_n_of_subdivision)
-		self.mesh = mesher.make_plate_mesh()
+		meshs = mesher.make_plate_mesh()
+		self.mesh = meshs
 
 class StiffenersGeometry(GrillageBaseGeometry):
-	def __init__(self, plate: Plate, mesh_resolution = 0.1, plate_n_of_subdivision = 0):
+	def __init__(self, plate: Plate, name = '', mesh_resolution = 0.1, plate_n_of_subdivision = 0):
 		self._plate = plate
-		super().__init__(mesh_resolution,plate_n_of_subdivision)
+		super().__init__(name,mesh_resolution,plate_n_of_subdivision)
 
 	def _gen_mesh_or_subgeometry(self):
 		self.sub_geometry.clear()
 		mesher = PlateMesher(self._plate, self.mesh_resolution, self.plate_n_of_subdivision)
-		self.mesh = mesher.make_stiffener_mesh()
+		meshs = mesher.make_stiffener_mesh()
+		new_mesh = om.TriMesh()
+		for mesh in meshs:
+			new_mesh = join_tria_meshes(new_mesh,mesh)
+		self.mesh = new_mesh
+
 
 class StiffenedPlateGeometry(GrillageBaseGeometry):
-	def __init__(self, plate: Plate, mesh_resolution = 0.1, plate_n_of_subdivision = 0):
+	def __init__(self, plate: Plate, name = '', mesh_resolution = 0.1, plate_n_of_subdivision = 0):
 		self._plate = plate
-		super().__init__(mesh_resolution,plate_n_of_subdivision)
+		super().__init__(name,mesh_resolution,plate_n_of_subdivision)
 
 	def _gen_mesh_or_subgeometry(self):
 		self.mesh = om.TriMesh()
 		self.sub_geometry.clear()
-		self.sub_geometry.append(PlateGeometry(self._plate))
-		self.sub_geometry.append(StiffenersGeometry(self._plate))
+		self.sub_geometry.append(PlateGeometry(self._plate, 'Plate'))
+		self.sub_geometry.append(StiffenersGeometry(self._plate, 'Stiffeners'))
+
+
+class PlatingGeometry(GrillageBaseGeometry):
+	def __init__(self, plates: Plate, name = '', mesh_resolution = 0.1, plate_n_of_subdivision = 0):
+		self._plates = plates
+		super().__init__(name,mesh_resolution,plate_n_of_subdivision)
+
+	def _gen_mesh_or_subgeometry(self):
+		self.mesh = om.TriMesh()
+		self.sub_geometry.clear()
+		for id,plate in self._plates.items():
+			self.sub_geometry.append(StiffenedPlateGeometry(plate, 'Stiff_plate_'+str(id)))
 
 class BeamSegmentGeometry(GrillageBaseGeometry):
-	def __init__(self, segment: Segment, mesh_resolution = 0.1, plate_n_of_subdivision = 0):
+	def __init__(self, segment: Segment, name = '', mesh_resolution = 0.1, plate_n_of_subdivision = 0):
 		self._segment = segment
-		super().__init__(mesh_resolution,plate_n_of_subdivision)
+		super().__init__(name,mesh_resolution,plate_n_of_subdivision)
 
 	def _gen_mesh_or_subgeometry(self):
 		self.sub_geometry.clear()
@@ -600,108 +640,62 @@ class BeamSegmentGeometry(GrillageBaseGeometry):
 		self.mesh = mesher.make_beam_segment_mesh()
 
 class PrimarySuppMemGeometry(GrillageBaseGeometry):
-	def __init__(self, psm: PrimarySuppMem, mesh_resolution = 0.1, plate_n_of_subdivision = 0):
+	def __init__(self, psm: PrimarySuppMem, name = '', mesh_resolution = 0.1, plate_n_of_subdivision = 0):
 		self._psm:PrimarySuppMem = psm
-		super().__init__()
+		super().__init__(name,mesh_resolution,plate_n_of_subdivision)
 
 	def _gen_mesh_or_subgeometry(self):
 		self.mesh = om.TriMesh()
 		self.sub_geometry.clear()
 		for beam_segment in self._psm._segments:
-			self.sub_geometry.append(BeamSegmentGeometry(beam_segment))
+			self.sub_geometry.append(BeamSegmentGeometry(beam_segment, 'Segment_'+str(beam_segment.id)))
 
 
 class Longs_or_Trans_Geometry(GrillageBaseGeometry):
-	def __init__(self, items: Dict[int,PrimarySuppMem], mesh_resolution = 0.1, plate_n_of_subdivision = 0):
+	def __init__(self, items: Dict[int,PrimarySuppMem], name = '', mesh_resolution = 0.1, plate_n_of_subdivision = 0):
 		self._items: Dict[int, PrimarySuppMem] = items
-		super().__init__(mesh_resolution,plate_n_of_subdivision)
+		super().__init__(name,mesh_resolution,plate_n_of_subdivision)
 
 	def _gen_mesh_or_subgeometry(self):
 		self.mesh = om.TriMesh()
 		self.sub_geometry.clear()
 		for id, psm in self._items.items():
-			self.sub_geometry.append(PrimarySuppMemGeometry(psm))
+			self.sub_geometry.append(PrimarySuppMemGeometry(psm,'Beam_'+str(id)))
 
 class LongitudinalsGeometry(Longs_or_Trans_Geometry):
 
-	def __init__(self, items: Dict[int,PrimarySuppMem], mesh_resolution = 0.1, plate_n_of_subdivision = 0):
-		super().__init__(items,mesh_resolution,plate_n_of_subdivision)
+	def __init__(self, items: Dict[int,PrimarySuppMem], name = '', mesh_resolution = 0.1, plate_n_of_subdivision = 0):
+		super().__init__(items,name,mesh_resolution,plate_n_of_subdivision)
 
 class TransversalsGeometry(Longs_or_Trans_Geometry):
 
-	def __init__(self, items: Dict[int,PrimarySuppMem], mesh_resolution = 0.1, plate_n_of_subdivision = 0):
-		super().__init__(items,mesh_resolution,plate_n_of_subdivision)
+	def __init__(self, items: Dict[int,PrimarySuppMem], name = '', mesh_resolution = 0.1, plate_n_of_subdivision = 0):
+		super().__init__(items,name,mesh_resolution,plate_n_of_subdivision)
 
 
 class GrillageGeometry(GrillageBaseGeometry):
 
-	def __init__(self, grillage: Grillage, mesh_resolution = 0.1, plate_n_of_subdivision = 0):
+	def __init__(self, grillage: Grillage, name = '', mesh_resolution = 0.5, plate_n_of_subdivision = 0):
 		self._grill = grillage
-		super().__init__(mesh_resolution,plate_n_of_subdivision)
+		super().__init__(name,mesh_resolution,plate_n_of_subdivision)
 
 	def _gen_mesh_or_subgeometry(self):
-		self.mesh=om.TriMesh()
-		self.sub_geometry.clear()
-		self.sub_geometry.append(LongitudinalsGeometry(self._grill.longitudinal_members()))
-		self.sub_geometry.append(TransversalsGeometry(self._grill.transverse_members()))
-		pass
+		try:
+			self.mesh=om.TriMesh()
+			self.sub_geometry.clear()
+			self.sub_geometry.append(LongitudinalsGeometry(self._grill.longitudinal_members(),'Longitudinal Beams',
+														   self.mesh_resolution,self.plate_n_of_subdivision))
+			self.sub_geometry.append(TransversalsGeometry(self._grill.transverse_members(),'Transverse Beams',
+														   self.mesh_resolution,self.plate_n_of_subdivision))
+			self.sub_geometry.append(PlatingGeometry(self._grill.plating(), 'Plating',
+														   self.mesh_resolution,self.plate_n_of_subdivision))
+			self.mesh = self._appendmesh(self.mesh)
+		except BaseException as error:
+			print('An exception occurred during visualization mesh generation: {}'.format(error))
+		except:
+			print('Unknown exception occurred during visualization mesh generation')
 
-class GrillageGeometryFactory():
-	def __init__(self, grillage: Grillage):
-		self.grill = grillage
-		self.mesh_resolution = 0.3  # DO NOT GO BELOW 0.05 UNLESS YOU HAVE STRONG CPU
-		self.plate_n_of_subdivision = 0  # 0 for no subdivisions
 
-	def make_grill_mesh(self):
-		all_meshes = []
-		# print(self._transverse_memb[1]._segments)
-		# print(self._longitudinal_memb)
-		meshes = []
-		for long_beam_id, long_beam in self.grill._longitudinal_memb.items():
-			beam_segments = long_beam._segments  # list
-			for beam_segment in beam_segments:
-				self.mesher = BeamSegmentMesher(beam_segment, self.mesh_resolution, self.plate_n_of_subdivision)
-				beam_segment_mesh = self.mesher.make_beam_segment_mesh()
-				meshes.append(beam_segment_mesh)
-
-		for trans_beam_id, trans_beam in self.grill._transverse_memb.items():
-			beam_segments = trans_beam._segments  # list
-			for beam_segment in beam_segments:
-				self.mesher = BeamSegmentMesher(beam_segment, self.mesh_resolution, self.plate_n_of_subdivision)
-				beam_segment_mesh = self.mesher.make_beam_segment_mesh()
-				meshes.append(beam_segment_mesh)
-
-		for plate_id, plate in self.grill.plating.items():
-			plate = self._plating[plate_id]
-			self.mesher = PlateMesher(plate, self.mesh_resolution, self.plate_n_of_subdivision)
-			plate_meshes = self.mesher.make_plate_mesh()
-			stiff_meshes = self.mesher.make_stiffener_mesh()
-			meshes = meshes + stiff_meshes + plate_meshes
-		# meshes.append(self.mesher.make_plate_mesh)
-		# all_meshes = all_meshes + self.mesher.plate_segments_meshes + self.mesher.stiff_segments_meshes
-
-		meshes = soft_merge_meshes(meshes)
-		# meshes = self.deform_grillage(meshes)
-		# print("merging")
-		# all_meshes = soft_merge_meshes(all_meshes)
-		# print(all_meshes)
-		# print("done merging")
-		write_om_mesh(meshes, "beams")
-
-	def deform_grillage(self, mesh):
-		points = mesh.points()
-		fvi = mesh.face_vertex_indices()
-		deformed_points = self.deformation_law(points)
-		deformed_mesh = om.TriMesh(deformed_points, fvi)
-		return deformed_mesh
-
-	def deformation_law(self, points):
-		x = points[:, 0]
-		y = points[:, 1]
-		z = (x ** 2 + y ** 2) / 100
-		deformed_points = copy.copy(points)
-		deformed_points[:, 2] = deformed_points[:, 2] + z
-		return deformed_points
 
 
 

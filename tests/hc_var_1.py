@@ -83,7 +83,7 @@ hc_var_1.plating()[7].stiff_dir = BeamOrientation.LONGITUDINAL
 """
 
 # Spremanje generirane topologije
-GrillageModelData('../grillage savefiles\\hc_var_1_savefile.txt').write_file(hc_var_1)
+GrillageModelData('../grillage savefiles/hc_var_1_savefile.gin').write_file(hc_var_1)
 
 end = timer()
 print("***************************************************************************************************************")

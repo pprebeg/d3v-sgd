@@ -76,7 +76,7 @@ Grillage.set_plating_prop_symmetric(hc_var_3, 2, "stiff_layout", stifflayout2)
 Grillage.set_tran_member_beam_property(hc_var_3, 3, center_girder)
 
 # Spremanje generirane topologije
-GrillageModelData('../grillage savefiles\\hc_var_3_savefile.txt').write_file(hc_var_3)
+GrillageModelData('../grillage savefiles/hc_var_3_savefile.gin').write_file(hc_var_3)
 
 end = timer()
 print("***************************************************************************************************************")

@@ -9,7 +9,7 @@ from timeit import default_timer as timer
 start = timer()
 
 # Ucitavanje topologije iz datoteke
-filename = '../grillage savefiles\\hc_var_2_savefile.txt'
+filename = '../grillage savefiles/hc_var_2_savefile.gin'
 hc_variant = GrillageModelData(filename).read_file()
 
 # Generacija mreze

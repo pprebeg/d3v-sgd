@@ -16,7 +16,7 @@ start = timer()
 
 # Ucitavanje topologije iz datoteke
 # filename = "hc_var_2.txt"
-filename = '../grillage savefiles/hc_var_2_savefile.gin'
+filename = '../grillage savefiles\\hc_var_1_savefile.txt'
 hc_variant = GrillageModelData(filename).read_file()
 
 # Ponovno spremanje ucitane topologije pod novim imenom "read_test.txt"
@@ -68,7 +68,7 @@ def SvojstvaTprofila(hw, tw, bf, tf, bp, tp):
     print(" Debljina struka (net),                      tw_net = ", beam.tw_net(tc1), "mm")
     print(" Sirina prirubnice (net),                    bf_net = ", beam.bf_net(tc1), "mm")
     print(" Debljina prirubnice (net),                  tf_net = ", beam.tf_net(tc1), "mm")
-    print(" Debljina sunosivog oplocenja (net),         tp_net = ", beam.tp_net(tc1, tp), "mm")
+    print(" Debljina sunosivog oplocenja (net),         tp_net = ", PlateProperty.tp_net(tc1, tp), "mm")
     print(" Granica razvlacenja,                           Reh = ", beam.mat.Reh, "N/mm2")
     print(" Smicna povrsina (net),                        A_sh = ", beam.getShArea_T(tp, tc1), "cm2")
     print(" Povrsina samog T profila (gross),              A_T = ", "{:.2f}".format(beam.getArea), "cm2")
@@ -256,7 +256,10 @@ def SvojstvaSegmenata(grillage):
                   " ,BeamProperty ID:", curr_segment.beam_prop.id,
                   ", Wmin =", "{:.2f}".format(curr_segment.Wmin), "cm3",
                   ", sunosivo oplocenje: bp =", "{:.1f}".format(Segment.get_attplate(curr_segment)[0]), "mm",
-                  ", tp =", Segment.get_attplate(curr_segment)[1], "mm")
+                  ", tp =", Segment.get_attplate(curr_segment)[1], "mm",
+                  ", tip profila: ", curr_segment.beam_prop.beam_type,
+                  ", tf =", curr_segment.beam_prop.tf,
+                  ", tf_net =", curr_segment.beam_prop.tf_net(grillage.corrosion_addition()[1]))
     print("\n")
     for i in grillage.transverse_members():
         for i_segmenta in range(0, grillage.N_longitudinal - 1):
@@ -265,22 +268,25 @@ def SvojstvaSegmenata(grillage):
                   ", BeamProperty ID:", curr_segment.beam_prop.id,
                   ", Wmin =", "{:.2f}".format(curr_segment.Wmin), "cm3",
                   ", sunosivo oplocenje: bp =", "{:.1f}".format(Segment.get_attplate(curr_segment)[0]), "mm",
-                  ", tp =", Segment.get_attplate(curr_segment)[1], "mm")
+                  ", tp =", Segment.get_attplate(curr_segment)[1], "mm",
+                  ", tip profila: ", curr_segment.beam_prop.beam_type)
 
 
 def PoljaOplate(grillage):
     #   Sva polja oplate - id, tp, Reh, ID segmenata, nacin zadavanja layouta, vrijednost layouta, orijentacija ukrepa
     for plate_id in range(1, (grillage.N_longitudinal - 1) * (grillage.N_transverse - 1) + 1):
-        print(" Polje oplate:", grillage.plating()[plate_id].id,
-              ",  tp =", grillage.plating()[plate_id].plate_prop.tp, "mm",
-              ",  Reh =", grillage.plating()[plate_id].plate_prop.plate_mat.Reh,
-              ",  definirano uzd. segm.", grillage.plating()[plate_id].long_seg1.id, ",",
-              grillage.plating()[plate_id].long_seg2.id,
-              ",  popr. segm.", grillage.plating()[plate_id].trans_seg1.id, ",",
-              grillage.plating()[plate_id].trans_seg2.id,
-              ", definition type: ", grillage.plating()[plate_id].stiff_layout.definition_type,
-              ", iznos: ", grillage.plating()[plate_id].stiff_layout.definition_value,
-              " ,", grillage.plating()[plate_id].stiff_dir)
+        plate = grillage.plating()[plate_id]
+        print(" Polje oplate:", plate.id,
+              ",  tp =", plate.plate_prop.tp, "mm",
+              ", tp_net =", PlateProperty.tp_net(grillage.corrosion_addition()[1], plate.plate_prop.tp),
+              ",  Reh =", plate.plate_prop.plate_mat.Reh,
+              # ",  segm.", grillage.plating()[plate_id].long_seg1.id, ",",
+              # grillage.plating()[plate_id].long_seg2.id,
+              # ",  popr. segm.", grillage.plating()[plate_id].trans_seg1.id, ",",
+              # grillage.plating()[plate_id].trans_seg2.id,
+              ", def type: ", plate.stiff_layout.definition_type,
+              ", iznos: ", plate.stiff_layout.definition_value,
+              " ,", plate.stiff_dir)
 
 
 def DimPoljaOplate(grillage):

@@ -2,6 +2,7 @@ from PySide6.QtWidgets import QApplication, QMenu
 from PySide6.QtWidgets import QDialog, QPushButton,QGridLayout,QToolTip,QCheckBox,QComboBox
 from PySide6.QtWidgets import QTreeView,QMainWindow,QVBoxLayout,QHBoxLayout,QSizePolicy
 from PySide6.QtWidgets import QTreeWidget,QTreeWidgetItem,QDockWidget,QWidget,QGroupBox
+from PySide6.QtGui import QCursor
 
 
 import os
@@ -94,12 +95,16 @@ class SGDImporter(IOHandler):
         filename_noext, file_extension = os.path.splitext(fileName)
         if file_extension not in self.getImportFormats():
             return
+        QApplication.changeOverrideCursor(QCursor(Qt.WaitCursor))
         grillage = GrillageModelData(fileName).read_file()
         if grillage != None:
             os.chdir(os.path.dirname(fileName))
             g=GrillageGeometry(grillage,filename_noext)
             logging.debug("do_import_geometry: {}".format(g.guid))
+            QApplication.restoreOverrideCursor()
             return g
+        else:
+            QApplication.restoreOverrideCursor()
 
     def getImportFormats(self):
         return (".gin")

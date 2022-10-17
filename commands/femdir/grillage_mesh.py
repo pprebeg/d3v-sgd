@@ -302,7 +302,7 @@ class GrillageMesh:
         # Returns the maximum quad element length based on net flange width and maximum allowed aspect ratio for any segment
         # Method is valid for determining the coarsest flange element dimension allowed by the Rules for any meshing variant
         if self.get_flange_el_width(segment) != 0:
-        max_aspect_ratio = self._flange_aspect_ratio
+            max_aspect_ratio = self._flange_aspect_ratio
             dim_max = max_aspect_ratio * self.get_flange_el_width(segment)
             return dim_max
         else:
@@ -326,19 +326,19 @@ class GrillageMesh:
         dim_yf = np.minimum(dim_yf1, dim_yf2)   # Minimum element y dimension based on flange element aspect ratio
 
         if dim_x > dim_xf:                              # If element size based on stiffener spacing along x asis exceeds maximum flange dimension
-                div_round_up = np.ceil(dim_x / dim_xf)       # Equal division of elements between transverse stiffeners
+            div_round_up = np.ceil(dim_x / dim_xf)       # Equal division of elements between transverse stiffeners
             dim_x = dim_x / div_round_up                # Base mesh dimension x refinement
 
             if dim_y / dim_x > plate_aspect_ratio:      # Check plating element aspect ratio after refining dim_x
-                    div_round_up = np.ceil(dim_y / dim_x)
+                div_round_up = np.ceil(dim_y / dim_x)
                 dim_y = dim_y / div_round_up            # Base mesh dimension y refinement
 
         if dim_y > dim_yf:                              # If element size based on stiffener spacing along y asis exceeds maximum flange dimension
-                div_round_up = np.ceil(dim_y / dim_yf)       # Equal division of elements between longitudinal stiffeners
+            div_round_up = np.ceil(dim_y / dim_yf)       # Equal division of elements between longitudinal stiffeners
             dim_y = dim_y / div_round_up                # Base mesh dimension y refinement
 
             if dim_x / dim_y > plate_aspect_ratio:      # Check plating element aspect ratio after refining dim_y
-                    div_round_up = np.ceil(dim_x / dim_y)
+                div_round_up = np.ceil(dim_x / dim_y)
                 dim_x = dim_x / div_round_up            # Base mesh dimension x refinement
 
         return np.array((dim_x, dim_y))

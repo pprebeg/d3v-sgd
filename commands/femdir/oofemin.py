@@ -1,6 +1,7 @@
 import numpy as np
 from typing import List, Dict, Set,Tuple
 import os
+'''
 oofempydir=''
 #oofempydir='D:\\Development\\oofem\\build\\Debug'
 oofempydir='D:\\Development\\oofem\\build\\Release'
@@ -12,6 +13,7 @@ try:
 except ImportError:
     pass
 print('Used oofempy library: ' + oofempy.__file__)
+'''
 try:
     from femdir.oofemenum import *
 except ImportError:
@@ -979,7 +981,7 @@ class OOFEMInputFile():
         if rg is not None:
             for line in rg.lines:
                 lines.append(line+'\n')
-
+'''
 class OOFEMAnalysisModel():
     def __init__(self, fileName,dict_idset_outtypes:Dict[int,OutputElementType]=None):
         null = None
@@ -1126,3 +1128,4 @@ class OOFEMAnalysisModel():
 
     def analyse(self):
         return self.analyse_all_loadcases(self._dict_idset_outtypes)
+'''

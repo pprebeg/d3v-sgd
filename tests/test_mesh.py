@@ -14,7 +14,7 @@ hc_variant = GrillageModelData(filename).read_file()
 
 # Generacija mreze
 mesh1 = GrillageMesh(hc_variant, MeshSolution.V1)    # Izrada GrillageMesh objekta
-mesh1.flange_aspect_ratio = 4       # Postavljanje aspektnog odnosa elemenata prirubnica jakih nosača i oplate uz struk jakih nosača
+mesh1.flange_aspect_ratio = 7       # Postavljanje aspektnog odnosa elemenata prirubnica jakih nosača i oplate uz struk jakih nosača
 mesh1.plate_aspect_ratio = 4        # Postavljanje aspektnog odnosa elemenata oplate i strukova jakih nosača
 
 """
@@ -32,7 +32,7 @@ def Test_element_size_stiffener_spacing(grillage, plate_id):
     print("Dimenzije quad elementa oplate uz", n_elem, "element između ukrepa, uzdužno:", dims[0], "mm, poprečno:", dims[1], "mm")
 
 
-def Test_element_size_flange_width(grillage, direction: BeamDirection, psm_id, segment_id):
+def Test_get_flange_el_length(grillage, direction: BeamDirection, psm_id, segment_id):
     segment = None
 
     if direction == BeamDirection.LONGITUDINAL:
@@ -41,7 +41,7 @@ def Test_element_size_flange_width(grillage, direction: BeamDirection, psm_id, s
     elif direction == BeamDirection.TRANSVERSE:
         segment = grillage.transverse_members()[psm_id].segments[segment_id]
 
-    dim = GrillageMesh.element_size_flange_width(mesh1, segment)
+    dim = GrillageMesh.get_flange_el_length(mesh1, segment)
     print("Maksimalna dimenzija elementa prirubnice prema aspektnom odnosu:", dim, "mm")
 
 
@@ -218,15 +218,15 @@ def Test_get_all_node_coords(grillage):
 
 # print(GrillageMesh.find_closest_divisor(4935, 660))
 # Test_element_size_stiffener_spacing(hc_variant, 1)   # Dimenzije elementa oplate za odabranu zonu prema razmaku ukrepa
-# Test_element_size_flange_width(hc_variant, BeamDirection.LONGITUDINAL, 1, 1)    # Dimenzije elementa prirubnice za odabrani segment
+# Test_get_flange_el_length(hc_variant, BeamDisrection.LONGITUDINAL, 1, 1)    # Dimenzije elementa prirubnice za odabrani segment
 # Test_element_size_plating_zone(hc_variant, 1)         # Dimenzije elemenata na odabranoj zoni oplate prema razmaku ukrepa i ar prirubnice
-# Test_ALL_element_size_plating_zone(hc_variant)
+# Test_ALL_element_size_plating_zone(hc_variant)        # dim_x i dim_y za sve zone oplate, prikaz u matrici
 # Test_element_size_mesh(hc_variant)                    # Konacno odabrane dimenzije mreze po x i y
 # Test_get_base_dim_x(hc_variant, 2)                    # Odabrana osnovna x dimenzija za neko polje oplate
 # Test_get_base_dim_y(hc_variant, 2)                    # Odabrana osnovna y dimenzija za neko polje oplate
 # Test_element_size_transition_x(hc_variant, 1)           # x dimenzije prijelaznih elemenata
 # Test_element_size_transition_y(hc_variant, 1)           # y dimenzije prijelaznih elemenata
-# Test_transition_element_dimensions(hc_variant, 4)       # Obje dimenzije prijelaznih elemenata za neko polje oplate
+# Test_transition_element_dimensions(hc_variant, 1)       # Obje dimenzije prijelaznih elemenata za neko polje oplate
 # Test_get_flange_el_width(2, 1)
 # Test_all_plating_zones_mesh_dimensions(hc_variant)    # Odabrane x i y dimenzije elemenata za sva polja oplate
 # Test_identify_unique_property(hc_variant)

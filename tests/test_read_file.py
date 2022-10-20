@@ -16,7 +16,7 @@ start = timer()
 
 # Ucitavanje topologije iz datoteke
 # filename = "hc_var_2.txt"
-filename = '../grillage savefiles\\hc_var_1_savefile.txt'
+filename = '../grillage savefiles\\hc_var_1_savefile.gin'
 hc_variant = GrillageModelData(filename).read_file()
 
 # Ponovno spremanje ucitane topologije pod novim imenom "read_test.txt"
@@ -616,6 +616,19 @@ def Test_Wmin_Iy_ukrepa(grillage):
               "cm3, Iy =", "{:.2f}".format(plate.Iy()), "cm4")
 
 
+def Test_segments_between_psm(grillage, nosac1_id, nosac2_id, direction: BeamDirection):
+    if direction == BeamDirection.LONGITUDINAL:
+        nosac1 = grillage.longitudinal_members()[nosac1_id]
+        nosac2 = grillage.longitudinal_members()[nosac2_id]
+    else:
+        nosac1 = grillage.transverse_members()[nosac1_id]
+        nosac2 = grillage.transverse_members()[nosac2_id]
+
+    segment_list = grillage.segments_between_psm(nosac1, nosac2)
+    print("Upisano segmenata:", len(segment_list))
+    print(segment_list)
+
+
 def PlotGrillageTopology(grillage):
     import matplotlib.pyplot as plt
 
@@ -700,6 +713,7 @@ def PlotGrillageTopology(grillage):
 # Test_set_long_symm_segment_beam_property(hc_variant, 3, 1)
 # Test_set_long_member_beam_property(hc_variant, 3)
 # Test_Wmin_Iy_ukrepa(hc_variant)
+# Test_segments_between_psm(hc_variant, 2, 3, BeamDirection.LONGITUDINAL)
 # PlotGrillageTopology(hc_variant)
 
 end = timer()

@@ -17,14 +17,13 @@ Assumptions:
     2.) Web height of all primary supporting members is the same for simplicity
 
 """
-
 from grillage.grillage_model import *
 
 # import femdir.geofementity as gfe
 # import femdir.geofem as gfem
 
 # from femdir.geofem import *
-from femdir.geofementity import *
+# from femdir.geofementity import *
 
 
 class MeshSolution(Enum):
@@ -90,6 +89,7 @@ class GrillageMesh:
         self._tr_el_dim_x = []              # List of transition element x dimensions
         self._tr_el_dim_y = []              # List of transition element y dimensions
         self._min_num_ebs = 1               # Minimum number of elements between stiffeners according to Rules; default = 1
+        self._num_eaf = 1                   # Number of elements across primary supporting member flange; default = 1
         self._flange_aspect_ratio = 8       # Maximum aspect ratio value for primary supporting member flange quad elements; default = 8
         self._plate_aspect_ratio = 3        # Maximum aspect ratio value for plating and primary supporting member web quad elements; default = 3
         self._unique_properties = {}        # Dictionary of unique plate thickness and material combinations used in the grillage model
@@ -112,6 +112,14 @@ class GrillageMesh:
     @min_num_ebs.setter
     def min_num_ebs(self, value):
         self._min_num_ebs = value
+
+    @property
+    def num_eaf(self):
+        return self._num_eaf
+
+    @num_eaf.setter
+    def num_eaf(self, value):
+        self._num_eaf = value
 
     @property
     def flange_aspect_ratio(self):
@@ -205,50 +213,55 @@ class GrillageMesh:
             #     tw = beam.tw
             #     pass
 
-    @staticmethod
-    def find_closest_divisor(length, spacing):
-        # Method for determining the number of Quad elements along length L, when one dimension (value) of the element is known
-        """
-        :param length: Length L which should be divided into n equal parts, each with length x.
-        :param spacing: Value to which length x should be closes to.
-        :return: Closest divisor of length L, which results in a length x closest to given value.
-        Equivalent to the number of Finite Elements n, with dimension x.
-        """
-        if np.mod(length, spacing) == 0:
-            return length / spacing
-        else:
-            i = 1
-            res = []
-            while i <= length:
-                if np.mod(length, i) == 0:
-                    res.append(i)
-                i += 1
+    # VIŠE SE NE KORISTI - Zapravo nije bilo potrebe za cjelobrojnom podjelom dimenzija preko ove metode,
+    #  dozvoljene su decimalne vrijednosti dimenzija elemenata! Metoda je korisna kao zaseban kalkulator
 
-            min_diff = spacing
-            min_div_id = 1
-            if not res:     # If input dimensions are decimal, a divisor may not exist
-                return np.round(length / spacing, 0)
-            else:           # If input dimensions are integers and a divisor exists
-                for i in range(0, len(res)):
-                    if min_diff > abs((length / res[i]) - spacing):
-                        min_diff = abs((length / res[i]) - spacing)
-                        min_div_id = i
-                n = res[min_div_id]
-                return n
+    # @staticmethod
+    # def find_closest_divisor(length, spacing):
+    #     # Method for determining the number of Quad elements along length L, when one dimension (value) of the element is known
+    #     """
+    #     :param length: Length L which should be divided into n equal parts, each with length x.
+    #     :param spacing: Value to which length x should be closes to.
+    #     :return: Closest divisor of length L, which results in a length x closest to given value.
+    #     Equivalent to the number of Finite Elements n, with dimension x.
+    #     """
+    #     if np.mod(length, spacing) == 0:
+    #         return length / spacing
+    #     else:
+    #         i = 1
+    #         res = []
+    #         while i <= length:
+    #             if np.mod(length, i) == 0:
+    #                 res.append(i)
+    #             i += 1
+    #
+    #         min_diff = spacing
+    #         min_div_id = 1
+    #         if not res:     # If input dimensions are decimal, a divisor may not exist
+    #             return np.round(length / spacing, 0)
+    #         else:           # If input dimensions are integers and a divisor exists
+    #             for i in range(0, len(res)):
+    #                 if min_diff > abs((length / res[i]) - spacing):
+    #                     min_diff = abs((length / res[i]) - spacing)
+    #                     min_div_id = i
+    #             n = res[min_div_id]
+    #             return n
 
-    @staticmethod
-    def get_flange_el_width(segment: Segment):
+    def get_flange_el_width(self, segment: Segment):
         """
         :param segment: Segment of a primary supporting member.
-        :return: Flange quad element dimension across the width of the flange of the selected segment.
+        :return: Flange quad element dimension across the width of the flange of the selected segment (perpendicular to the
+                segment direction). For longitudinal segments this method returns dimension dim_yf, and for transverse segments
+                returns dimension dim_xf. Method is valid for determining the coarsest flange element dimension allowed by the
+                Rules for any meshing variant
         """
         grillage = segment.primary_supp_mem.grillage
         bf = segment.beam_prop.bf - grillage.corrosion_addition()[1].tc  # Net flange width
         if segment.beam_prop.beam_type == "T":
-            dim = bf / 2                            # T profile flange is represented with 2 elements across the flange width
+            dim = bf / (self._num_eaf * 2)      # T profile flange is represented with 2 elements across the flange width by default
             return dim
         elif segment.beam_prop.beam_type == "L":
-            dim = bf                                # L profile flange is represented with 1 element across the flange width
+            dim = bf / self._num_eaf            # L profile flange is represented with 1 element across the flange width by default
             return dim
         elif segment.beam_prop.beam_type == "FB":
             dim = 0
@@ -268,39 +281,53 @@ class GrillageMesh:
         # koristiti np.isclose()
         pass
 
-    def element_size_stiffener_spacing(self, plate: Plate):
-        # Returns the quad element size, based only on stiffener spacing for any plating zone
-        # Method is valid for determining the coarsest plating mesh allowed by the Rules for any meshing variant
-
+    def element_size_perp_to_stiffeners(self, plate: Plate):
+        # Returns quad element size perpendicular to stiffener direction
+        # Method is valid for determining the maximum element dimension allowed by the Rules for any meshing variant
         stiff_spacing = Plate.get_stiffener_spacing(plate) * 1000   # Stiffener spacing in [mm]
-        n_elem_bs = self._min_num_ebs                                       # Number of elements between stiffeners
+        n_elem_bs = self._min_num_ebs                               # Number of elements between stiffeners
+        dim = stiff_spacing / n_elem_bs                             # Quad element dimension between stiffeners
+        return dim
+
+    def element_size_stiffener_spacing(self, plate: Plate):
+        # Returns the quad element size, based only on stiffener spacing with aspect ratio close to 1
+        # Method is valid for determining the coarsest plating mesh allowed by the Rules for any meshing variant
         if plate.stiff_dir == BeamDirection.LONGITUDINAL:
             L = Plate.plate_longitudinal_dim(plate) * 1000          # Longitudinal plating zone dimension [mm]
-            dim_y = stiff_spacing / n_elem_bs                               # Distance between nodes in the transverse (y) direction
+            dim_y = self.element_size_perp_to_stiffeners(plate)             # Distance between nodes in the transverse (y) direction
             if self._variant == MeshSolution.V1:                            # Use reduced plating zone dimension for MeshSolution V1
                 dim_xf1 = self.get_flange_el_width(plate.trans_seg1)        # Longitudinal segment 1 flange element x dimension
                 dim_xf2 = self.get_flange_el_width(plate.trans_seg2)        # Longitudinal segment 2 flange element x dimension
                 L_red = L - dim_xf1 - dim_xf2                               # Reduced longitudinal plating zone dimension
-                dim_x = L_red / self.find_closest_divisor(L_red, dim_y)     # Quad element x dimension
+                div_round = np.round(L_red / dim_y)
+                dim_x = L_red / div_round     # Quad element x dimension
             else:                                                           # Use full plating zone dimension for other MeshSolution
-                dim_x = L / self.find_closest_divisor(L, dim_y)
+                div_round = np.round(L / dim_y)
+                dim_x = L / div_round
             return np.array([dim_x, dim_y])
 
         elif plate.stiff_dir == BeamDirection.TRANSVERSE:
             B = Plate.plate_transverse_dim(plate) * 1000            # Transverse plating zone dimension [mm]
-            dim_x = stiff_spacing / n_elem_bs                               # Distance between nodes in the longitudinal (x) direction
+            dim_x = self.element_size_perp_to_stiffeners(plate)             # Distance between nodes in the longitudinal (x) direction
             if self._variant == MeshSolution.V1:                            # Use reduced plating zone dimension for MeshSolution V1
                 dim_yf1 = self.get_flange_el_width(plate.long_seg1)         # Transverse segment 1 flange element y dimension
                 dim_yf2 = self.get_flange_el_width(plate.long_seg2)         # Transverse segment 2 flange element y dimension
                 B_red = B - dim_yf1 - dim_yf2                               # Reduced transverse plating zone dimension
-                dim_y = B_red / self.find_closest_divisor(B_red, dim_x)     # Quad element y dimension
+                div_round = np.round(B_red / dim_x)
+                dim_y = B_red / div_round                                   # Quad element y dimension
             else:                                                           # Use full plating zone dimension for other MeshSolution
-                dim_y = B / self.find_closest_divisor(B, dim_x)
+                div_round = np.round(B / dim_x)
+                dim_y = B / div_round
             return np.array([dim_x, dim_y])
 
-    def element_size_flange_width(self, segment: Segment):
-        # Returns the maximum quad element length based on net flange width and maximum allowed aspect ratio for any segment
-        # Method is valid for determining the coarsest flange element dimension allowed by the Rules for any meshing variant
+    def get_flange_el_length(self, segment: Segment):
+        """
+        :param segment: Segment of a primary supporting member.
+        :return: Maximum flange quad element length based on flange element width and maximum flange aspect ratio (parallel to the
+                segment direction). For longitudinal segments this method returns dimension dim_xf, and for transverse segments
+                returns dimension dim_yf. Method is valid for determining the coarsest flange element dimension allowed by the
+                Rules for any meshing variant
+        """
         if self.get_flange_el_width(segment) != 0:
             max_aspect_ratio = self._flange_aspect_ratio
             dim_max = max_aspect_ratio * self.get_flange_el_width(segment)
@@ -317,16 +344,16 @@ class GrillageMesh:
         dim_x = dim_p[0]                                            # Initial element x dimension is based on stiffener spacing
         dim_y = dim_p[1]                                            # Initial element y dimension is based on stiffener spacing
 
-        dim_xf1 = self.element_size_flange_width(plate.long_seg1)   # Longitudinal segment 1 flange element x dimension
-        dim_xf2 = self.element_size_flange_width(plate.long_seg2)   # Longitudinal segment 2 flange element x dimension
-        dim_yf1 = self.element_size_flange_width(plate.trans_seg1)  # Transverse segment 1 flange element y dimension
-        dim_yf2 = self.element_size_flange_width(plate.trans_seg2)  # Transverse segment 2 flange element y dimension
+        dim_xf1 = self.get_flange_el_length(plate.long_seg1)   # Longitudinal segment 1 flange element x dimension
+        dim_xf2 = self.get_flange_el_length(plate.long_seg2)   # Longitudinal segment 2 flange element x dimension
+        dim_yf1 = self.get_flange_el_length(plate.trans_seg1)  # Transverse segment 1 flange element y dimension
+        dim_yf2 = self.get_flange_el_length(plate.trans_seg2)  # Transverse segment 2 flange element y dimension
 
         dim_xf = np.minimum(dim_xf1, dim_xf2)   # Minimum element x dimension based on flange element aspect ratio
         dim_yf = np.minimum(dim_yf1, dim_yf2)   # Minimum element y dimension based on flange element aspect ratio
 
         if dim_x > dim_xf:                              # If element size based on stiffener spacing along x asis exceeds maximum flange dimension
-            div_round_up = np.ceil(dim_x / dim_xf)       # Equal division of elements between transverse stiffeners
+            div_round_up = np.ceil(dim_x / dim_xf)      # Equal division of elements between transverse stiffeners
             dim_x = dim_x / div_round_up                # Base mesh dimension x refinement
 
             if dim_y / dim_x > plate_aspect_ratio:      # Check plating element aspect ratio after refining dim_x
@@ -334,7 +361,7 @@ class GrillageMesh:
                 dim_y = dim_y / div_round_up            # Base mesh dimension y refinement
 
         if dim_y > dim_yf:                              # If element size based on stiffener spacing along y asis exceeds maximum flange dimension
-            div_round_up = np.ceil(dim_y / dim_yf)       # Equal division of elements between longitudinal stiffeners
+            div_round_up = np.ceil(dim_y / dim_yf)      # Equal division of elements between longitudinal stiffeners
             dim_y = dim_y / div_round_up                # Base mesh dimension y refinement
 
             if dim_x / dim_y > plate_aspect_ratio:      # Check plating element aspect ratio after refining dim_y
@@ -351,21 +378,17 @@ class GrillageMesh:
             n_long = int(grillage.N_transverse - 1)     # Number of plating zones along the longitudinal axis
             n_tran = int(grillage.N_longitudinal - 1)   # Number of plating zones along the transverse axis
 
-            self._mesh_dim_x = np.zeros(n_long)
-            self._mesh_dim_y = np.zeros(n_tran)
+            self._mesh_dim_x = np.zeros(n_long)         # Final base mesh dimension x between transverse primary supporting members
+            self._mesh_dim_y = np.zeros(n_tran)         # Final base mesh dimension y between longitudinal primary supporting members
 
-            plating_mesh_dim_x = {}        # Dictionary of calculated dimension x for all plating zones
-            plating_mesh_dim_y = {}        # Dictionary of calculated dimension y for all plating zones
+            plating_mesh_dim_x = {}                     # Dimension x for all plating zones, based on element_size_plating_zone
+            plating_mesh_dim_y = {}                     # Dimension y for all plating zones, based on element_size_plating_zone
 
-            # Calculate the quad element size based on stiffener spacing and maximum allowed aspect ratio for all plating zones.
-            #   Base mesh dimensions dim_x and dim_y are saved into dictionaries plating_mesh_dim_x, plating_mesh_dim_y.
+            # Calculate the quad element size based on stiffener spacing and maximum allowed aspect ratio for all plating zones
             for plate in grillage.plating().values():
                 plate_zones_dim = self.element_size_plating_zone(plate)
-                dim_x = plate_zones_dim[0]
-                dim_y = plate_zones_dim[1]
-
-                plating_mesh_dim_x[plate.id] = dim_x
-                plating_mesh_dim_y[plate.id] = dim_y
+                plating_mesh_dim_x[plate.id] = plate_zones_dim[0]
+                plating_mesh_dim_y[plate.id] = plate_zones_dim[1]
 
             # Assign dimension y for all plating zones between longitudinal primary supporting members
             for i_long in range(1, len(grillage.longitudinal_members())):
@@ -373,32 +396,37 @@ class GrillageMesh:
                 long2 = grillage.longitudinal_members()[i_long + 1]
                 plating_zones = grillage.plating_zones_between_psm(long1, long2)    # List of all plating zones between PSM
 
-                restriction_y = False   # Dimension dim_y is restricted by existance of longitudinal stiffeners between longitudinal psm
-                dim_y_list = []                     # List of element y dimensions for all plates between PSM
+                if any(plate.stiff_dir == BeamDirection.LONGITUDINAL for plate in plating_zones):
+                    for plate in plating_zones:
+                        if plate.stiff_dir == BeamDirection.LONGITUDINAL:   # If dimension y is limited by longitudinal stiffener spacing
 
-                min_y = 0.0
-                for i in range(0, len(plating_zones)):
-                    # Minimum y dimension based on flange width
-                    dim_yf1 = self.element_size_flange_width(plating_zones[i].trans_seg1)
-                    dim_yf2 = self.element_size_flange_width(plating_zones[i].trans_seg2)
-                    min_y = np.minimum(dim_yf1, dim_yf2)
+                            # Find maximum allowed value of base mesh dim_y
+                            max_y = np.Infinity
+                            segments_list = grillage.segments_between_psm(long1, long2)  # All transverse segments between long1 and long2
+                            for segment in segments_list:
+                                dim_yf = self.get_flange_el_length(segment)  # Maximum quad element y dimension based on net flange width
+                                if dim_yf < max_y:
+                                    max_y = dim_yf
 
-                for i in range(0, len(plating_zones)):
-                    plate_id = plating_zones[i].id
-                    stiff_dir = plating_zones[i].stiff_dir  # Stiffener direction of plate in list plating_zones
-                    dim_y = plating_mesh_dim_y[plate_id]    # Quad element size in the y direction for plate in list plating_zones
-                    dim_y_list.append(dim_y)
-
-                    if stiff_dir == BeamDirection.LONGITUDINAL:    # If dimension y is limited by longitudinal stiffener spacing
-                        restriction_y = True        # Dimension restriction along y axis exists because there are longitudinal stiffeners
-                        self._mesh_dim_y[i_long - 1] = dim_y
-                        if dim_y > min_y:                           # If dimension y exceeds the minimum required
-                            div_round_up = np.ceil(dim_y / min_y)
-                            dim_y = dim_y / div_round_up
-                            self._mesh_dim_y[i_long - 1] = dim_y
-
-                if restriction_y is False:          # If there are no longitudinal stiffeners between long1 and long2
-                    dim_y = np.amin(dim_y_list)
+                            dim_y = plating_mesh_dim_y[plate.id]  # Base element size in the y direction for plate in list plating_zones
+                            if dim_y > max_y:                               # If dimension y exceeds the maximum allowed
+                                dim_y = self.element_size_perp_to_stiffeners(plate)
+                                div_round_up = np.ceil(dim_y / max_y)       # Divide dim_y into equal parts
+                                dim_y = dim_y / div_round_up                # Base mesh dimension y refinement
+                                self._mesh_dim_y[i_long - 1] = dim_y        # Save value of dim_y
+                            else:                                           # If dim_y does not exceed the maximum max_y
+                                self._mesh_dim_y[i_long - 1] = dim_y
+                            break                                           # Stop after finding the first zone with longitudinal stiffeners
+                else:
+                    # Duga verzija:
+                    """
+                    dim_y_list = []  # List of element y dimensions for all plates between adjacent longitudinal PSM
+                    for plate in plating_zones:  # ** Postoji prostor za optimizaciju! -eliminacija provjere duplikatne vrijednosti segmenata
+                        dim_y = plating_mesh_dim_y[plate.id]  # Quad element size in the y direction for plate in list plating_zones
+                        dim_y_list.append(dim_y)
+                    """
+                    dim_y_list = [plating_mesh_dim_y[plate.id] for plate in plating_zones]
+                    dim_y = np.amin(dim_y_list)  # Use minimum value of all saved dim_y for plating zones between longitudinal psm
                     self._mesh_dim_y[i_long - 1] = dim_y
 
             # Assign dimension x for all plating zones between transverse primary supporting members
@@ -407,39 +435,38 @@ class GrillageMesh:
                 tran2 = grillage.transverse_members()[i_tran + 1]
                 plating_zones = grillage.plating_zones_between_psm(tran1, tran2)  # List of all plating zones between PSM
 
-                restriction_x = False   # Dimension dim_x is restricted by existance of transverse stiffeners between transverse psm
-                dim_x_list = []                     # List of element x dimensions for all plates between PSM
+                if any(plate.stiff_dir == BeamDirection.TRANSVERSE for plate in plating_zones):
+                    for plate in plating_zones:
+                        if plate.stiff_dir == BeamDirection.TRANSVERSE:     # If dimension x is limited by transverse stiffener spacing
 
-                min_x = 0.0
-                for i in range(0, len(plating_zones)):
-                    # Minimum x dimension based on flange width
-                    dim_xf1 = self.element_size_flange_width(plating_zones[i].long_seg1)
-                    dim_xf2 = self.element_size_flange_width(plating_zones[i].long_seg2)
-                    min_x = np.minimum(dim_xf1, dim_xf2)
+                            # Find maximum allowed value of base mesh dim_x
+                            max_x = np.Infinity
+                            segments_list = grillage.segments_between_psm(tran1, tran2)  # All longitudinal segments between tran1 and tran2
+                            for segment in segments_list:
+                                dim_xf = self.get_flange_el_length(segment)  # Maximum quad element x dimension based on net flange width
+                                if dim_xf < max_x:
+                                    max_x = dim_xf
 
-                for i in range(0, len(plating_zones)):
-                    plate_id = plating_zones[i].id
-                    stiff_dir = plating_zones[i].stiff_dir
-                    dim_x = plating_mesh_dim_x[plate_id]
-                    dim_x_list.append(dim_x)
-
-                    if stiff_dir == BeamDirection.TRANSVERSE:      # If dimension x is limited by transverse stiffener spacing
-                        restriction_x = True        # Dimension restriction along x axis exists because there are transverse stiffeners
-                        self._mesh_dim_x[i_tran - 1] = dim_x
-
-                        if dim_x > min_x:                           # If dimension y exceeds the minimum required
-                            div_round_up = np.ceil(dim_x / min_x)
-                            dim_x = dim_x / div_round_up
-                            self._mesh_dim_x[i_tran - 1] = dim_x
-
-                if restriction_x is False:          # If there are no transverse stiffeners between tran1 and tran2
-                    dim_x = np.amin(dim_x_list)
+                            dim_x = plating_mesh_dim_x[plate.id]            # Quad element size in the x direction for plate in list plating_zones
+                            if dim_x > max_x:                               # If dimension x exceeds the maximum allowed
+                                dim_x = self.element_size_perp_to_stiffeners(plate)
+                                div_round_up = np.ceil(dim_x / max_x)       # Divide dim_x into equal parts
+                                dim_x = dim_x / div_round_up                # Base mesh dimension x refinement
+                                self._mesh_dim_x[i_tran - 1] = dim_x        # Save value of dim_x
+                            else:
+                                self._mesh_dim_x[i_tran - 1] = dim_x
+                            break                                           # Stop after finding the first zone with transverse stiffeners
+                else:
+                    dim_x_list = [plating_mesh_dim_x[plate.id] for plate in plating_zones]
+                    dim_x = np.amin(dim_x_list)  # Use minimum value of all saved dim_x for plating zones between transverse psm
                     self._mesh_dim_x[i_tran - 1] = dim_x
+
+            # Na kraju možda fali konačna provjera aspektnog odnosa elemenata oplate i profinjenje?
 
     def get_base_dim_x(self, plate: Plate):
         """
         :param plate: Selected plating zone.
-        :return: Characteristic quad element x dimension for any plating zone. Returns the value based on longitudinal segment ID
+        :return: Base quad element x dimension for any plating zone. Returns the value based on longitudinal segment ID
                 from the list of all x dimensions: mesh_dim_x. Meshing solution V1.
         """
         if any(self._mesh_dim_x):
@@ -453,7 +480,7 @@ class GrillageMesh:
     def get_base_dim_y(self, plate: Plate):
         """
         :param plate: Selected plating zone.
-        :return: Characteristic quad element y dimension for any plating zone. Returns the value based on transverse segment ID
+        :return: Base quad element y dimension for any plating zone. Returns the value based on transverse segment ID
                 from the list of all y dimensions: mesh_dim_y. Meshing solution V1.
         """
         if any(self._mesh_dim_y):

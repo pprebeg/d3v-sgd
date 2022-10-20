@@ -37,6 +37,7 @@ import numpy as np
 import itertools
 from enum import Enum
 
+
 class BeamDirection(Enum):
     TRANSVERSE = 0
     LONGITUDINAL = 1
@@ -729,7 +730,7 @@ class PrimarySuppMem:
     def __init__(self, idbeam, direction: BeamDirection, rel_dist, grillage):
         self._id = idbeam
         self._segments = []                             # List of segments for each primary supporting member
-        self._direction: BeamDirection = direction    # Direction of the primary supporting member
+        self._direction: BeamDirection = direction      # Direction of the primary supporting member
         self._rel_dist = float(rel_dist)                # Relative distance - position of the primary supporting member
         self._grillage = grillage
         self._symmetric_member = None
@@ -1531,6 +1532,24 @@ class Grillage():
                 identified_zones_list.append(plate)
         return identified_zones_list
 
+    def segments_between_psm(self, test_member1: PrimarySuppMem, test_member2: PrimarySuppMem):
+        # Returns all segments between adjacent Primary Supporting Members
+        identified_segments_set = set()
+        psm_direction = test_member1.direction
+        plates = self.plating_zones_between_psm(test_member1, test_member2)
+
+        if psm_direction == BeamDirection.LONGITUDINAL:
+            for plate in plates:
+                identified_segments_set.add(plate.trans_seg1)
+                identified_segments_set.add(plate.trans_seg2)
+
+        elif psm_direction == BeamDirection.TRANSVERSE:
+            for plate in plates:
+                identified_segments_set.add(plate.long_seg1)
+                identified_segments_set.add(plate.long_seg2)
+
+        return identified_segments_set
+
     def set_longitudinal_PSM_spacing(self, prim_supp_member_id: int, ref_member_id: int, spacing: float):
         """
         :param prim_supp_member_id: ID of the Primary Supporting Member to have relative distance changed based on spacing.
@@ -1866,6 +1885,7 @@ class Grillage():
                           spacing1, "m", ", while plating zone", plate2.id, "has spacing of", spacing2, "m")
                     hc_check = False
         return hc_check
+
 
 class GrillageModelData:
     def __init__(self, filename: str):

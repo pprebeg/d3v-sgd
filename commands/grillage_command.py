@@ -143,6 +143,7 @@ class SGDCommand(Command):
             manager.remove_geometry([old_grillgeo])
         if self._grillgeo is not None:
             manager.add_geometry([self._grillgeo])
+            manager.show_geometry([self._grillgeo])
         QApplication.restoreOverrideCursor()
 
     @Slot()

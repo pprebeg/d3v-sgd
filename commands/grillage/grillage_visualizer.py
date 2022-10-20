@@ -614,8 +614,10 @@ class StiffenedPlateGeometry(GrillageBaseGeometry):
 	def _gen_mesh_or_subgeometry(self):
 		self.mesh = om.TriMesh()
 		self.sub_geometry.clear()
-		self.sub_geometry.append(PlateGeometry(self._plate, 'Plate'))
-		self.sub_geometry.append(StiffenersGeometry(self._plate, 'Stiffeners'))
+		self.sub_geometry.append(PlateGeometry(self._plate, 'Plate',
+														   self.mesh_resolution,self.plate_n_of_subdivision))
+		self.sub_geometry.append(StiffenersGeometry(self._plate, 'Stiffeners',
+														   self.mesh_resolution,self.plate_n_of_subdivision))
 
 
 class PlatingGeometry(GrillageBaseGeometry):
@@ -627,7 +629,8 @@ class PlatingGeometry(GrillageBaseGeometry):
 		self.mesh = om.TriMesh()
 		self.sub_geometry.clear()
 		for id,plate in self._plates.items():
-			self.sub_geometry.append(StiffenedPlateGeometry(plate, 'Stiff_plate_'+str(id)))
+			self.sub_geometry.append(StiffenedPlateGeometry(plate, 'Stiff_plate_'+str(id),
+														   self.mesh_resolution,self.plate_n_of_subdivision))
 
 class BeamSegmentGeometry(GrillageBaseGeometry):
 	def __init__(self, segment: Segment, name = '', mesh_resolution = 0.1, plate_n_of_subdivision = 0):
@@ -648,7 +651,8 @@ class PrimarySuppMemGeometry(GrillageBaseGeometry):
 		self.mesh = om.TriMesh()
 		self.sub_geometry.clear()
 		for beam_segment in self._psm._segments:
-			self.sub_geometry.append(BeamSegmentGeometry(beam_segment, 'Segment_'+str(beam_segment.id)))
+			self.sub_geometry.append(BeamSegmentGeometry(beam_segment, 'Segment_'+str(beam_segment.id),
+														   self.mesh_resolution,self.plate_n_of_subdivision))
 
 
 class Longs_or_Trans_Geometry(GrillageBaseGeometry):
@@ -660,7 +664,8 @@ class Longs_or_Trans_Geometry(GrillageBaseGeometry):
 		self.mesh = om.TriMesh()
 		self.sub_geometry.clear()
 		for id, psm in self._items.items():
-			self.sub_geometry.append(PrimarySuppMemGeometry(psm,'Beam_'+str(id)))
+			self.sub_geometry.append(PrimarySuppMemGeometry(psm,'Beam_'+str(id),
+														   self.mesh_resolution,self.plate_n_of_subdivision))
 
 class LongitudinalsGeometry(Longs_or_Trans_Geometry):
 
@@ -675,7 +680,7 @@ class TransversalsGeometry(Longs_or_Trans_Geometry):
 
 class GrillageGeometry(GrillageBaseGeometry):
 
-	def __init__(self, grillage: Grillage, name = '', mesh_resolution = 0.5, plate_n_of_subdivision = 0):
+	def __init__(self, grillage: Grillage, name = '', mesh_resolution = 20, plate_n_of_subdivision = 0):
 		self._grill = grillage
 		super().__init__(name,mesh_resolution,plate_n_of_subdivision)
 

@@ -43,9 +43,16 @@ class BeamDirection(Enum):
     LONGITUDINAL = 1
 
 
-class Ref(Enum):
+class Ref(Enum):    # Reference edge
     EDGE1 = 1
     EDGE2 = 2
+
+
+class AOS(Enum):    # Axis Of Symmetry
+    TRANSVERSE = 0
+    LONGITUDINAL = 1
+    BOTH = 2
+    NONE = 3
 
 
 class Node:
@@ -746,19 +753,6 @@ class PrimarySuppMem:
             id_segment += 1
 
     @property
-    def end_nodes(self):
-        # Segmenet end node coordinates
-        if self._direction == BeamDirection.LONGITUDINAL:  # Longitudinal primary supporting members
-            node1 = Node(1, 0, self._rel_dist * self._grillage.B_overall, 0)
-            node2 = Node(2, self._grillage.L_overall, self._rel_dist * self._grillage.B_overall, 0)
-            return node1.coords, node2.coords
-
-        if self._direction == BeamDirection.TRANSVERSE:  # Transverse primary supporting members
-            node1 = Node(1, self._rel_dist * self._grillage.L_overall, 0, 0)
-            node2 = Node(2, self._rel_dist * self._grillage.L_overall, self._grillage.B_overall, 0)
-            return node1.coords, node2.coords
-
-    @property
     def symmetric_member(self):
         return self._symmetric_member
 
@@ -775,6 +769,10 @@ class PrimarySuppMem:
     def set_rel_dist_symmetric(self, value):
         self._rel_dist = value
         self._symmetric_member._rel_dist = 1.0 - value
+
+    @property
+    def end_nodes(self):
+        return Segment.end_nodes(self)
 
     @property
     def grillage(self):
@@ -859,6 +857,27 @@ class Segment:
         if self._symmetric_segment is None:
             self._symmetric_segment = value
             self._symmetric_segment.symmetric_segment = self
+
+    @staticmethod
+    def end_nodes(member: PrimarySuppMem):
+        """
+        :param member: Primary supporting member.
+        :return: Primary supporting member end node coordinates in [mm], at the point of connection with plating.
+                Flange of the primary supporting member is at vertical coordinate z = 0.
+        """
+        grillage = member.grillage
+        hw_end1 = member.segments[0].beam_prop.hw                           # Primary supporting member web height at x or y = 0
+        hw_end2 = member.segments[len(member.segments) - 1].beam_prop.hw    # Primary supporting member web height at x = L or y = B
+
+        if member.direction == BeamDirection.LONGITUDINAL:  # Longitudinal primary supporting members
+            node1 = Node(1, 0, member.rel_dist * grillage.B_overall * 1000, hw_end1)
+            node2 = Node(2, grillage.L_overall * 1000, member.rel_dist * grillage.B_overall * 1000, hw_end2)
+            return node1.coords, node2.coords
+
+        if member.direction == BeamDirection.TRANSVERSE:  # Transverse primary supporting members
+            node1 = Node(1, member.rel_dist * grillage.L_overall * 1000, 0, hw_end1)
+            node2 = Node(2, member.rel_dist * grillage.L_overall * 1000, grillage.B_overall * 1000, hw_end2)
+            return node1.coords, node2.coords
 
     def get_segment_node1(self):
         return self.get_segment_node(self._cross_member1)
@@ -1055,11 +1074,14 @@ class Plate:
         equal_offset = (path_len - ((stiff_num - 1) * stiff_spacing)) / 2
         return equal_offset
 
-    def get_stiff_coords(self, stiffener_n):
-        # Stiffener node coordinates
+    def get_stiff_coords(self, stiffener_n: int):
+        """
+        :param stiffener_n: n-th stiffener on the plating zone. Enter a integer value from 1 to number of stiffeners on the plating zone.
+        :return: Coordinates of the n-th stiffener on the plating zone in [mm], at the point of connection with plating.
+        """
         perpendicular_vector = np.array((0, 0, 0))
-        ref_node1 = Segment.get_segment_node1(self.get_reference_segment())     # Reference node 2
-        ref_node2 = Segment.get_segment_node2(self.get_reference_segment())     # Reference node 2
+        ref_node1 = Segment.get_segment_node1(self.get_reference_segment())     # Reference node 1 coordinates in [mm]
+        ref_node2 = Segment.get_segment_node2(self.get_reference_segment())     # Reference node 2 coordinates in [mm]
         ref_vector = ref_node2 - ref_node1                                      # Reference vector in the direction of the reference segment
         ref_vector_magnitude = np.linalg.norm(ref_vector)                       # Reference vector length
         unit_ref_vector = ref_vector / ref_vector_magnitude                     # Unit reference vector
@@ -1070,8 +1092,9 @@ class Plate:
         elif self.stiff_dir == BeamDirection.TRANSVERSE:
             perpendicular_vector = np.cross(unit_ref_vector, normal_vector)
 
-        spacing_vector = perpendicular_vector * self.get_stiffener_spacing()    # Vector with magnitude of stiffener spacing
-        stiff_offset = self.get_equal_stiffener_offset()                        # First and last stiffener offset, distance from the adjacent Primary Supporting Member
+        stiff_spacing = self.get_stiffener_spacing() * 1000                     # Stiffener spacing in [mm]
+        spacing_vector = perpendicular_vector * stiff_spacing                   # Vector with magnitude of stiffener spacing
+        stiff_offset = self.get_equal_stiffener_offset() * 1000                 # First and last stiffener offset in [mm]
         offset_vector = perpendicular_vector * stiff_offset                     # Vector with magnitude of stiffener offset
 
         if stiffener_n == 1:
@@ -1273,7 +1296,13 @@ class Grillage():
 
     @staticmethod
     def get_intersection(node1, node2, node3, node4):
-        # Returns the intersection point of two perpendicular girders, defined by two nodes each
+        """
+        :param node1: List of [x, y, z] coordinates of the first point defining the first girder.
+        :param node2: List of [x, y, z] coordinates of the second point defining the first girder.
+        :param node3: List of [x, y, z] coordinates of the first point defining the second girder.
+        :param node4: List of [x, y, z] coordinates of the second point defining the second girder.
+        :return: Coordinates of the intersection of the first and second girder, type numpy.ndarray.
+        """
         vector1 = node2 - node1                 # First girder defined by node1 and node2
         vector2 = node4 - node3                 # Second girder defined by node3 and node4
         magnitude1 = np.linalg.norm(vector1)    # Length of the first girder
@@ -1293,6 +1322,19 @@ class Grillage():
             z_inter = solve[0] * direction1[2] + node1[2]
             coords = np.array([x_inter, y_inter, z_inter])  # x, y, z coordinates of the intersection point
             return coords
+
+    @staticmethod
+    def get_midpoint(node1, node2):
+        """
+        :param node1: List of [x, y, z] coordinates for the first point.
+        :param node2: List of [x, y, z] coordinates for the second point.
+        :return: Coordinates of the midpoint between node1 and node2, type numpy.ndarray.
+        """
+        vector = np.subtract(node2, node1)
+        unit_vector = vector / np.linalg.norm(vector)
+        half_dist = np.linalg.norm(vector) / 2
+        midpoint = unit_vector * half_dist + node1
+        return midpoint
 
     def generate_prim_supp_members(self):
         # Generate primary supporting members

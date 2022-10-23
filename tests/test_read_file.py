@@ -15,7 +15,6 @@ from timeit import default_timer as timer
 start = timer()
 
 # Ucitavanje topologije iz datoteke
-# filename = "hc_var_2.txt"
 filename = '../grillage savefiles\\hc_var_1_savefile.gin'
 hc_variant = GrillageModelData(filename).read_file()
 
@@ -185,21 +184,19 @@ def BrojaUnesenihNosaca(grillage):
 def JakiNosaci(grillage):
     #   Jaki uzduzni nosaci - smjer, relativna koordinata, koordinate cvorova
     print(" Atributi jakih uzduznih nosaca:")
-    for i in grillage.longitudinal_members():
-        print("     ID:", grillage.longitudinal_members()[i].id,
-              grillage.longitudinal_members()[i].direction,
-              ", rel. koord. =", "{:.3f}".format(grillage.longitudinal_members()[i].rel_dist),
-              ", koord cvorova: node1:", grillage.longitudinal_members()[i].end_nodes[0],
-              ", node2:", grillage.longitudinal_members()[i].end_nodes[1])
+    for member in grillage.longitudinal_members().values():
+        print("     ID:", member.id, ",", member.direction,
+              ", rel. koord. =", "{:.3f}".format(member.rel_dist),
+              ", koord cvorova u [mm]: node1:", member.end_nodes[0],
+              ", node2:", member.end_nodes[1])
 
     #   Jaki poprecni nosaci - smjer, relativna koordinata, koordinate cvorova
     print("\n Atributi jakih poprecnih nosaca:")
-    for i in grillage.transverse_members():
-        print("     ID:", grillage.transverse_members()[i].id,
-              ", orijentacija:", grillage.transverse_members()[i].direction,
-              ", relativna koordinata =", "{:.3f}".format(grillage.transverse_members()[i].rel_dist),
-              ", koordinate cvorova: node1:", grillage.transverse_members()[i].end_nodes[0],
-              ", node2:", grillage.transverse_members()[i].end_nodes[1])
+    for member in grillage.transverse_members().values():
+        print("     ID:", member.id, ",", member.direction,
+              ", rel. koord. =", "{:.3f}".format(member.rel_dist),
+              ", koordinate cvorova u [mm]: node1:", member.end_nodes[0],
+              ", node2:", member.end_nodes[1])
 
 
 def CvoroviSegmenata(grillage):
@@ -322,16 +319,14 @@ def SimetricnaPoljaOplate(grillage):
 
 def KoordinateUkrepa(grillage):
     #   Koordinate svih ukrepa na svim poljima oplate
-    for i_oplate in grillage.plating().keys():
-        oplata = grillage.plating()[i_oplate]
-        print("\n", "Polje oplate: ", i_oplate)
-        for i_stiff in range(1, int(Plate.get_stiffener_number(oplata)) + 1):
-            cvor1 = str(Plate.get_stiff_coords(oplata, i_stiff)[0])
-            cvor2 = str(Plate.get_stiff_coords(oplata, i_stiff)[1])
-            string1 = "Ukrepa br." + str(i_stiff) + ", koordinate 1. cvora:" + cvor1
+    for oplata in grillage.plating().values():
+        print("\n", "Polje oplate: ", oplata.id)
+        for i_stiff in range(1, int(oplata.get_stiffener_number()) + 1):
+            cvor1 = str(oplata.get_stiff_coords(i_stiff)[0])
+            cvor2 = str(oplata.get_stiff_coords(i_stiff)[1])
+            string1 = "     Ukrepa br." + str(i_stiff) + ", koordinate 1. cvora:" + cvor1
             string2 = ",         koordinate 2. cvora:" + cvor2
             print(string1, string2)
-            # print(tabulate([[i_stiff, cvor1, cvor2]]))
 
 
 def SimetricniNosaci(grillage):
@@ -458,8 +453,8 @@ def ZapisCvorovaPolja(grillage):
             polje2[stupac, redak] = node_id
             node_id += 1
 
-    # print(polje1)
-    # print(polje2)
+    print(polje1)
+    print(polje2)
 
 
 def ZapisCvorovaOplate(grillage):
@@ -612,7 +607,7 @@ def Test_set_long_member_beam_property(grillage, prim_supp_member_id: int):
 
 def Test_Wmin_Iy_ukrepa(grillage):
     for plate in grillage.plating().values():
-        print("Polje oplate", plate.id, ", Karakteristike ukrepa na polju: Wmin =", "{:.2f}".format(plate.Wmin()),
+        print("Zona oplate", plate.id, ", Karakteristike ukrepa: Wmin =", "{:.2f}".format(plate.Wmin()),
               "cm3, Iy =", "{:.2f}".format(plate.Iy()), "cm4")
 
 
@@ -627,6 +622,27 @@ def Test_segments_between_psm(grillage, nosac1_id, nosac2_id, direction: BeamDir
     segment_list = grillage.segments_between_psm(nosac1, nosac2)
     print("Upisano segmenata:", len(segment_list))
     print(segment_list)
+
+
+def Test_midpoint():
+    # Koordinate središta između proizvoljno odabranih tocaka
+
+    # Točke:
+    # node1 = Node(1, 0, 6160, 1200)
+    # node2 = Node(2, 0, 12020, 1200)
+
+    node1 = Node(1, 0, 12020, 1200)
+    node2 = Node(2, 6430, 6160, 1200)
+
+    # Vracanje koordinata kroz metodu coords
+    n1 = node1.coords
+    n2 = node2.coords
+
+    midpoint = Grillage.get_midpoint(n1, n2)
+
+    print("Unesene točke:", n1, ",", n2)
+    print("Koordinate središta", midpoint)
+    print(type(midpoint))
 
 
 def PlotGrillageTopology(grillage):
@@ -666,8 +682,8 @@ def PlotGrillageTopology(grillage):
             y2 = nodes[1][1]
             plt.plot([x1, x2], [y1, y2], "--k", linewidth=1)  # "--k" daje crnu isprekidanu liniju
 
-    plt.ylim(-1, grillage.B_overall + 1)  # Granice plota po y
-    plt.xlim(-1, grillage.L_overall + 1)  # Granice plota po x
+    plt.ylim(-1000, grillage.B_overall * 1000 + 1000)  # Granice plota po y
+    plt.xlim(-1000, grillage.L_overall * 1000 + 1000)  # Granice plota po x
     plt.gca().set_aspect('equal')  # Fix za aspect ratio
     plt.show()
 
@@ -714,6 +730,7 @@ def PlotGrillageTopology(grillage):
 # Test_set_long_member_beam_property(hc_variant, 3)
 # Test_Wmin_Iy_ukrepa(hc_variant)
 # Test_segments_between_psm(hc_variant, 2, 3, BeamDirection.LONGITUDINAL)
+# Test_midpoint()
 # PlotGrillageTopology(hc_variant)
 
 end = timer()

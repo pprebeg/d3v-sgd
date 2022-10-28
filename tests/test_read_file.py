@@ -184,19 +184,23 @@ def BrojaUnesenihNosaca(grillage):
 def JakiNosaci(grillage):
     #   Jaki uzduzni nosaci - smjer, relativna koordinata, koordinate cvorova
     print(" Atributi jakih uzduznih nosaca:")
+
+    # nosac = grillage.longitudinal_members()[1]
+    # nosac.flange_direction = FlangeDirection.OUTWARD
+
     for member in grillage.longitudinal_members().values():
         print("     ID:", member.id, ",", member.direction,
               ", rel. koord. =", "{:.3f}".format(member.rel_dist),
-              ", koord cvorova u [mm]: node1:", member.end_nodes[0],
-              ", node2:", member.end_nodes[1])
+              ", koord u [mm]: node1:", member.end_nodes[0],
+              ", node2:", member.end_nodes[1], ", smjer prirubnice:", member.flange_direction)
 
     #   Jaki poprecni nosaci - smjer, relativna koordinata, koordinate cvorova
     print("\n Atributi jakih poprecnih nosaca:")
     for member in grillage.transverse_members().values():
         print("     ID:", member.id, ",", member.direction,
               ", rel. koord. =", "{:.3f}".format(member.rel_dist),
-              ", koordinate cvorova u [mm]: node1:", member.end_nodes[0],
-              ", node2:", member.end_nodes[1])
+              ", koordinate u [mm]: node1:", member.end_nodes[0],
+              ", node2:", member.end_nodes[1], ", smjer prirubnice:", member.flange_direction)
 
 
 def CvoroviSegmenata(grillage):

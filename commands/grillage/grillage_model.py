@@ -43,6 +43,11 @@ class BeamDirection(Enum):
     LONGITUDINAL = 1
 
 
+class FlangeDirection(Enum):   # L beam flange orientation
+    INWARD = 1
+    OUTWARD = 2
+
+
 class Ref(Enum):    # Reference edge
     EDGE1 = 1
     EDGE2 = 2
@@ -738,6 +743,7 @@ class PrimarySuppMem:
         self._id = idbeam
         self._segments = []                             # List of segments for each primary supporting member
         self._direction: BeamDirection = direction      # Direction of the primary supporting member
+        self._flange_direction: FlangeDirection = grillage.flange_direction
         self._rel_dist = float(rel_dist)                # Relative distance - position of the primary supporting member
         self._grillage = grillage
         self._symmetric_member = None
@@ -751,6 +757,37 @@ class PrimarySuppMem:
             current_segment = Segment(id_segment, beamprop, self, cross1, cross2)
             self._segments.append(current_segment)
             id_segment += 1
+
+    @property
+    def flange_direction(self):
+        """
+        :return: Flange direction unit vector, based on Primary supporting member direction and flange_direction variable
+            set for the entire grillage model as INWARD (towards the centerline), or OUTWARD (opposite of centerline).
+            Default value of flange_direction is set as INWARD to ensure edge L beams are oriented correctly.
+        """
+        flange_dir = self._flange_direction
+
+        if self.direction == BeamDirection.LONGITUDINAL:
+            if (self.rel_dist <= 0.5 and flange_dir == FlangeDirection.INWARD) \
+                    or (self.rel_dist > 0.5 and flange_dir == FlangeDirection.OUTWARD):
+                return np.array((0, 1, 0))
+
+            elif (self.rel_dist <= 0.5 and flange_dir == FlangeDirection.OUTWARD) \
+                    or (self.rel_dist > 0.5 and flange_dir == FlangeDirection.INWARD):
+                return np.array((0, -1, 0))
+
+        if self.direction == BeamDirection.TRANSVERSE:
+            if (self.rel_dist <= 0.5 and flange_dir == FlangeDirection.INWARD) \
+                    or (self.rel_dist > 0.5 and flange_dir == FlangeDirection.OUTWARD):
+                return np.array((1, 0, 0))
+
+            elif (self.rel_dist <= 0.5 and flange_dir == FlangeDirection.OUTWARD) \
+                    or (self.rel_dist > 0.5 and flange_dir == FlangeDirection.INWARD):
+                return np.array((-1, 0, 0))
+
+    @flange_direction.setter
+    def flange_direction(self, value):
+        self._flange_direction = value
 
     @property
     def symmetric_member(self):
@@ -1035,6 +1072,12 @@ class Plate:
         transverse_dim = Segment.segment_len(self._segments[1])
         return transverse_dim
 
+    def plate_dim_parallel_to_stiffeners(self):
+        if self.stiff_dir == BeamDirection.LONGITUDINAL:
+            return self.plate_longitudinal_dim()
+        elif self.stiff_dir == BeamDirection.TRANSVERSE:
+            return self.plate_transverse_dim()
+
     def get_reference_segment(self):
         # Reference segment for stiffener placement
         if self._stiff_dir == BeamDirection.LONGITUDINAL:
@@ -1204,6 +1247,7 @@ class Grillage():
         self._B_overall = B_overall                 # Overall width, m
         self._N_longitudinal = N_longitudinal       # Number of longitudinal primary supporting members
         self._N_transverse = N_transverse           # Number of transverse primary supporting members
+        self._flange_direction = FlangeDirection.INWARD   # Orientation of L primary supporting member flange; default = INWARD
 
         self._longitudinal_memb = {}
         self._transverse_memb = {}
@@ -1246,6 +1290,14 @@ class Grillage():
     def N_transverse(self, value):
         self._N_transverse = value
 
+    @property
+    def flange_direction(self):
+        return self._flange_direction
+
+    @flange_direction.setter
+    def flange_direction(self, value):
+        self._flange_direction = value
+
     def longitudinal_members(self):
         return self._longitudinal_memb
 
@@ -1287,12 +1339,6 @@ class Grillage():
 
     def add_corrosion_addition(self, value):
         self._corrosion_add[value.id] = value
-    """
-    # ALTERNATIVA?
-    def add_corrosion_addition(self, corr_add_id, tc):
-        corr_add = CorrosionAddition(corr_add_id, tc)
-        self._corrosion_add[corr_add_id] = corr_add
-    """
 
     @staticmethod
     def get_intersection(node1, node2, node3, node4):
@@ -1793,22 +1839,19 @@ class Grillage():
         symmetric_plate_list = plate.symmetric_plate_zones
 
         if plating_property == "plate_prop":
-            self.plating()[plate_id].plate_prop = property_object
-            for i in range(0, len(symmetric_plate_list)):
-                plate_id = symmetric_plate_list[i].id
-                self.plating()[plate_id].plate_prop = property_object
+            plate.plate_prop = property_object
+            for plate in symmetric_plate_list:
+                plate.plate_prop = property_object
 
         elif plating_property == "stiff_layout":
-            self.plating()[plate_id].stiff_layout = property_object
-            for i in range(0, len(symmetric_plate_list)):
-                plate_id = symmetric_plate_list[i].id
-                self.plating()[plate_id].stiff_layout = property_object
+            plate.stiff_layout = property_object
+            for plate in symmetric_plate_list:
+                plate.stiff_layout = property_object
 
         elif plating_property == "stiff_dir":
-            self.plating()[plate_id].stiff_dir = property_object
-            for i in range(0, len(symmetric_plate_list)):
-                plate_id = symmetric_plate_list[i].id
-                self.plating()[plate_id].stiff_dir = property_object
+            plate.stiff_dir = property_object
+            for plate in symmetric_plate_list:
+                plate.stiff_dir = property_object
 
         else:
             print("ERROR! Unknown plating property. Choose plate_prop, stiff_layout or stiff_dir")

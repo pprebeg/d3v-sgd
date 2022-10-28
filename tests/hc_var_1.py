@@ -31,9 +31,14 @@ hc_var_1.add_corrosion_addition(tc)
 initial_longitudinal_beam = TBeamProperty(1, 1089, 10, 230, 16, ST24)       # inicijalni longitudinal T beam prop
 initial_transverse_beam = TBeamProperty(2, 1089, 10, 545, 40, ST24)         # inicijalni transverse T beam prop
 initial_edge_beam = LBeamProperty(3, 1089, 10, 150, 16, ST24)               # inicijalni rubni L beam prop
-# initial_edge_beam = FBBeamProperty(3, 1089, 10, ST24)               # inicijalni rubni FB beam prop
 initial_stiffener = HatBeamProperty(4, 220, 6, 220, 80, AH36)               # inicijalna ukrepa
 center_girder = TBeamProperty(5, 1089, 10, 560, 40, AH32)
+
+# DRUGI SET - FB JAKI NOSAČI
+# initial_longitudinal_beam = FBBeamProperty(1, 1089, 10, ST24)
+# initial_transverse_beam = FBBeamProperty(2, 1089, 10, ST24)
+# initial_edge_beam = FBBeamProperty(3, 1089, 10, ST24)
+# center_girder = FBBeamProperty(5, 1089, 10, ST24)
 
 hc_var_1.add_beam_prop(initial_longitudinal_beam)       # PITANJE: Može li se ovo dodavanje preko add_property bolje izvesti?
 hc_var_1.add_beam_prop(initial_transverse_beam)
@@ -72,13 +77,14 @@ hc_var_1.assign_symmetric_segments()
 
 # Izmjena polozaja jakih nosaca
 Grillage.set_all_longitudinal_PSM(hc_var_1, 4.5, 4.59, 4.59)
+# Grillage.set_all_longitudinal_PSM(hc_var_1, 4.3955, 4.59, 4.59)    # TEST FIND CLOSEST DIVISOR LOGIC
 Grillage.set_all_transverse_PSM(hc_var_1, 4.325, 4.935, 4.935)
 
 # Izmjene plating property - postavljanje drugačijih svojstava svim poljima oplate između poprečnih nosača koji definiraju polja oplate 1 i 4
 Grillage.set_plating_prop_transversals(hc_var_1, 1, "stiff_layout", stifflayout2)
 Grillage.set_plating_prop_transversals(hc_var_1, 4, "stiff_layout", stifflayout2)
 
-# Grillage.set_plating_prop_symmetric(hc_var_1, 6, "stiff_dir", BeamOrientation.LONGITUDINAL)
+# Grillage.set_plating_prop_symmetric(hc_var_1, 1, "stiff_dir", BeamDirection.LONGITUDINAL)
 # hc_var_1.plating()[5].stiff_layout = stifflayout1   # Unos drugacijeg layouta da hc_check javi gresku
 
 # Izmjena svojstava nosaca

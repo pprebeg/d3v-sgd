@@ -13,7 +13,7 @@ start = timer()
 hc_var_1 = Grillage(18.54, 18.18, 5, 5)
 
 # Lista materijala
-ST24 = MaterialProperty(1, 210000, 0.3, 7850, 235, "ST24")  # PITANJE: Treba li ID biti dodjeljen automatski ili ga je ok ovako rucno zadavati?
+ST24 = MaterialProperty(1, 210000, 0.3, 7850, 235, "ST24")
 AH32 = MaterialProperty(2, 210000, 0.3, 7850, 315, "AH32")
 AH36 = MaterialProperty(3, 210000, 0.3, 7850, 355, "AH36")
 
@@ -24,8 +24,6 @@ hc_var_1.add_material(AH36)
 # Korozijski dodatak
 tc = CorrosionAddition(1, 2)
 hc_var_1.add_corrosion_addition(tc)
-
-# hc_var_1.add_corrosion_addition(1, 2)     # ALTERNATIVNO ZADAVANJE I SPREMANJE
 
 # Beam property
 initial_longitudinal_beam = TBeamProperty(1, 1089, 10, 230, 16, ST24)       # inicijalni longitudinal T beam prop
@@ -40,7 +38,7 @@ center_girder = TBeamProperty(5, 1089, 10, 560, 40, AH32)
 # initial_edge_beam = FBBeamProperty(3, 1089, 10, ST24)
 # center_girder = FBBeamProperty(5, 1089, 10, ST24)
 
-hc_var_1.add_beam_prop(initial_longitudinal_beam)       # PITANJE: Može li se ovo dodavanje preko add_property bolje izvesti?
+hc_var_1.add_beam_prop(initial_longitudinal_beam)
 hc_var_1.add_beam_prop(initial_transverse_beam)
 hc_var_1.add_beam_prop(initial_edge_beam)
 hc_var_1.add_beam_prop(initial_stiffener)
@@ -48,7 +46,7 @@ hc_var_1.add_beam_prop(center_girder)
 
 
 # Plate property
-plateprop1 = PlateProperty(1, 10, ST24)                                 # inicijalni plate property za cijeli poklopac
+plateprop1 = PlateProperty(1, 10, ST24)     # inicijalni plate property za cijeli poklopac
 plateprop2 = PlateProperty(2, 10, AH32)
 plateprop3 = PlateProperty(3, 9, ST24)
 plateprop4 = PlateProperty(4, 9, ST24)
@@ -63,10 +61,10 @@ stifflayout2 = StiffenerLayout(2, initial_stiffener, "spacing", 0.935)
 hc_var_1.add_stiffener_layout(stifflayout1)                                   # dodavanje stiffener layouta u dictionary
 hc_var_1.add_stiffener_layout(stifflayout2)
 
-stiff_dir = BeamDirection.TRANSVERSE                                        # inicijalna orijentacija ukrepa na svim zonama oplate
+stiff_dir = BeamDirection.TRANSVERSE                  # inicijalna orijentacija ukrepa na svim zonama oplate
 
 # Generacija topologije
-hc_var_1.generate_prim_supp_members()                                   # Generacija svih jakih nosaca
+hc_var_1.generate_prim_supp_members()                 # Generacija svih jakih nosaca
 hc_var_1.generate_segments(initial_longitudinal_beam, initial_transverse_beam, initial_edge_beam)  # Generacija svih segmenata
 hc_var_1.generate_plating(plateprop1, stifflayout1, stiff_dir)  # Generacija oplate
 
@@ -77,7 +75,6 @@ hc_var_1.assign_symmetric_segments()
 
 # Izmjena polozaja jakih nosaca
 Grillage.set_all_longitudinal_PSM(hc_var_1, 4.5, 4.59, 4.59)
-# Grillage.set_all_longitudinal_PSM(hc_var_1, 4.3955, 4.59, 4.59)    # TEST FIND CLOSEST DIVISOR LOGIC
 Grillage.set_all_transverse_PSM(hc_var_1, 4.325, 4.935, 4.935)
 
 # Izmjene plating property - postavljanje drugačijih svojstava svim poljima oplate između poprečnih nosača koji definiraju polja oplate 1 i 4

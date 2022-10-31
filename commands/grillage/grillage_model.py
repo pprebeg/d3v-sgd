@@ -37,7 +37,6 @@ import numpy as np
 import itertools
 from enum import Enum
 
-
 class BeamDirection(Enum):
     TRANSVERSE = 0
     LONGITUDINAL = 1
@@ -1705,7 +1704,7 @@ class Grillage():
                 sumcheck += args[i]
 
             if sumcheck != self.B_overall:
-                print("ERROR: The sum of entered spacing values of", sumcheck, "m does not match overall grillgeo width of", self.B_overall,
+                print("ERROR: The sum of entered spacing values of", sumcheck, "m does not match overall grillage width of", self.B_overall,
                       "m! Adjust spacing values to match or input one less spacing value.")
             else:
                 for psm_id in range(2, self.N_longitudinal):
@@ -1714,12 +1713,12 @@ class Grillage():
 
         elif n_inputs >= self.N_longitudinal:
             print("ERROR: Number of input spacing values for setting all longitudinal primary supporting member positions:", n_inputs,
-                  ", expected at most", self.N_longitudinal - 1, "spacing values for grillgeo with",
+                  ", expected at most", self.N_longitudinal - 1, "spacing values for grillage with",
                   self.N_longitudinal, "longitudinal primary supporting members.")
 
         else:
             print("ERROR: Number of input spacing values for setting all longitudinal primary supporting member positions:", n_inputs,
-                  ", expected at least", self.N_longitudinal - 2, "spacing values for grillgeo with",
+                  ", expected at least", self.N_longitudinal - 2, "spacing values for grillage with",
                   self.N_longitudinal, "longitudinal primary supporting members.")
 
     def set_all_transverse_PSM(self, *args):
@@ -1741,7 +1740,7 @@ class Grillage():
                 sumcheck += args[i]
 
             if sumcheck != self.L_overall:
-                print("ERROR: The sum of entered spacing values of", sumcheck, "m does not match overall grillgeo length of", self.L_overall,
+                print("ERROR: The sum of entered spacing values of", sumcheck, "m does not match overall grillage length of", self.L_overall,
                       "m! Adjust spacing values to match or input one less spacing value.")
             else:
                 for psm_id in range(2, self.N_transverse):
@@ -1750,12 +1749,12 @@ class Grillage():
 
         elif n_inputs >= self._N_transverse:
             print("ERROR: Number of input spacing values for setting all transverse primary supporting member positions:", n_inputs,
-                  ", expected at most", self.N_transverse - 1, "spacing values for grillgeo with",
+                  ", expected at most", self.N_transverse - 1, "spacing values for grillage with",
                   self.N_transverse, "transverse primary supporting members.")
 
         else:
             print("ERROR: Number of input spacing values for setting all transverse primary supporting member positions:", n_inputs,
-                  ", expected at least", self.N_transverse - 2, "spacing values for grillgeo with",
+                  ", expected at least", self.N_transverse - 2, "spacing values for grillage with",
                   self.N_transverse, "transverse primary supporting members.")
 
     def set_plating_prop_longitudinals(self, plate_id, plating_property, property_object):
@@ -1928,48 +1927,6 @@ class Grillage():
 
         for segment in prim_supp_mem.segments:
             segment.beam_prop = beam_property
-
-    def hc_variant_check(self):
-        hc_check = True
-
-        # 1.)   Plating zones between two common Primary Supporting Members may not have the same stiffener orientation
-        #       and different stiffener spacing
-        # Between longitudinal primary supporting members:
-        for psm_id in range(1, self._N_longitudinal):
-            psm_1 = self._longitudinal_memb[psm_id]
-            psm_2 = self._longitudinal_memb[psm_id + 1]
-            plate_list = self.plating_zones_between_psm(psm_1, psm_2)
-            plate_combinations = itertools.combinations(plate_list, 2)
-            # Plate combinations compares each plating zone stored inside plate_list with others, without duplicate checks
-            for plate in list(plate_combinations):
-                plate1 = plate[0]   # First plating zone of plate combinations
-                plate2 = plate[1]   # Second plating zone of plate combinations
-                spacing1 = Plate.get_stiffener_spacing(plate1)
-                spacing2 = Plate.get_stiffener_spacing(plate2)
-                if plate1.stiff_dir == BeamDirection.LONGITUDINAL and plate2.stiff_dir == BeamDirection.LONGITUDINAL and spacing1 != spacing2:
-                    print("Stiffener spacing of longitudinal stiffeners on plating zones between adjacent longitudinal primary supporting members",
-                          psm_1.id, "and", psm_2.id, "do not match! \n", "     Plating zone", plate1.id, "has stiffener spacing of",
-                          spacing1, "m", ", while plating zone", plate2.id, "has spacing of", spacing2, "m")
-                    hc_check = False
-
-        # Between transverse primary supporting members:
-        for psm_id in range(1, self._N_transverse):
-            psm_1 = self._transverse_memb[psm_id]
-            psm_2 = self._transverse_memb[psm_id + 1]
-            plate_list = self.plating_zones_between_psm(psm_1, psm_2)
-            plate_combinations = itertools.combinations(plate_list, 2)
-            # Plate combinations compares each plating zone stored inside plate_list with others, without duplicate checks
-            for plate in list(plate_combinations):
-                plate1 = plate[0]   # First plating zone of plate combinations
-                plate2 = plate[1]   # Second plating zone of plate combinations
-                spacing1 = Plate.get_stiffener_spacing(plate1)
-                spacing2 = Plate.get_stiffener_spacing(plate2)
-                if plate1.stiff_dir == BeamDirection.TRANSVERSE and plate2.stiff_dir == BeamDirection.TRANSVERSE and spacing1 != spacing2:
-                    print("Stiffener spacing of transverse stiffeners on plating zones between adjacent transverse primary supporting members",
-                          psm_1.id, "and", psm_2.id, "do not match! \n", "     Plating zone", plate1.id, "has stiffener spacing of",
-                          spacing1, "m", ", while plating zone", plate2.id, "has spacing of", spacing2, "m")
-                    hc_check = False
-        return hc_check
 
 
 class GrillageModelData:

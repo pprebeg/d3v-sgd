@@ -18,6 +18,7 @@ mesh1 = MeshV1(hc_variant, AOS.LONGITUDINAL)    # Unos geometrije i odabir globa
 # Kontrola mreže
 mesh1.min_num_ebs = 1                   # Postavljanje minimalnog broja elemenata između ukrepa
 mesh1.min_num_eweb = 3                  # Postavljanje minimalnog broja elemenata duž visine struka
+mesh1.num_eaf = 1                       # Postavljanje broja elemenata u smjeru širine prirubnice
 mesh1.flange_aspect_ratio = 7           # Postavljanje aspektnog odnosa elemenata prirubnica jakih nosača i oplate uz struk jakih nosača
 mesh1.plate_aspect_ratio = 4            # Postavljanje aspektnog odnosa elemenata oplate i strukova jakih nosača
 mesh1.des_plate_aspect_ratio = 3        # Postavljanje poželjnog aspektnog odnosa elemenata oplate
@@ -243,13 +244,17 @@ def Test_SegmentMesh(psm_id, segment_id):
     # segmentmesh1 = SegmentMesh(segment, 1, 1)
 
 
-def Test_longitudinal_psm_extent():
+def Test_psm_extent():
     longs = mesh1.longitudinal_psm_extent()
     trans = mesh1.transverse_psm_extent()
     print("Prema unesenoj osi simetrije", mesh1.axis_of_symm, ", od ukupno",
           len(hc_variant.longitudinal_members()), "jakih uzdužnih nosača na modelu, radi se mreža za njih", len(longs))
     print("Prema unesenoj osi simetrije", mesh1.axis_of_symm, ", od ukupno",
           len(hc_variant.transverse_members()), "jakih poprečnih nosača na modelu, radi se mreža za njih", len(trans))
+
+
+def Test_segment_extent():
+    mesh1.grillage_segment_extent()
 
 
 def Test_grillage_plate_extent():
@@ -322,6 +327,82 @@ def Test_calculate_mesh_dimensions():
         print("  Zona oplate", i, ":", y_dimenzije[i])
 
 
+def Test_Segment_element_generation(direction: BeamDirection, psm_id, segment_id):
+    segment = None
+    if direction == BeamDirection.LONGITUDINAL:
+        segment = hc_variant.longitudinal_members()[psm_id].segments[segment_id - 1]
+    elif direction == BeamDirection.TRANSVERSE:
+        segment = hc_variant.transverse_members()[psm_id].segments[segment_id - 1]
+
+    start_node_id = 1
+    start_element_id = 1
+    seg_mesh = SegmentV1(mesh1, segment, start_node_id, start_element_id)
+    print(seg_mesh.generate_mesh())
+
+
+def Test_aos_stiffener(plate_id):
+    plate = hc_variant.plating()[plate_id]
+    test_btw = mesh1.aos_between_stiffeners(plate)
+    test_on = mesh1.aos_on_stiffener(plate)
+    print("Test osi simetrije između ukrepa:", test_btw, ", test osi simetrije na ukrepi:", test_on)
+
+
+def Test_aos_on_segment(direction: BeamDirection, psm_id, segment_id):
+    segment = None
+    if direction == BeamDirection.LONGITUDINAL:
+        segment = hc_variant.longitudinal_members()[psm_id].segments[segment_id - 1]
+    elif direction == BeamDirection.TRANSVERSE:
+        segment = hc_variant.transverse_members()[psm_id].segments[segment_id - 1]
+    test = mesh1.aos_on_segment(segment)
+    print("Test prolazi li os simetrije uz segment:", test)
+
+
+def Test_get_segment_web_element_property(direction: BeamDirection, psm_id, segment_id):
+    segment = None
+    if direction == BeamDirection.LONGITUDINAL:
+        segment = hc_variant.longitudinal_members()[psm_id].segments[segment_id - 1]
+        print("Svojstva segmenta ID", segment_id, "jakog uzdužnog nosača", psm_id, ":")
+
+    elif direction == BeamDirection.TRANSVERSE:
+        segment = hc_variant.transverse_members()[psm_id].segments[segment_id - 1]
+        print("Svojstva segmenta ID", segment_id, "jakog poprečnog nosača", psm_id, ":")
+
+    seg_mesh = SegmentV1(mesh1, segment, 1, 1)
+    seg_mesh.get_web_element_property()
+
+
+def Test_Model_check():
+    check1 = ModelCheck(hc_variant)
+    hc_variant.assign_symmetric_members()
+
+    long_psm_symm = check1.longitudinal_psm_symmetry()
+    tran_psm_symm = check1.transverse_psm_symmetry()
+    central_long = check1.central_longitudinal()
+    central_tran = check1.central_transversal()
+    long_plate = check1.longitudinal_plate_symmetry()
+    tran_plate = check1.transverse_plate_symmetry()
+    long_symm = check1.longitudinal_symmetry_tests()
+    tran_symm = check1.transverse_symmetry_tests()
+    long_segment = check1.longitudinal_segment_symmetry()
+    tran_segment = check1.transverse_segment_symmetry()
+    aos = check1.assign_symmetry()
+
+    print("Uzdužna simetrija položaja nosača:", long_psm_symm, ", poprečna simetrija položaja nosača:", tran_psm_symm)
+    print("Centralni uzdužni nosači:",  central_long, ", centralni poprečni nosači", central_tran)
+    print("Uzdužna simetrija zona oplate:", long_plate, ", poprečna simetrija zona oplate:", tran_plate)
+    print("Uzdužna simetrija segmenata:", long_segment, ", poprečna simetrija segmenata:", tran_segment)
+
+    print("Konačna uzdužna simetrija:", long_symm, ", konačna poprečna simetrija:", tran_symm)
+    print("Konačno odabrana simetrija Axis of Symmetry =", aos)
+
+
+def Test_mesh_feasibility():
+    check1 = ModelCheck(hc_variant)
+    hc_variant.assign_symmetric_members()
+    hc_var_check = check1.mesh_feasibility()
+    print(hc_var_check)
+
+
 # Test_get_reduced_plate_dim(16)
 # Test_find_closest_divisor(4133, 935)
 # Test_find_closest_divisor(4238, 935)
@@ -352,15 +433,23 @@ def Test_calculate_mesh_dimensions():
 # Test_get_tr_dim_y(4)
 
 # Test_SegmentMesh(2, 1)
-# Test_longitudinal_psm_extent()
+# Test_psm_extent()
+# Test_segment_extent()
 # Test_grillage_plate_extent()
-# mesh1.identify_long_full_segments()
 # Test_plating_zones_ref_array()
 # Test_get_plate_dim(2)
 # Test_calc_element_base_size()
 # Test_calculate_mesh_dimensions()
-# Test_PlatingZoneMesh(1, AOS.NONE)     # Izrada mreže jedne zone oplate
-# PlateMesh(mesh1).generate_mesh()      # Izrada mreže cijele oplate
+# Test_PlatingZoneMesh(1, AOS.NONE)                                         # Izrada mreže jedne zone oplate
+# PlateMesh(mesh1).generate_mesh()                                          # Izrada mreže cijele oplate
+# Test_Segment_element_generation(BeamDirection.LONGITUDINAL, 2, 1)
+# Test_aos_stiffener(4)
+# Test_aos_on_segment(BeamDirection.TRANSVERSE, 3, 1)
+# Test_get_segment_web_element_property(BeamDirection.LONGITUDINAL, 3, 4)
+# Test_Model_check()
+# print(ModelCheck(hc_variant).assign_symmetry())   # Konačno odabrana os simetrije s kojom se ide u izradu mreže
+# Test_mesh_feasibility()
+
 
 end = timer()
 

@@ -15,7 +15,7 @@ from timeit import default_timer as timer
 start = timer()
 
 # Ucitavanje topologije iz datoteke
-filename = '../grillage savefiles/hc_var_4_savefile.gin'
+filename = '../grillage savefiles/hc_var_1_savefile.gin'
 hc_variant = GrillageModelData(filename).read_file()
 
 # Ponovno spremanje ucitane topologije pod novim imenom "read_test.txt"

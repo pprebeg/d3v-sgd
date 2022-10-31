@@ -82,7 +82,9 @@ Grillage.set_plating_prop_transversals(hc_var_1, 1, "stiff_layout", stifflayout2
 Grillage.set_plating_prop_transversals(hc_var_1, 4, "stiff_layout", stifflayout2)
 
 # Grillage.set_plating_prop_symmetric(hc_var_1, 1, "stiff_dir", BeamDirection.LONGITUDINAL)
-# hc_var_1.plating()[5].stiff_layout = stifflayout1   # Unos drugacijeg layouta da hc_check javi gresku
+# hc_var_1.plating()[5].stiff_layout = stifflayout1                             # Unos drugacijeg layouta da hc_check javi gresku
+# hc_var_1.plating()[1].stiff_dir = BeamDirection.LONGITUDINAL                  # izmjena da zone oplate ne budu simetricne
+# hc_var_1.longitudinal_members()[1].segments[1].beam_prop = center_girder      # izmjena da segmenti ne budu simetricni
 
 # Izmjena svojstava nosaca
 Grillage.set_tran_member_beam_property(hc_var_1, 3, center_girder)

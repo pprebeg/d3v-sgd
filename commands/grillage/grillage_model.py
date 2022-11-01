@@ -20,7 +20,7 @@ Minimum input data for grillgeo definition with initial uniform spacing of all e
 
 Measurement units:
     * Grillage main dimensions: [m]
-    * Primary supporting members relative distance values: [m]
+    * Primary supporting members spacing values: [m]
     * All beam property, plate thickness, corrosion addition input dimensions: [mm]
     * Material density: [kg/m3]
     * Modulus of elasticity, yield strength: [N/mm2]
@@ -34,8 +34,8 @@ Global coordinate system (csy):
 """
 
 import numpy as np
-import itertools
 from enum import Enum
+
 
 class BeamDirection(Enum):
     TRANSVERSE = 0
@@ -57,6 +57,11 @@ class AOS(Enum):    # Axis Of Symmetry
     LONGITUDINAL = 1
     BOTH = 2
     NONE = 3
+
+
+class DefinitionType(Enum):     # Stiffener definition type
+    NUMBER = 1
+    SPACING = 2
 
 
 class Node:
@@ -993,7 +998,7 @@ class Segment:
 
 
 class StiffenerLayout:
-    def __init__(self, id_layout, beam_prop, definition_type, definition_value):
+    def __init__(self, id_layout, beam_prop, definition_type: DefinitionType, definition_value):
         self._id = id_layout
         self._beam_prop = beam_prop                 # Stiffener beam property
         self._definition_type = definition_type     # Type of stiffener definition: spacing or number of stiffeners between primary supporting members
@@ -1098,15 +1103,15 @@ class Plate:
             return self.plate_longitudinal_dim()
 
     def get_stiffener_spacing(self):  # Returns stiffener spacing on any plating zone regardless of definition type
-        if self.stiff_layout.definition_type == "number":
+        if self.stiff_layout.definition_type == DefinitionType.NUMBER:
             return self.get_path_length() / (self.stiff_layout.definition_value + 1)
-        elif self.stiff_layout.definition_type == "spacing":
+        elif self.stiff_layout.definition_type == DefinitionType.SPACING:
             return self.stiff_layout.definition_value
 
     def get_stiffener_number(self):  # Returns number of stiffeners on any plating zone regardless of definition type
-        if self.stiff_layout.definition_type == "number":
+        if self.stiff_layout.definition_type == DefinitionType.NUMBER:
             return self.stiff_layout.definition_value
-        elif self.stiff_layout.definition_type == "spacing":
+        elif self.stiff_layout.definition_type == DefinitionType.SPACING:
             return np.ceil((np.round(self.get_path_length(), decimals=6) / self.stiff_layout.definition_value) - 1)
 
     def get_equal_stiffener_offset(self):
@@ -2045,7 +2050,7 @@ class GrillageModelData:
                 stiff_layout = grillage.stiffener_layouts()[i]
                 line = str(stiff_layout.id)
                 line += ',' + str(stiff_layout.beam_prop.id)
-                line += ',' + str(stiff_layout.definition_type)
+                line += ',' + str(stiff_layout.definition_type).split(".")[1]
                 line += ',' + str(stiff_layout.definition_value) + "\n"
                 f.write(line)
 
@@ -2193,7 +2198,7 @@ class GrillageModelData:
                 line = lines[i]
                 split = line.split(",")
                 beam_prop = Grillage.beam_props(grillage_variant)[int(split[1])]
-                stiff_layout = StiffenerLayout(int(split[0]), beam_prop, split[2], float(split[3]))
+                stiff_layout = StiffenerLayout(int(split[0]), beam_prop, DefinitionType[split[2].strip()], float(split[3]))
                 Grillage.add_stiffener_layout(grillage_variant, stiff_layout)
 
             # Generate longitudinal Primary supporting members

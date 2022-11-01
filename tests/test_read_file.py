@@ -735,7 +735,7 @@ def PlotGrillageTopology(grillage):
 # Test_Wmin_Iy_ukrepa(hc_variant)
 # Test_segments_between_psm(hc_variant, 2, 3, BeamDirection.LONGITUDINAL)
 # Test_midpoint()
-PlotGrillageTopology(hc_variant)
+# PlotGrillageTopology(hc_variant)
 
 end = timer()
 

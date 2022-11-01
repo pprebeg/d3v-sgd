@@ -12,14 +12,12 @@ Master's thesis project
 MODULE FOR GRILLAGE FINITE ELEMENT MESH DEFINITION
 
 """
+import itertools
 from grillage.grillage_model import *
 np.set_printoptions(linewidth=400)
 
 # import femdir.geofementity as gfe
 # import femdir.geofem as gfem
-
-# from femdir.geofem import *
-# from femdir.geofementity import *
 
 
 class ModelCheck:
@@ -310,83 +308,18 @@ class ModelCheck:
         return hc_check
 
 
-class UniquePlateProperty:
-    def __init__(self, id_, tp, mat):
-        self._id_ = id_
-        self._tp = tp
-        self._mat = mat
-        self._plate_prop = []       # List of PlateProperty objects used in the grillage model with the same properties
-        self._beam_prop = []        # List of BeamProperty objects used in the grillage model with the same properties
-
-    @property
-    def id(self):
-        return self._id_
-
-    @property
-    def tp(self):
-        return self._tp
-
-    @tp.setter
-    def tp(self, value):
-        self._tp = value
-
-    @property
-    def mat(self):
-        return self._mat
-
-    @mat.setter
-    def mat(self, value):
-        self._mat = value
-
-    @property
-    def plate_prop(self):
-        return self._plate_prop
-
-    @plate_prop.setter
-    def plate_prop(self, value):
-        self._plate_prop = value
-
-    @property
-    def beam_prop(self):
-        return self._beam_prop
-
-    @beam_prop.setter
-    def beam_prop(self, value):
-        self._beam_prop = value
-
-
-# class MeshSize(GeoFEM):
-class MeshSize:
-    def __init__(self, grillage: Grillage, axis_of_symm=AOS.NONE):
+class MeshExtent:
+    def __init__(self, grillage: Grillage,  axis_of_symm_override: AOS = None):
         """
-        Class for calculating mesh dimensions on the selected grillage model.
-
-        Final result of the following methods are distances between edge nodes of all structural elements,
-        along both x and y axis, which will be used for all node and element generation.
+        Class for calculating FE mesh extents for the selected grillage model and Axis of Symmetry.
+        Contains dictionaries of all plating zones and segments to be fully or partially meshed.
 
         :param grillage: Input grillage model.
-        :param axis_of_symm: Optional argument: global Axis of Symmetry of the grillage model.
+        :param axis_of_symm_override: Optional argument: overrides automatic Axis of Symmetry discovery.
         """
-        # super().__init__()
         self._grillage = grillage
-        self._axis_of_symm = axis_of_symm
-
-        self._model_check = ModelCheck(self._grillage)
-        self._aos_input = self._model_check.assign_symmetry()
-        self._feasibility_test = self._model_check.mesh_feasibility()
-        # Nekako omogućiti poništavanje automatski određene osi simetrije s ModelCheck preko izbornog parametra axis_of_symm
-        # nekakav override sa unosom željene osi simetrije?
-
-        self._min_num_ebs = 1               # Minimum number of elements between stiffeners; default = 1
-        self._min_num_eweb = 3              # Minimum number of elements representing the web of a psm along its height; default = 3
-        self._num_eaf = 1                   # Number of elements across primary supporting member flange; default = 1
-        self._flange_aspect_ratio = 8       # Maximum aspect ratio value for primary supporting member flange quad elements; default = 8
-        self._plate_aspect_ratio = 3        # Maximum aspect ratio value for plating and primary supporting member web quad elements; default = 3
-        self._des_plate_aspect_ratio = 2    # Desirable plating aspect ratio value less than the maximum; default = 2
-        self._unique_properties = {}        # Dictionary of unique plate thickness and material combinations used in the grillage model
-
-        # ******** Razmisliti o novoj klasi za izračun ovih granica - da nije sve unutar MeshSize ***********
-        # ********** možda MeshLimits koju će onda instancirati MeshSize?
+        self._axis_of_symm_override = axis_of_symm_override
+        self._aos_input = ModelCheck(self._grillage).assign_symmetry()
 
         self.plating_zones_ref_array = []   # 2D array of plating zone IDs to be meshed, arranged to represent their relative placement
         self.plating_zones = {}             # All plating zones included in mesh generation
@@ -398,78 +331,27 @@ class MeshSize:
         self.full_segments = {}             # Segments to be fully meshed
         self.half_segments = {}             # Segments split in half by some axis of symmetry
 
-        self._plate_edge_node_x = {}        # Distance between all nodes along x axis, in order, for all meshed plating zones
-        self._plate_edge_node_y = {}        # Distance between all nodes along y axis, in order, for all meshed plating zones
-
     @property
     def grillage(self):
         return self._grillage
 
+    def feasibility_test(self):
+        return ModelCheck(self._grillage).mesh_feasibility()
+
+    @property
+    def axis_of_symm_override(self):
+        return self._axis_of_symm_override
+
+    @property
+    def aos_input(self):
+        return self._aos_input
+
     @property
     def axis_of_symm(self):
-        return self._axis_of_symm
-
-    @axis_of_symm.setter
-    def axis_of_symm(self, value):
-        self._axis_of_symm = value
-
-    @property
-    def min_num_ebs(self):
-        return self._min_num_ebs
-
-    @min_num_ebs.setter
-    def min_num_ebs(self, value):
-        self._min_num_ebs = value
-
-    @property
-    def min_num_eweb(self):
-        return self._min_num_eweb
-
-    @min_num_eweb.setter
-    def min_num_eweb(self, value):
-        self._min_num_eweb = value
-
-    @property
-    def num_eaf(self):
-        return self._num_eaf
-
-    @num_eaf.setter
-    def num_eaf(self, value):
-        self._num_eaf = value
-
-    @property
-    def flange_aspect_ratio(self):
-        return self._flange_aspect_ratio
-
-    @flange_aspect_ratio.setter
-    def flange_aspect_ratio(self, value):
-        self._flange_aspect_ratio = value
-
-    @property
-    def plate_aspect_ratio(self):
-        return self._plate_aspect_ratio
-
-    @plate_aspect_ratio.setter
-    def plate_aspect_ratio(self, value):
-        self._plate_aspect_ratio = value
-
-    @property
-    def des_plate_aspect_ratio(self):
-        return self._des_plate_aspect_ratio
-
-    @property
-    def plate_edge_node_x(self):
-        return self._plate_edge_node_x
-
-    @property
-    def plate_edge_node_y(self):
-        return self._plate_edge_node_y
-
-    @des_plate_aspect_ratio.setter
-    def des_plate_aspect_ratio(self, value):
-        self._des_plate_aspect_ratio = value
-        if value > self.plate_aspect_ratio:
-            raise Exception("Desired plate element aspect ratio can not be greater than the maximum plate aspect ratio!")
+        if self._axis_of_symm_override:
+            return self._axis_of_symm_override
+        else:
+            return self._aos_input
 
     def hc_plate_zone_reference_ID_array(self):
         """
@@ -527,7 +409,7 @@ class MeshSize:
                 n += 1
 
         n_tran_segments = int(np.floor((n_long - 1) / 2))   # Number of transverse segmenets to be fully meshed
-        for member in self.grillage.transverse_members().values():
+        for member in self._grillage.transverse_members().values():
             for segment_id in range(0, n_tran_segments):
                 self.full_segments[n] = member.segments[segment_id]
                 n += 1
@@ -639,42 +521,6 @@ class MeshSize:
             for member in self.transverse_psm_extent().values():
                 self.half_segments[n] = member.segments[tran_segment_ID - 1]
                 n += 1
-
-    def grillage_segment_extent(self):
-        """
-        :return: Determines limits of segment mesh generation based on input Axis of Symmetry value.
-                Calls specific methods for identifying which segments will be fully or partially meshed.
-                If grillage has no axis of symmetry, all segments on the grillage model will be meshed.
-        """
-        if self.axis_of_symm == AOS.LONGITUDINAL:
-            self.identify_long_full_segments()
-            self.identify_long_half_segments()
-
-        elif self.axis_of_symm == AOS.TRANSVERSE:
-            self.identify_tran_full_segments()
-            self.identify_tran_half_segments()
-
-        elif self.axis_of_symm == AOS.BOTH:
-            self.identify_both_full_segments()
-            self.identify_both_half_segments()
-
-        else:
-            self.identify_none_full_segments()
-        """
-        # Provjera punih:
-        print("Izrada pune mreže na segmentima jakih nosača:")
-        for segment in self.full_segments.values():
-            psm_id = segment.primary_supp_mem.id
-            direction = segment.primary_supp_mem.direction
-            print("Direction:", direction, ", PSM ID:", psm_id, ", segment ID:", segment.id)
-
-        # Provjera polovicnih:
-        print("Izrada polovične mreže na segmentima jakih nosača:")
-        for segment in self.half_segments.values():
-            psm_id = segment.primary_supp_mem.id
-            direction = segment.primary_supp_mem.direction
-            print("Direction:", direction, ", PSM ID:", psm_id, ", segment ID:", segment.id)
-        """
 
     def identify_long_full_plate_zones(self):
         """
@@ -852,6 +698,53 @@ class MeshSize:
             self.plating_zones = self._grillage.plating()
             self.plating_zones_ref_array = self.hc_plate_zone_reference_ID_array()
 
+    def grillage_segment_extent(self):
+        """
+        :return: Determines limits of segment mesh generation based on input Axis of Symmetry value.
+                Calls specific methods for identifying which segments will be fully or partially meshed.
+                If grillage has no axis of symmetry, all segments on the grillage model will be meshed.
+        """
+        if self.axis_of_symm == AOS.LONGITUDINAL:
+            self.identify_long_full_segments()
+            self.identify_long_half_segments()
+
+        elif self.axis_of_symm == AOS.TRANSVERSE:
+            self.identify_tran_full_segments()
+            self.identify_tran_half_segments()
+
+        elif self.axis_of_symm == AOS.BOTH:
+            self.identify_both_full_segments()
+            self.identify_both_half_segments()
+
+        else:
+            self.identify_none_full_segments()
+        """
+        # Provjera punih:
+        print("Izrada pune mreže na segmentima jakih nosača:")
+        for segment in self.full_segments.values():
+            psm_id = segment.primary_supp_mem.id
+            direction = segment.primary_supp_mem.direction
+            print("Direction:", direction, ", PSM ID:", psm_id, ", segment ID:", segment.id)
+
+        # Provjera polovicnih:
+        print("Izrada polovične mreže na segmentima jakih nosača:")
+        for segment in self.half_segments.values():
+            psm_id = segment.primary_supp_mem.id
+            direction = segment.primary_supp_mem.direction
+            print("Direction:", direction, ", PSM ID:", psm_id, ", segment ID:", segment.id)
+        """
+
+    def grillage_mesh_extent(self):
+        """
+        :return: Determines limits of grillage mesh generation for plating zones and segments based on Axis of Symmetry value.
+                Method stops mesh generation if the model does not pass the feasibility test.
+        """
+        if self.feasibility_test() is True:
+            self.grillage_plate_extent()
+            self.grillage_segment_extent()
+        else:
+            raise Exception("ERROR: Grillage model does not pass mesh feasibility test!")
+
     def get_plate_dim(self, plate: Plate, plate_dim):
         # OVU METODU ELIMINIRATI, KORISTITI JEDNU OD DRUGIH
         """
@@ -938,6 +831,159 @@ class MeshSize:
             return True
         else:
             return False
+
+
+class UniquePlateProperty:
+    def __init__(self, id_, tp, mat):
+        self._id_ = id_
+        self._tp = tp
+        self._mat = mat
+        self._plate_prop = []       # List of PlateProperty objects used in the grillage model with the same properties
+        self._beam_prop = []        # List of BeamProperty objects used in the grillage model with the same properties
+
+    @property
+    def id(self):
+        return self._id_
+
+    @property
+    def tp(self):
+        return self._tp
+
+    @tp.setter
+    def tp(self, value):
+        self._tp = value
+
+    @property
+    def mat(self):
+        return self._mat
+
+    @mat.setter
+    def mat(self, value):
+        self._mat = value
+
+    @property
+    def plate_prop(self):
+        return self._plate_prop
+
+    @plate_prop.setter
+    def plate_prop(self, value):
+        self._plate_prop = value
+
+    @property
+    def beam_prop(self):
+        return self._beam_prop
+
+    @beam_prop.setter
+    def beam_prop(self, value):
+        self._beam_prop = value
+
+
+# class MeshSize(GeoFEM):
+class MeshSize:
+    def __init__(self, mesh_extent: MeshExtent):
+        """
+        Class for calculating mesh dimensions on the selected grillage model.
+
+        Final result of the following methods are distances between edge nodes of all structural elements,
+        along both x and y axis, which will be used for all node and element generation.
+
+        :param mesh_extent: FE mesh extents for the selected grillage model and Axis of Symmetry.
+        """
+        # super().__init__()
+        self._mesh_extent = mesh_extent
+
+        self._grillage = self._mesh_extent.grillage
+        self._axis_of_symm = self._mesh_extent.axis_of_symm
+
+        self._min_num_ebs = 1               # Minimum number of elements between stiffeners; default = 1
+        self._min_num_eweb = 3              # Minimum number of elements representing the web of a psm along its height; default = 3
+        self._num_eaf = 1                   # Number of elements across primary supporting member flange; default = 1
+        self._flange_aspect_ratio = 8       # Maximum aspect ratio value for primary supporting member flange quad elements; default = 8
+        self._plate_aspect_ratio = 3        # Maximum aspect ratio value for plating and primary supporting member web quad elements; default = 3
+        self._des_plate_aspect_ratio = 2    # Desirable plating aspect ratio value less than the maximum; default = 2
+        self._unique_properties = {}        # Dictionary of unique plate thickness and material combinations used in the grillage model
+
+        self._plate_edge_node_x = {}        # Distance between plating nodes along x axis, in order, for all meshed plating zones
+        self._plate_edge_node_y = {}        # Distance between plating nodes along y axis, in order, for all meshed plating zones
+        self._flange_edge_node = {}         # Distance between flange nodes, in order, for all meshed segments
+
+    @property
+    def mesh_extent(self):
+        return self._mesh_extent
+
+    @property
+    def min_num_ebs(self):
+        return self._min_num_ebs
+
+    @min_num_ebs.setter
+    def min_num_ebs(self, value):
+        self._min_num_ebs = value
+
+    @property
+    def min_num_eweb(self):
+        return self._min_num_eweb
+
+    @min_num_eweb.setter
+    def min_num_eweb(self, value):
+        self._min_num_eweb = value
+
+    @property
+    def num_eaf(self):
+        return self._num_eaf
+
+    @num_eaf.setter
+    def num_eaf(self, value):
+        self._num_eaf = value
+
+    @property
+    def flange_aspect_ratio(self):
+        return self._flange_aspect_ratio
+
+    @flange_aspect_ratio.setter
+    def flange_aspect_ratio(self, value):
+        self._flange_aspect_ratio = value
+
+    @property
+    def plate_aspect_ratio(self):
+        return self._plate_aspect_ratio
+
+    @plate_aspect_ratio.setter
+    def plate_aspect_ratio(self, value):
+        self._plate_aspect_ratio = value
+
+    @property
+    def des_plate_aspect_ratio(self):
+        return self._des_plate_aspect_ratio
+
+    @property
+    def plate_edge_node_x(self):
+        return self._plate_edge_node_x
+
+    @plate_edge_node_x.setter
+    def plate_edge_node_x(self, value):
+        self._plate_edge_node_x = value
+
+    @property
+    def plate_edge_node_y(self):
+        return self._plate_edge_node_y
+
+    @plate_edge_node_y.setter
+    def plate_edge_node_y(self, value):
+        self._plate_edge_node_y = value
+
+    @property
+    def flange_edge_node(self):
+        return self._flange_edge_node
+
+    @flange_edge_node.setter
+    def flange_edge_node(self, value):
+        self._flange_edge_node = value
+
+    @des_plate_aspect_ratio.setter
+    def des_plate_aspect_ratio(self, value):
+        self._des_plate_aspect_ratio = value
+        if value > self.plate_aspect_ratio:
+            raise Exception("Desired plate element aspect ratio can not be greater than the maximum plate aspect ratio!")
 
     @property
     def unique_properties(self):
@@ -1297,8 +1343,8 @@ class MeshSize:
         mesh_dim_x = {}  # Dimension x for all plating zones, based on element_size_plating_zone
         mesh_dim_y = {}  # Dimension y for all plating zones, based on element_size_plating_zone
 
-        for plate in self.grillage.plating().values():
-            plate_dim = self.get_plate_dim(plate, plate.plate_dim_parallel_to_stiffeners() * 1000)
+        for plate in self._mesh_extent.plating_zones.values():
+            plate_dim = self._mesh_extent.get_plate_dim(plate, plate.plate_dim_parallel_to_stiffeners() * 1000)
             dim_x, dim_y = self.element_size_plating_zone(plate, plate_dim)
             mesh_dim_x[plate.id] = dim_x
             mesh_dim_y[plate.id] = dim_y
@@ -1315,31 +1361,32 @@ class MeshSize:
                 identified using plating zones reference array based on Axis of Symmetry input.
 
         """
-        ref_array = self.plating_zones_ref_array
+        ref_array = self._mesh_extent.plating_zones_ref_array
         n_rows, n_columns = np.shape(ref_array)
         final_mesh_dim_x = {}
 
         for column in range(1, n_columns + 1):              # Column of plating zones between transverse primary supporting members
             plating_zone_IDs = ref_array[:, column - 1]     # List of plating zone IDs in the selected column
-            plating_zones = [self.grillage.plating()[plate_id] for plate_id in plating_zone_IDs]  # List of plate objects in the selected column
-            tran1 = self._grillage.transverse_members()[column]
-            tran2 = self._grillage.transverse_members()[column + 1]
+            plating_zones = [self._grillage.plating()[plate_id] for plate_id in plating_zone_IDs]  # List of plate objects in the selected column
 
-            if any(plate.stiff_dir == BeamDirection.TRANSVERSE for plate in plating_zones):
-                for plate in plating_zones:
-                    if plate.stiff_dir == BeamDirection.TRANSVERSE:  # If dimension x is limited by transverse stiffener spacing
-                        max_x = self.get_min_flange_el_length_between_psm(tran1, tran2)
-                        dim_x = mesh_dim_x[plate.id]  # Quad element size in the x direction for plate in list plating_zones
-                        if dim_x > max_x != 0:  # If dimension x exceeds the maximum allowed
-                            dim_x = self.refine_plate_element(plate.get_stiffener_spacing() * 1000, max_x)
-                            final_mesh_dim_x[column] = dim_x  # Save value of dim_x
-                        else:
-                            final_mesh_dim_x[column] = dim_x
-                        break  # Stop after finding the first zone with transverse stiffeners
-            else:
-                dim_x_list = [mesh_dim_x[plate.id] for plate in plating_zones]
-                dim_x = np.amin(dim_x_list)  # Use minimum value of all saved dim_x for plating zones between transverse psm
-                final_mesh_dim_x[column] = dim_x
+            # ************ Ovo bi mogla biti zasebna metoda - dodjela dimenzija za pojedini stupac zona oplate **********
+            for plate in plating_zones:
+                if plate.stiff_dir == BeamDirection.TRANSVERSE:  # If dimension x is limited by transverse stiffener spacing
+                    tran1 = self._grillage.transverse_members()[column]
+                    tran2 = self._grillage.transverse_members()[column + 1]
+                    max_x = self.get_min_flange_el_length_between_psm(tran1, tran2)
+                    dim_x = mesh_dim_x[plate.id]  # Quad element size in the x direction for plate in list plating_zones
+                    if dim_x > max_x != 0:  # If dimension x exceeds the maximum allowed
+                        dim_x = self.refine_plate_element(plate.get_stiffener_spacing() * 1000, max_x)
+                        final_mesh_dim_x[column] = dim_x  # Save value of dim_x
+                    else:
+                        final_mesh_dim_x[column] = dim_x
+                    break  # Stop after finding the first zone with transverse
+
+                else:
+                    dim_x_list = [mesh_dim_x[plate.id] for plate in plating_zones]
+                    dim_x = np.amin(dim_x_list)  # Use minimum value of all saved dim_x for plating zones between transverse psm
+                    final_mesh_dim_x[column] = dim_x
 
         return final_mesh_dim_x
 
@@ -1352,31 +1399,31 @@ class MeshSize:
         :return: Assigns dimension y for each row of plating zones between longitudinal primary supporting members,
                 identified using plating zones reference array based on Axis of Symmetry input.
         """
-        ref_array = self.plating_zones_ref_array
+        ref_array = self._mesh_extent.plating_zones_ref_array
         n_rows, n_columns = np.shape(ref_array)
         final_mesh_dim_y = {}
 
         for row in range(1, n_rows + 1):                # Row of plating zones between longitudinal primary supporting members
             plating_zone_IDs = ref_array[row - 1, :]    # List of plating zone IDs in the selected row
-            plating_zones = [self.grillage.plating()[plate_id] for plate_id in plating_zone_IDs]  # List of plate objects in the selected row
-            long1 = self._grillage.longitudinal_members()[row]
-            long2 = self._grillage.longitudinal_members()[row + 1]
+            plating_zones = [self._grillage.plating()[plate_id] for plate_id in plating_zone_IDs]  # List of plate objects in the selected row
 
-            if any(plate.stiff_dir == BeamDirection.LONGITUDINAL for plate in plating_zones):
-                for plate in plating_zones:
-                    if plate.stiff_dir == BeamDirection.LONGITUDINAL:  # If dimension y is limited by longitudinal stiffener spacing
-                        max_y = self.get_min_flange_el_length_between_psm(long1, long2)
-                        dim_y = mesh_dim_y[plate.id]  # Base element size in the y direction for plate in list plating_zones
-                        if dim_y > max_y != 0:  # If dimension y exceeds the maximum allowed
-                            dim_y = self.refine_plate_element(plate.get_stiffener_spacing() * 1000, max_y)
-                            final_mesh_dim_y[row] = dim_y  # Save value of dim_y
-                        else:  # If dim_y does not exceed the maximum max_y
-                            final_mesh_dim_y[row] = dim_y
-                        break  # Stop after finding the first zone with longitudinal stiffeners
-            else:
-                dim_y_list = [mesh_dim_y[plate.id] for plate in plating_zones]
-                dim_y = np.amin(dim_y_list)  # Use minimum value of all saved dim_y for plating zones between longitudinal psm
-                final_mesh_dim_y[row] = dim_y
+            for plate in plating_zones:
+                if plate.stiff_dir == BeamDirection.LONGITUDINAL:  # If dimension y is limited by longitudinal stiffener spacing
+                    long1 = self._grillage.longitudinal_members()[row]
+                    long2 = self._grillage.longitudinal_members()[row + 1]
+                    max_y = self.get_min_flange_el_length_between_psm(long1, long2)
+                    dim_y = mesh_dim_y[plate.id]  # Base element size in the y direction for plate in list plating_zones
+                    if dim_y > max_y != 0:  # If dimension y exceeds the maximum allowed
+                        dim_y = self.refine_plate_element(plate.get_stiffener_spacing() * 1000, max_y)
+                        final_mesh_dim_y[row] = dim_y  # Save value of dim_y
+                    else:  # If dim_y does not exceed the maximum max_y
+                        final_mesh_dim_y[row] = dim_y
+                    break  # Stop after finding the first zone with longitudinal stiffeners
+
+                else:
+                    dim_y_list = [mesh_dim_y[plate.id] for plate in plating_zones]
+                    dim_y = np.amin(dim_y_list)  # Use minimum value of all saved dim_y for plating zones between longitudinal psm
+                    final_mesh_dim_y[row] = dim_y
 
         return final_mesh_dim_y
 
@@ -1388,7 +1435,7 @@ class MeshSize:
 
 
 class MeshV1(MeshSize):
-    def __init__(self, grillage: Grillage, axis_of_symm=AOS.NONE):
+    def __init__(self, mesh_extent: MeshExtent):
         """
         Class for calculating mesh dimensions specific to meshing variant V1.
 
@@ -1397,12 +1444,9 @@ class MeshV1(MeshSize):
             2.) All primary supporting members need to have the same web height.
             3.) Flange element overlap has to be in the same plane.
             4.) Grillage plating can not be defined with any camber.
-
-        :param grillage: Input grillage model.
-        :param axis_of_symm: Optional argument: global Axis of Symmetry of the grillage model.
-
         """
-        super().__init__(grillage, axis_of_symm)
+        super().__init__(mesh_extent)
+
         self._mesh_dim_x = {}   # Dictionary of final base mesh x dimensions (dim_x) for one column of plating zones
         self._mesh_dim_y = {}   # Dictionary of final base mesh y dimensions (dim_y) for one row of plating zones
         self._tr_el_dim_x = []  # List of transition element x dimensions
@@ -1455,8 +1499,8 @@ class MeshV1(MeshSize):
         mesh_dim_y = {}  # Dimension y for all plating zones, based on element_size_plating_zone
 
         # Calculate the quad element size based on stiffener spacing and maximum allowed aspect ratio for all plating zones
-        for plate in self.plating_zones.values():
-            plate_dim = self.get_plate_dim(plate, self.get_reduced_plate_dim(plate))
+        for plate in self._mesh_extent.plating_zones.values():
+            plate_dim = self._mesh_extent.get_plate_dim(plate, self.get_reduced_plate_dim(plate))
             dim_x, dim_y = self.element_size_plating_zone(plate, plate_dim)
             mesh_dim_x[plate.id] = dim_x
             mesh_dim_y[plate.id] = dim_y
@@ -1471,12 +1515,9 @@ class MeshV1(MeshSize):
                 Dimensions are saved for each row and column in dictionary mesh_dim_x and mesh_dim_y.
         """
         # Global consideration of base mesh dimensions dim_x and dim_y
-        if self._feasibility_test is True:         # Calculate element size only if grillage model passes the check
-            base_dim_x, base_dim_y = self.calc_element_base_size()
-            self.mesh_dim_x = self.assign_base_dim_x(base_dim_x)
-            self.mesh_dim_y = self.assign_base_dim_y(base_dim_y)
-        else:
-            raise Exception("ERROR: Grillage model does not pass mesh feasibility test!")
+        base_dim_x, base_dim_y = self.calc_element_base_size()
+        self.mesh_dim_x = self.assign_base_dim_x(base_dim_x)
+        self.mesh_dim_y = self.assign_base_dim_y(base_dim_y)
 
     def get_base_dim_x(self, plate: Plate):
         """
@@ -1550,13 +1591,13 @@ class MeshV1(MeshSize):
         :return: Assigns transition elemenet x dimension for each column of plating zones between transverse primary supporting members,
                 identified using plating zones reference array based on Axis of Symmetry input.
         """
-        ref_array = self.plating_zones_ref_array
+        ref_array = self._mesh_extent.plating_zones_ref_array
         n_rows, n_columns = np.shape(ref_array)
         self._tr_el_dim_x = np.zeros((2, n_columns))
 
         for column in range(1, n_columns + 1):  # Column of plating zones between transverse primary supporting members
             plating_zone_IDs = ref_array[:, column - 1]  # List of plating zone IDs in the selected column
-            plating_zones = [self.grillage.plating()[plate_id] for plate_id in plating_zone_IDs]
+            plating_zones = [self._grillage.plating()[plate_id] for plate_id in plating_zone_IDs]
 
             for plate in plating_zones:
                 tr_dim_x1 = self.transition_element_size_plating_zone(plate, 1)[0]
@@ -1577,13 +1618,13 @@ class MeshV1(MeshSize):
         :return: Assigns transition elemenet y dimension for each row of plating zones between longitudinal primary supporting members,
                 identified using plating zones reference array based on Axis of Symmetry input.
         """
-        ref_array = self.plating_zones_ref_array
+        ref_array = self._mesh_extent.plating_zones_ref_array
         n_rows, n_columns = np.shape(ref_array)
         self._tr_el_dim_y = np.zeros((2, n_rows))
 
         for row in range(1, n_rows + 1):  # Row of plating zones between longitudinal primary supporting members
             plating_zone_IDs = ref_array[row - 1, :]  # List of plating zone IDs in the selected row
-            plating_zones = [self.grillage.plating()[plate_id] for plate_id in plating_zone_IDs]
+            plating_zones = [self._grillage.plating()[plate_id] for plate_id in plating_zone_IDs]
 
             for plate in plating_zones:
                 tr_dim_y1 = self.transition_element_size_plating_zone(plate, 1)[1]
@@ -1638,13 +1679,13 @@ class MeshV1(MeshSize):
         tr_el_longitudinal = 2      # Number of transitional elements on the plating zone in the longitudinal direction
         tr_el_transverse = 2        # Number of transitional elements on the plating zone in the transverse direction
 
-        if plate.id in self.long_half_plate_zones:
+        if plate.id in self._mesh_extent.long_half_plate_zones:
             tr_el_transverse -= 1
 
-        elif plate.id in self.tran_half_plate_zones:
+        elif plate.id in self._mesh_extent.tran_half_plate_zones:
             tr_el_longitudinal -= 1
 
-        elif plate.id in self.quarter_plate_zone:
+        elif plate.id in self._mesh_extent.quarter_plate_zone:
             tr_el_transverse -= 1
             tr_el_longitudinal -= 1
 
@@ -1670,13 +1711,13 @@ class MeshV1(MeshSize):
         flange_element_number_x = self.num_eaf * 2
         flange_element_number_y = self.num_eaf * 2
 
-        if plate.id in self.long_half_plate_zones:
+        if plate.id in self._mesh_extent.long_half_plate_zones:
             flange_element_number_y -= self.num_eaf
 
-        elif plate.id in self.tran_half_plate_zones:
+        elif plate.id in self._mesh_extent.tran_half_plate_zones:
             flange_element_number_x -= self.num_eaf
 
-        elif plate.id in self.quarter_plate_zone:
+        elif plate.id in self._mesh_extent.quarter_plate_zone:
             flange_element_number_x -= self.num_eaf
             flange_element_number_y -= self.num_eaf
 
@@ -1699,8 +1740,8 @@ class MeshV1(MeshSize):
             x - number of elements in the longitudinal direction
             y - number of elements in the transverse direction
         """
-        L = self.get_long_plate_dim(plate)  # Longitudinal plating zone dimension based on Axis of Symmetry input, [mm]
-        B = self.get_tran_plate_dim(plate)  # Transverse plating zone dimension, based on Axis of Symmetry input, [mm]
+        L = self._mesh_extent.get_long_plate_dim(plate)  # Longitudinal plating zone dimension based on Axis of Symmetry input, [mm]
+        B = self._mesh_extent.get_tran_plate_dim(plate)  # Transverse plating zone dimension, based on Axis of Symmetry input, [mm]
 
         dim_x = self.get_base_dim_x(plate)      # Base mesh dimension x
         dim_y = self.get_base_dim_y(plate)      # Base mesh dimension y
@@ -1713,13 +1754,13 @@ class MeshV1(MeshSize):
         fl_dim_y1 = self.get_flange_el_width(plate.long_seg1)
         fl_dim_y2 = self.get_flange_el_width(plate.long_seg2)
 
-        if plate.id in self.long_half_plate_zones:
+        if plate.id in self._mesh_extent.long_half_plate_zones:
             fl_dim_y2 = 0
 
-        elif plate.id in self.tran_half_plate_zones:
+        elif plate.id in self._mesh_extent.tran_half_plate_zones:
             fl_dim_x2 = 0
 
-        elif plate.id in self.quarter_plate_zone:
+        elif plate.id in self._mesh_extent.quarter_plate_zone:
             fl_dim_x2 = 0
             fl_dim_y2 = 0
 
@@ -1873,31 +1914,20 @@ class MeshV1(MeshSize):
             These values need to be calculated only once and will be used for all node and element generation.
         """
 
-        # ************ Razmisliti o zaokruživanju zbog numeričke greške ***********
+        if self._mesh_extent.axis_of_symm_override:
+            print("Selected Axis of Symmetry override:", self._mesh_extent.axis_of_symm_override)
+            print("Automatic symmetry discovery would have selected:", self._mesh_extent.aos_input)
 
-        self.grillage_plate_extent()            # Calculate plate mesh limits
-        self.grillage_segment_extent()          # Calculate segment mesh limits
-        self.element_base_size_mesh()           # Calculate base mesh size
-        self.element_transition_size_mesh()     # Calculate transition mesh size
+        else:
+            print("Automatically discovered grillage model symmetry:", self._mesh_extent.aos_input)
 
-        for plate in self.plating_zones.values():
-            self._plate_edge_node_x[plate.id] = self.get_mesh_dim_x(plate)  # Spacing between all edge nodes along x axis
-            self._plate_edge_node_y[plate.id] = self.get_mesh_dim_y(plate)  # Spacing between all edge nodes along y axis
+        self._mesh_extent.grillage_mesh_extent()            # Calculate mesh limits
+        self.element_base_size_mesh()                       # Calculate base mesh size
+        self.element_transition_size_mesh()                 # Calculate transition mesh size
 
-
-class MeshV2(MeshSize):
-    def __init__(self, grillage: Grillage, axis_of_symm=AOS.NONE):
-        """
-        Class for calculating mesh dimensions specific to meshing variant V2.
-
-        WIP
-
-        :param grillage: Input grillage model.
-        :param axis_of_symm: Optional argument: global Axis of Symmetry of the grillage model.
-        """
-        super().__init__(grillage, axis_of_symm)
-        self._mesh_dim_x = []  # List of base mesh x dimensions (dim_x) in the longitudinal direction
-        self._mesh_dim_y = []  # List of base mesh y dimensions (dim_y) in the transverse direction
+        for plate in self._mesh_extent.plating_zones.values():
+            self.plate_edge_node_x[plate.id] = self.get_mesh_dim_x(plate)  # Spacing between all edge nodes along x axis
+            self.plate_edge_node_y[plate.id] = self.get_mesh_dim_y(plate)  # Spacing between all edge nodes along y axis
 
 
 class PlatingZoneMesh:
@@ -1919,8 +1949,8 @@ class PlatingZoneMesh:
         self._start_element_id = start_e_id
         self._split_along = split_along
 
-        self._edge_nodes_x = self._mesh_size.plate_edge_node_x[plate.id]    # Input: Distance between edge nodes, in order along x axis
-        self._edge_nodes_y = self._mesh_size.plate_edge_node_y[plate.id]    # Input: Distance between edge nodes, in order along y axis
+        self._edge_nodes_x = self._mesh_size.plate_edge_node_x[plate.id]    # Distance between edge nodes, in order along x axis
+        self._edge_nodes_y = self._mesh_size.plate_edge_node_y[plate.id]    # Distance between edge nodes, in order along y axis
 
     def get_element_property(self):
         # Identifikacija i veza uniqueproperty i plate property na modelu
@@ -1971,6 +2001,9 @@ class PlatingZoneMesh:
         dim_y_index = 1
         node_id = self._start_node_id
         row_limit, column_limit = self.get_mesh_limits()
+
+        print("Čvorovi zone oplate", self._plate.id)
+
         for row in range(0, row_limit):                     # Row of nodes along x axis
             dim_x_index = 1
             if row > 0:
@@ -1991,7 +2024,7 @@ class PlatingZoneMesh:
 
                 # Ovdje instanciraj objekt čvora
 
-                print("Node ID:", node_id, ", koordinate:", node_coords)
+                print(" Node ID:", node_id, ", koordinate:", node_coords)
                 node_id += 1
 
         return node_id
@@ -2000,6 +2033,9 @@ class PlatingZoneMesh:
         row_limit, column_limit = self.get_mesh_limits()
         node_id_array = self.reference_node_ID_array(row_limit, column_limit)
         element_id = self._start_element_id
+
+        print("Elementi zone oplate", self._plate.id)
+
         for row in range(0, row_limit - 1):
             for column in range(0, column_limit - 1):
                 node1_id = node_id_array[row, column]
@@ -2010,7 +2046,7 @@ class PlatingZoneMesh:
                 # Ovdje instanciraj objekt quad elementa, dodaj čvorove, svojstvo elementu, itd.
                 # Quad elementu dodijeliti svojstvo identificirano u self._unique_properties
 
-                print("Quad element ID", element_id, ", Node IDs:", node1_id, node2_id, node3_id, node4_id)
+                print(" Quad element ID", element_id, ", Node IDs:", node1_id, node2_id, node3_id, node4_id)
                 element_id += 1
         return element_id
 
@@ -2021,42 +2057,6 @@ class PlatingZoneMesh:
         nodes = self.generate_nodes()
         elements = self.generate_elements()
         return nodes, elements
-
-
-class PlateMesh:
-    def __init__(self, mesh_size: MeshSize):
-        """
-        Class for generating FE mesh on all plating zones.
-
-        :param mesh_size: Calculated mesh dimensions.
-        """
-        self._mesh_size = mesh_size
-        self._axis_of_symm = mesh_size.axis_of_symm
-        self._grillage = mesh_size.grillage
-
-    def generate_mesh(self):
-        node_id = 1
-        element_id = 1
-
-        for plate in self._mesh_size.full_plate_zones.values():
-            node, element = PlatingZoneMesh(self._mesh_size, plate, node_id, element_id).generate_mesh()
-            node_id = node
-            element_id = element
-
-        for plate in self._mesh_size.long_half_plate_zones.values():
-            node, element = PlatingZoneMesh(self._mesh_size, plate, node_id, element_id, AOS.LONGITUDINAL).generate_mesh()
-            node_id = node
-            element_id = element
-
-        for plate in self._mesh_size.tran_half_plate_zones.values():
-            node, element = PlatingZoneMesh(self._mesh_size, plate, node_id, element_id, AOS.TRANSVERSE).generate_mesh()
-            node_id = node
-            element_id = element
-
-        for plate in self._mesh_size.quarter_plate_zone.values():
-            node, element = PlatingZoneMesh(self._mesh_size, plate, node_id, element_id, AOS.BOTH).generate_mesh()
-            node_id = node
-            element_id = element
 
 
 class SegmentMesh:
@@ -2074,67 +2074,50 @@ class SegmentMesh:
         """
 
         self._mesh_size = mesh_size
+        self._mesh_extent = self._mesh_size.mesh_extent
         self._segment = segment
         self._start_node_id = start_n_id        # Starting node ID
         self._start_element_id = start_e_id     # Starting element ID
         self._split = split                     # Optional argument: set as True if any axis of symmetry splits the segment in half
 
-        self._edge_nodes_x = {}                 # Input: Distance between edge nodes, in order along x axis
-        self._edge_nodes_y = {}                 # Input: Distance between edge nodes, in order along y axis
-        self._edge_nodes_z = {}                 # Input: Distance between edge nodes, in order along z axis
+        self._edge_plate_nodes = {}     # Distances between nodes, at the web connection with plate
+        self._edge_flange_nodes = {}    # Distances between nodes, at the web connection with flange
+        self._edge_nodes_z = {}         # Distances between nodes, in order along z axis
 
         self._web_node_ref_array = np.zeros((1, 1))
         self._flange_node_ref_array = np.zeros((1, 1))
 
-    def get_edge_nodes(self):
+    def get_plate_edge_nodes(self):
         """
-        :return: Identifies a plating zone the segment defines and gets distances between edge nodes in the appropriate direction.
+        :return: Identifies a plating zone the segment defines and gets distances between edge nodes in the appropriate direction,
+                at the connection of segment web and plating zone.
         """
         direction = self._segment.primary_supp_mem.direction
-        for plate in self._mesh_size.plating_zones.values():            # Identify which plating zone the segment belongs to
+        for plate in self._mesh_extent.plating_zones.values():            # Identify which plating zone the segment belongs to
             segment_defines_plate = plate.test_plate_segment(self._segment)
             if segment_defines_plate:
                 if direction == BeamDirection.LONGITUDINAL:
-                    self._edge_nodes_x = self._mesh_size.plate_edge_node_x[plate.id]
+                    self._edge_plate_nodes = self._mesh_size.plate_edge_node_x[plate.id]
                 elif direction == BeamDirection.TRANSVERSE:
-                    self._edge_nodes_y = self._mesh_size.plate_edge_node_y[plate.id]
+                    self._edge_plate_nodes = self._mesh_size.plate_edge_node_y[plate.id]
                 break                                                   # Stop after finding the first plating zone the segment defines
-        # print(self._edge_nodes_x)
-        # print(self._edge_nodes_y)
 
-    def get_column_limit(self):
+    def node_column_limit(self):
         """
         :return: Column limit value along the length of the segment for generating nodes and elements.
         """
         if self._split is True:                 # Limit for half mesh generation - axis of symmetry splits the segment in half
-            if self._segment.primary_supp_mem.direction == BeamDirection.LONGITUDINAL:
-                column_limit = int(np.floor(len(self._edge_nodes_x) / 2) + 1)
-            else:
-                column_limit = int(np.floor(len(self._edge_nodes_y) / 2) + 1)
-
+            column_limit = int(np.floor(len(self._edge_plate_nodes) / 2) + 1)
         else:                                   # Limit for full mesh generation
-            if self._segment.primary_supp_mem.direction == BeamDirection.LONGITUDINAL:
-                column_limit = int(np.floor(len(self._edge_nodes_x)) + 1)
-            else:
-                column_limit = int(np.floor(len(self._edge_nodes_y)) + 1)
-
+            column_limit = int(np.floor(len(self._edge_plate_nodes)) + 1)
         return column_limit
-
-    def get_mesh_long_dim(self):
-        """
-        :return: Mesh dimensions along the local longitudinal axis of the segment.
-        """
-        if self._segment.primary_supp_mem.direction == BeamDirection.LONGITUDINAL:
-            return self._edge_nodes_x
-        elif self._segment.primary_supp_mem.direction == BeamDirection.TRANSVERSE:
-            return self._edge_nodes_y
 
     def get_web_element_property(self):
         """
         :return: Plate property used for primary supporting member segment web quad elements.
         """
         # ************ WIP *************
-        if self._mesh_size.aos_on_segment(self._segment):
+        if self._mesh_extent.aos_on_segment(self._segment):
             print("Pola vrijednosti debljine")
         else:
             print("Pune vrijednosti debljine")
@@ -2157,7 +2140,7 @@ class SegmentMesh:
         last_web_node_id = web_node_id_array[-1, -1]        # Last node ID on the segment web
         last_web_node_row = web_node_id_array[-1, :]        # List of common node IDs at the connection of segment web and flange
 
-        column_limit = self.get_column_limit()              # Number of nodes along the local longitudinal axis of the segment
+        column_limit = self.node_column_limit()              # Number of nodes along the local longitudinal axis of the segment
         row_limit = int(self._mesh_size.num_eaf * 2) + 1    # Number of nodes in the direction of flange width
         total_nodes = column_limit * (row_limit - 1)        # Total number of flange nodes, excluding the middle row
 
@@ -2189,7 +2172,7 @@ class SegmentMesh:
         last_web_node_id = web_node_id_array[-1, -1]        # Last node ID on the segment web
         last_web_node_row = web_node_id_array[-1, :]        # List of common node IDs at the connection of segment web and flange
 
-        column_limit = self.get_column_limit()              # Number of nodes along the local longitudinal axis of the segment
+        column_limit = self.node_column_limit()              # Number of nodes along the local longitudinal axis of the segment
         row_limit = int(self._mesh_size.num_eaf) + 1        # Number of nodes in the direction of flange width
         total_nodes = column_limit * (row_limit - 1)        # Total number of flange nodes, excluding the middle row
 
@@ -2214,85 +2197,37 @@ class SegmentMesh:
         self._flange_node_ref_array = flange_node_id_array
 
     def generate_flange_nodes(self):
-        row_limit, column_limit = np.shape(self._flange_node_ref_array)
-        mesh_dim = self.get_mesh_long_dim()
-        ref_node1 = Segment.get_segment_node1(self._segment)                # Reference node 1 coordinates in [mm], origin of the local csy
-        ref_node2 = Segment.get_segment_node2(self._segment)                # Reference node 2 coordinates in [mm]
-        ref_vector = np.subtract(ref_node2, ref_node1)                      # Reference vector in the direction of the reference segment
-        unit_ref_vector = ref_vector / np.linalg.norm(ref_vector)           # Unit reference vector
-        direction_unit_vector = self._segment.primary_supp_mem.flange_direction
-        horizontal_spacing_vector = np.zeros(3)
-        long_spacing_vector = np.zeros(3)
+        pass
 
-        flange_element_width = self._mesh_size.get_flange_el_width(self._segment)
-        start_node = ref_node1 + direction_unit_vector * flange_element_width * self._mesh_size.num_eaf
-        node_id = self._flange_node_ref_array[0, 0]
-        for row in range(0, row_limit):          # Total number of rows of web element nodes is equal to min_num_ewb + 1
-            if row > 0:
-                horizontal_spacing_vector += -direction_unit_vector * flange_element_width
-                # *********** TESTIRATI NA DODATNIM VARIJANTAMA - UPITNA FORMULACIJA ***********
-            else:
-                horizontal_spacing_vector = np.zeros(3)
-            long_dim_index = 1
-
-            for column in range(0, column_limit):
-                if column > 0:
-                    long_spacing_vector += mesh_dim[long_dim_index] * unit_ref_vector
-                    long_dim_index += 1
-                else:
-                    long_spacing_vector = np.zeros(3)
-
-                position_vector = long_spacing_vector + horizontal_spacing_vector  # Node position vector in the local coordinate system
-                node_coords = position_vector + start_node
-                print("Node ID:", node_id, node_coords)
-                node_id += 1
-        return node_id
-
-    def generate_flange_elements(self):
-        element_id = self.generate_web_elements()
-
-        row_limit, column_limit = np.shape(self._flange_node_ref_array)
-        flange_id_array = self._flange_node_ref_array
-        for row in range(0, row_limit - 1):
-            for column in range(0, column_limit - 1):
-                node1_id = flange_id_array[row, column]
-                node2_id = flange_id_array[row, column + 1]
-                node3_id = flange_id_array[row + 1, column + 1]
-                node4_id = flange_id_array[row + 1, column]
-
-                # Ovdje instanciraj objekt quad elementa, dodaj čvorove, svojstvo elementu, itd.
-                # Quad elementu dodijeliti svojstvo identificirano u self._unique_properties
-
-                print("Quad element ID", element_id, ", Node IDs:", node1_id, node2_id, node3_id, node4_id)
-                element_id += 1
-        return element_id
+    def generate_flange_elements(self, start_element_id):
+        pass
 
     def generate_mesh(self):
         """
         :return: Generates all nodes and elements. Returns last node and element ID to continue numeration.
         """
-        nodes = None
-        elements = None
+        nodes = self._start_node_id
+        elements = self._start_element_id
 
-        self.get_edge_nodes()
+        self.get_plate_edge_nodes()
         beam_type = self._segment.beam_prop.beam_type
+        self.reference_web_node_ID_array()
 
         if beam_type == "T":
-            self.reference_web_node_ID_array()
             self.generate_web_nodes()
+            last_web_element = self.generate_web_elements()
             self.reference_T_flange_node_ID_array()
             nodes = self.generate_flange_nodes()
-            elements = self.generate_flange_elements()
+            elements = self.generate_flange_elements(last_web_element)
 
         elif beam_type == "L":
-            self.reference_web_node_ID_array()
             self.generate_web_nodes()
+            last_web_element = self.generate_web_elements()
             self.reference_L_flange_node_ID_array()
             nodes = self.generate_flange_nodes()
-            elements = self.generate_flange_elements()
+            elements = self.generate_flange_elements(last_web_element)
 
         elif beam_type == "FB":
-            self.reference_web_node_ID_array()
             nodes = self.generate_web_nodes()
             elements = self.generate_web_elements()
 
@@ -2317,7 +2252,7 @@ class SegmentV1(SegmentMesh):
                 Used as a reference for quad element generation.
                 Version 1 assumes equal number of nodes in each row and quad elements with edges parallel to the global coordinate axis.
         """
-        column_limit = self.get_column_limit()                      # Number of nodes along the local longitudinal axis of the segment
+        column_limit = self.node_column_limit()                      # Number of nodes along the local longitudinal axis of the segment
         row_limit = self._mesh_size.min_num_eweb + 1                # Number of nodes along the z axis
         web_node_id_array = np.zeros((row_limit, column_limit))
 
@@ -2329,9 +2264,9 @@ class SegmentV1(SegmentMesh):
         self._web_node_ref_array = web_node_id_array
 
     def generate_web_nodes(self):
-        column_limit = self.get_column_limit()                          # Number of nodes along the local longitudinal axis of the segment
+        column_limit = self.node_column_limit()                          # Number of nodes along the local longitudinal axis of the segment
         dim_z = self._mesh_size.get_web_el_height(self._segment)        # Vertical dimension of every segment web element
-        mesh_dim = self.get_mesh_long_dim()
+        mesh_dim = self._edge_plate_nodes
 
         node_id = self._start_node_id
         ref_node1 = Segment.get_segment_node1(self._segment)            # Reference node 1 coordinates in [mm], origin of the local csy
@@ -2340,6 +2275,8 @@ class SegmentV1(SegmentMesh):
         unit_ref_vector = ref_vector / np.linalg.norm(ref_vector)       # Unit reference vector
         perpendicular_vector = np.array((0, 0, -1))                     # Vector along segment web, opposite of global z axis direction
         long_spacing_vector = np.zeros(3)                               # Lonngitudinal spacing vector in the direction of segment psm
+
+        print("Čvorovi struka segmenta", self._segment.id, "jakog nosača", self._segment.primary_supp_mem.id, self._segment.primary_supp_mem.direction)
 
         for row in range(0, self._mesh_size.min_num_eweb + 1):          # Total number of rows of web element nodes is equal to min_num_ewb + 1
             vertical_spacing_vector = perpendicular_vector * dim_z * row
@@ -2358,15 +2295,18 @@ class SegmentV1(SegmentMesh):
         return node_id
 
     def generate_web_elements(self):
-        column_limit = self.get_column_limit()                          # Number of nodes along the local longitudinal axis of the segment
+        column_limit = self.node_column_limit()                          # Number of nodes along the local longitudinal axis of the segment
         element_id = self._start_element_id
-        plate_id_array = self._web_node_ref_array
+        node_id_array = self._web_node_ref_array
+
+        print("Elementi struka segmenta", self._segment.id, "jakog nosača", self._segment.primary_supp_mem.id, self._segment.primary_supp_mem.direction)
+
         for row in range(0, self._mesh_size.min_num_eweb):
             for column in range(0, column_limit - 1):
-                node1_id = plate_id_array[row, column]
-                node2_id = plate_id_array[row, column + 1]
-                node3_id = plate_id_array[row + 1, column + 1]
-                node4_id = plate_id_array[row + 1, column]
+                node1_id = node_id_array[row, column]
+                node2_id = node_id_array[row, column + 1]
+                node3_id = node_id_array[row + 1, column + 1]
+                node4_id = node_id_array[row + 1, column]
 
                 # Ovdje instanciraj objekt quad elementa, dodaj čvorove, svojstvo elementu, itd.
                 # Quad elementu dodijeliti svojstvo identificirano u self._unique_properties
@@ -2375,42 +2315,65 @@ class SegmentV1(SegmentMesh):
                 element_id += 1
         return element_id
 
+    def generate_flange_nodes(self):
+        row_limit, column_limit = np.shape(self._flange_node_ref_array)
+        mesh_dim = self._edge_plate_nodes                                   # Distances between flange nodes are equal to plate node distances on V1
 
-class SegmentV2(SegmentMesh):
-    def __init__(self, mesh_size: MeshSize, segment: Segment, start_n_id, start_e_id, split=False):
-        """
-        CLass for segment mesh generation specific to meshing variant V2.
+        ref_node1 = Segment.get_segment_node1(self._segment)                # Reference node 1 coordinates in [mm], origin of the local csy
+        ref_node2 = Segment.get_segment_node2(self._segment)                # Reference node 2 coordinates in [mm]
+        ref_vector = np.subtract(ref_node2, ref_node1)                      # Reference vector in the direction of the reference segment
+        unit_ref_vector = ref_vector / np.linalg.norm(ref_vector)           # Unit reference vector
+        direction_unit_vector = self._segment.primary_supp_mem.flange_direction
+        tran_spacing_vector = np.zeros(3)
+        long_spacing_vector = np.zeros(3)
 
-        WIP
-        """
-        super().__init__(mesh_size, segment, start_n_id, start_e_id, split)
+        flange_element_width = self._mesh_size.get_flange_el_width(self._segment)
+        start_node = ref_node1 + direction_unit_vector * flange_element_width * self._mesh_size.num_eaf
+        node_id = self._flange_node_ref_array[0, 0]
 
+        print("Čvorovi prirubnice segmenta", self._segment.id, "jakog nosača", self._segment.primary_supp_mem.id, self._segment.primary_supp_mem.direction)
 
-class PrimarySuppMemMesh:
-    def __init__(self, mesh_size: MeshSize):
-        """
-        Class for generating FE mesh on all primary supporting members.
+        for row in range(0, row_limit):          # Total number of rows of web element nodes is equal to min_num_ewb + 1
+            if row > 0:
+                tran_spacing_vector += -direction_unit_vector * flange_element_width
+            else:
+                tran_spacing_vector = np.zeros(3)
+            long_dim_index = 1
 
-        :param mesh_size: Calculated mesh dimensions.
-        """
-        self._mesh_size = mesh_size
-        self._axis_of_symm = mesh_size.axis_of_symm
-        self._grillage = mesh_size.grillage
+            for column in range(0, column_limit):
+                if column > 0:
+                    long_spacing_vector += mesh_dim[long_dim_index] * unit_ref_vector
+                    long_dim_index += 1
+                else:
+                    long_spacing_vector = np.zeros(3)
 
-    def generate_mesh(self):
-        node_id = 1
-        element_id = 1
+                position_vector = long_spacing_vector + tran_spacing_vector  # Node position vector in the local coordinate system
+                node_coords = position_vector + start_node
+                print("Node ID:", node_id, node_coords)
+                node_id += 1
+        return node_id
 
-        for segment in self._mesh_size.full_segments.values():
-            if isinstance(self._mesh_size, MeshV1):
-                SegmentV1(self._mesh_size, segment, node_id, element_id).generate_mesh()
-                # node, element = SegmentMesh(self._mesh_size, segment, node_id, element_id).generate_mesh()
-                # node_id = node
-                # element_id = element
+    def generate_flange_elements(self, start_element_id):
+        # element_id = self.generate_web_elements()       # OVO NEKAKO DRUGAČIJE POSLOŽITI
+        element_id = start_element_id
+        row_limit, column_limit = np.shape(self._flange_node_ref_array)
+        flange_id_array = self._flange_node_ref_array
 
-            elif isinstance(self._mesh_size, MeshV2):
-                # Create instance of SegmentV2
-                pass
+        print("Elementi prirubnice segmenta", self._segment.id, "jakog nosača", self._segment.primary_supp_mem.id, self._segment.primary_supp_mem.direction)
+
+        for row in range(0, row_limit - 1):
+            for column in range(0, column_limit - 1):
+                node1_id = flange_id_array[row, column]
+                node2_id = flange_id_array[row, column + 1]
+                node3_id = flange_id_array[row + 1, column + 1]
+                node4_id = flange_id_array[row + 1, column]
+
+                # Ovdje instanciraj objekt quad elementa, dodaj čvorove, svojstvo elementu, itd.
+                # Quad elementu dodijeliti svojstvo identificirano u self._unique_properties
+
+                print("Quad element ID", element_id, ", Node IDs:", node1_id, node2_id, node3_id, node4_id)
+                element_id += 1
+        return element_id
 
 
 class GrillageMesh:
@@ -2423,9 +2386,61 @@ class GrillageMesh:
         :param mesh_size: Calculated mesh dimensions.
         """
         self._mesh_size = mesh_size
+        self._mesh_extent = self._mesh_size.mesh_extent
+
         self._start_node_id = 1
         self._start_element_id = 1
 
+    @property
+    def start_node_id(self):
+        return self._start_node_id
+
+    @start_node_id.setter
+    def start_node_id(self, value):
+        self._start_node_id = value
+
+    @property
+    def start_element_id(self):
+        return self._start_element_id
+
+    @start_element_id.setter
+    def start_element_id(self, value):
+        self._start_element_id = value
+
+    def generate_plate_mesh(self):
+        node_id = self.start_node_id
+        element_id = self.start_element_id
+
+        for plate in self._mesh_extent.full_plate_zones.values():
+            node_id, element_id = PlatingZoneMesh(self._mesh_size, plate, node_id, element_id).generate_mesh()
+
+        for plate in self._mesh_extent.long_half_plate_zones.values():
+            node_id, element_id = PlatingZoneMesh(self._mesh_size, plate, node_id, element_id, AOS.LONGITUDINAL).generate_mesh()
+
+        for plate in self._mesh_extent.tran_half_plate_zones.values():
+            node_id, element_id = PlatingZoneMesh(self._mesh_size, plate, node_id, element_id, AOS.TRANSVERSE).generate_mesh()
+
+        for plate in self._mesh_extent.quarter_plate_zone.values():
+            node_id, element_id = PlatingZoneMesh(self._mesh_size, plate, node_id, element_id, AOS.BOTH).generate_mesh()
+
+        self.start_node_id = node_id
+        self.start_element_id = element_id
+
+    def generate_psm_mesh(self):
+        node_id = self.start_node_id
+        element_id = self.start_element_id
+
+        for segment in self._mesh_extent.full_segments.values():
+            if isinstance(self._mesh_size, MeshV1):
+                node_id, element_id = SegmentV1(self._mesh_size, segment, node_id, element_id).generate_mesh()
+
+            # elif isinstance(self._mesh_size, MeshV2):
+            #     node_id, element_id = SegmentV2(self._mesh_size, segment, node_id, element_id).generate_mesh()
+
+        for segment in self._mesh_extent.half_segments.values():
+            if isinstance(self._mesh_size, MeshV1):
+                node_id, element_id = SegmentV1(self._mesh_size, segment, node_id, element_id).generate_mesh()
+
     def generate_mesh(self):
-        PlateMesh(self._mesh_size)
-        PrimarySuppMemMesh(self._mesh_size)
+        self.generate_plate_mesh()
+        self.generate_psm_mesh()

@@ -56,8 +56,8 @@ hc_var_1.add_plate_prop(plateprop3)
 hc_var_1.add_plate_prop(plateprop4)
 
 # Stiffener layouts
-stifflayout1 = StiffenerLayout(1, initial_stiffener, "spacing", 0.873)
-stifflayout2 = StiffenerLayout(2, initial_stiffener, "spacing", 0.935)
+stifflayout1 = StiffenerLayout(1, initial_stiffener, DefinitionType.SPACING, 0.873)
+stifflayout2 = StiffenerLayout(2, initial_stiffener, DefinitionType.SPACING, 0.935)
 hc_var_1.add_stiffener_layout(stifflayout1)                                   # dodavanje stiffener layouta u dictionary
 hc_var_1.add_stiffener_layout(stifflayout2)
 
@@ -88,11 +88,6 @@ Grillage.set_plating_prop_transversals(hc_var_1, 4, "stiff_layout", stifflayout2
 
 # Izmjena svojstava nosaca
 Grillage.set_tran_member_beam_property(hc_var_1, 3, center_girder)
-
-"""
-hc_var_1.plating()[6].stiff_dir = BeamOrientation.LONGITUDINAL
-hc_var_1.plating()[7].stiff_dir = BeamOrientation.LONGITUDINAL
-"""
 
 # Spremanje generirane topologije
 GrillageModelData('../grillage savefiles/hc_var_1_savefile.gin').write_file(hc_var_1)

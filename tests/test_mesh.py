@@ -1,19 +1,17 @@
 """
 Modul za testiranje diskretizacije učitanog modela
-
 """
-
 from femdir.grillage_mesh import *
 from timeit import default_timer as timer
 
 start = timer()
+hc_var = 1
+filename = str("../grillage savefiles/hc_var_") + str(hc_var) + str("_savefile.gin")
+hc_variant = GrillageModelData(filename).read_file()        # Učitavanje topologije iz datoteke
 
-# Ucitavanje topologije iz datoteke
-filename = '../grillage savefiles/hc_var_1_savefile.gin'
-hc_variant = GrillageModelData(filename).read_file()
-
-# Izrada MeshSize objekta
-mesh1 = MeshV1(hc_variant, AOS.LONGITUDINAL)    # Unos geometrije i odabir globalne osi simetrije konstrukcije
+extents = MeshExtent(hc_variant, AOS.NONE)                # Opseg izrade mreže uz ručni odabir simetrije
+# extents = MeshExtent(hc_variant)                            # Opseg izrade mreže
+mesh1 = MeshV1(extents)                                     # Dimenzije mreže V1 - novi MeshSize objekt
 
 # Kontrola mreže
 mesh1.min_num_ebs = 1                   # Postavljanje minimalnog broja elemenata između ukrepa
@@ -128,7 +126,7 @@ def Test_get_flange_el_width(psm_id, segment_id):
 
 
 def Test_all_plating_zones_mesh_dimensions():
-    for plate in mesh1.plating_zones.values():
+    for plate in extents.plating_zones.values():
         dim_x = mesh1.get_base_dim_x(plate)
         dim_y = mesh1.get_base_dim_y(plate)
         print("Zona oplate ID:", plate.id, ",   dim_x =", "{:.2f}".format(dim_x), "mm", ",   dim_y =", "{:.2f}".format(dim_y), "mm")
@@ -174,7 +172,7 @@ def Test_get_element_number(plate_id):
 
 def Test_all_element_numbers():
     suma = 0
-    for plate in mesh1.plating_zones.values():
+    for plate in extents.plating_zones.values():
         tr_el_longitudinal, tr_el_transverse = mesh1.get_tr_element_num(plate)
         n_el_x, n_el_y = mesh1.get_element_number(plate)
         flange_element_number_x, flange_element_number_y = mesh1.get_flange_element_num(plate)
@@ -193,7 +191,7 @@ def Test_get_mesh_dim(plate_id):
 
 
 def Test_get_all_mesh_dim():
-    for plate in mesh1.plating_zones.values():
+    for plate in extents.plating_zones.values():
         print("Dimenzije svih konačnih elemenata redom za zonu oplate", plate.id)
         print("Dimenzije x:", mesh1.get_mesh_dim_x(plate))
         print("Dimenzije y:", mesh1.get_mesh_dim_y(plate))
@@ -238,63 +236,57 @@ def Test_element_size_transition(plate_id, segment_id):
     print("Dimenzije prijelaznog elemenata na zoni oplate", plate_id, "uz segment", segment_id, ":", transition_dims)
 
 
-def Test_SegmentMesh(psm_id, segment_id):
-    segment = hc_variant.longitudinal_members()[psm_id].segments[segment_id - 1]
-    print(segment.id)
-    # segmentmesh1 = SegmentMesh(segment, 1, 1)
-
-
 def Test_psm_extent():
-    longs = mesh1.longitudinal_psm_extent()
-    trans = mesh1.transverse_psm_extent()
-    print("Prema unesenoj osi simetrije", mesh1.axis_of_symm, ", od ukupno",
+    longs = extents.longitudinal_psm_extent()
+    trans = extents.transverse_psm_extent()
+    print("Prema unesenoj osi simetrije", extents.axis_of_symm, ", od ukupno",
           len(hc_variant.longitudinal_members()), "jakih uzdužnih nosača na modelu, radi se mreža za njih", len(longs))
-    print("Prema unesenoj osi simetrije", mesh1.axis_of_symm, ", od ukupno",
+    print("Prema unesenoj osi simetrije", extents.axis_of_symm, ", od ukupno",
           len(hc_variant.transverse_members()), "jakih poprečnih nosača na modelu, radi se mreža za njih", len(trans))
 
 
 def Test_segment_extent():
-    mesh1.grillage_segment_extent()
+    extents.grillage_segment_extent()
 
 
 def Test_grillage_plate_extent():
-    mesh1.grillage_plate_extent()
-    print("Odabrana je", mesh1.axis_of_symm, "os simetrije.")
+    extents.grillage_plate_extent()
+    print("Odabrana je", extents.axis_of_symm, "os simetrije.")
 
-    print("Ukupno identificiranih zona za izradu mreže:", len(mesh1.plating_zones))
+    print("Ukupno identificiranih zona za izradu mreže:", len(extents.plating_zones))
     print("ID zona oplate za izradu mreže:")
-    for key in mesh1.plating_zones:
-        print("Ključ:", key, ", ID zone oplate", mesh1.plating_zones[key].id)
+    for key in extents.plating_zones:
+        print("Ključ:", key, ", ID zone oplate", extents.plating_zones[key].id)
 
     print("Od tih upisanih zona, dijele se na različite tipove:")
 
     print("Zone oplate za izradu pune mreže:")
-    for key in mesh1.full_plate_zones:
-        print("Ključ:", key, ", ID zone oplate", mesh1.plating_zones[key].id)
+    for key in extents.full_plate_zones:
+        print("Ključ:", key, ", ID zone oplate", extents.plating_zones[key].id)
 
     print("Zone oplate za izradu polovične mreže, presječenih uzdužnom osi simetrije:")
-    for key in mesh1.long_half_plate_zones:
-        print("Ključ:", key, ", ID zone oplate", mesh1.plating_zones[key].id)
+    for key in extents.long_half_plate_zones:
+        print("Ključ:", key, ", ID zone oplate", extents.plating_zones[key].id)
 
     print("ID zona oplate za izradu polovične mreže, presječenih poprečnom osi simetrije:")
-    for key in mesh1.tran_half_plate_zones:
-        print("Ključ:", key, ", ID zone oplate", mesh1.plating_zones[key].id)
+    for key in extents.tran_half_plate_zones:
+        print("Ključ:", key, ", ID zone oplate", extents.plating_zones[key].id)
 
     print("Zone oplate za izradu četvrtinske mreže:")
-    for key in mesh1.quarter_plate_zone:
-        print("Ključ:", key, ", ID zone oplate", mesh1.plating_zones[key].id)
+    for key in extents.quarter_plate_zone:
+        print("Ključ:", key, ", ID zone oplate", extents.plating_zones[key].id)
 
 
 def Test_PlatingZoneMesh(plate_id, split_along=AOS.NONE):
     plate = hc_variant.plating()[plate_id]
 
-    mesh1.grillage_plate_extent()        # Izračun koje zone oplate se meshiraju
+    extents.grillage_plate_extent()        # Izračun koje zone oplate se meshiraju
     PlatingZoneMesh(mesh1, plate, 1, 1, split_along).generate_mesh()     # izrada mreže jedne zone oplate
 
 
 def Test_plating_zones_ref_array():
-    mesh1.grillage_plate_extent()
-    arr = mesh1.plating_zones_ref_array
+    extents.grillage_plate_extent()
+    arr = extents.plating_zones_ref_array
 
     n_redaka, n_stupaca = np.shape(arr)
     print(arr)
@@ -302,15 +294,16 @@ def Test_plating_zones_ref_array():
 
 
 def Test_get_plate_dim(plate_id):
-    mesh1.grillage_plate_extent()
+    extents.grillage_plate_extent()
     plate = hc_variant.plating()[plate_id]
     # full_dim = plate.plate_dim_parallel_to_stiffeners() * 1000
     full_dim = mesh1.get_reduced_plate_dim(plate)
     print("Puna dimenzija:", full_dim)
-    print(mesh1.get_plate_dim(plate, full_dim))
+    print(extents.get_plate_dim(plate, full_dim))
 
 
 def Test_calc_element_base_size():
+    print("Osnovne dimenzije mreže dim_x i dim_y za sve stupce i retke zona oplate koji se meshiraju:")
     print(mesh1.calc_element_base_size())
 
 
@@ -337,13 +330,32 @@ def Test_Segment_element_generation(direction: BeamDirection, psm_id, segment_id
     start_node_id = 1
     start_element_id = 1
     seg_mesh = SegmentV1(mesh1, segment, start_node_id, start_element_id)
-    print(seg_mesh.generate_mesh())
+    last_node, last_element = seg_mesh.generate_mesh()
+    print("ID koji se prenosi na idući segment: za čvor", last_node, ", za element", last_element)
+
+
+def Test_edge_segment_node_generation(direction: BeamDirection, psm_id, segment_id):
+    segment = None
+    if direction == BeamDirection.LONGITUDINAL:
+        segment = hc_variant.longitudinal_members()[psm_id].segments[segment_id - 1]
+    elif direction == BeamDirection.TRANSVERSE:
+        segment = hc_variant.transverse_members()[psm_id].segments[segment_id - 1]
+
+    start_node_id = 1
+    start_element_id = 1
+    seg_mesh = SegmentV1(mesh1, segment, start_node_id, start_element_id)
+    seg_mesh.get_plate_edge_nodes()
+    seg_mesh.reference_web_node_ID_array()
+    seg_mesh.reference_L_flange_node_ID_array()
+    seg_mesh.generate_web_nodes()
+    last_node = seg_mesh.generate_flange_nodes()
+    print("ID koji se prenosi na idući segment: za čvor", last_node)
 
 
 def Test_aos_stiffener(plate_id):
     plate = hc_variant.plating()[plate_id]
-    test_btw = mesh1.aos_between_stiffeners(plate)
-    test_on = mesh1.aos_on_stiffener(plate)
+    test_btw = extents.aos_between_stiffeners(plate)
+    test_on = extents.aos_on_stiffener(plate)
     print("Test osi simetrije između ukrepa:", test_btw, ", test osi simetrije na ukrepi:", test_on)
 
 
@@ -353,7 +365,7 @@ def Test_aos_on_segment(direction: BeamDirection, psm_id, segment_id):
         segment = hc_variant.longitudinal_members()[psm_id].segments[segment_id - 1]
     elif direction == BeamDirection.TRANSVERSE:
         segment = hc_variant.transverse_members()[psm_id].segments[segment_id - 1]
-    test = mesh1.aos_on_segment(segment)
+    test = extents.aos_on_segment(segment)
     print("Test prolazi li os simetrije uz segment:", test)
 
 
@@ -401,57 +413,3 @@ def Test_mesh_feasibility():
     hc_variant.assign_symmetric_members()
     hc_var_check = check1.mesh_feasibility()
     print(hc_var_check)
-
-
-# Test_get_reduced_plate_dim(16)
-# Test_find_closest_divisor(4133, 935)
-# Test_find_closest_divisor(4238, 935)
-# Test_element_size_para_to_stiffeners(1)    # Dimenzije elementa oplate za odabranu zonu prema razmaku ukrepa
-# Test_get_flange_el_length(BeamDirection.LONGITUDINAL, 1, 1)    # Dimenzije elementa prirubnice za odabrani segment
-# Test_element_size_plating_zone(1)         # Dimenzije elemenata na odabranoj zoni oplate prema razmaku ukrepa i ar prirubnice
-
-# Test_element_aspect_ratio(700, 100)
-# Test_refine_plate_element(4133, 830)
-# Test_ALL_element_size_plating_zone()        # dim_x i dim_y za sve zone oplate, prikaz u matrici
-# Test_element_size_mesh()                    # Konacno odabrane dimenzije mreze po x i y
-# Test_all_plating_zones_mesh_dimensions()    # Odabrane x i y dimenzije elemenata za sva polja oplate
-
-# Test_get_flange_el_width(1, 1)
-# Test_identify_unique_property()
-# Test_get_tr_element_num(1)
-# Test_get_element_number(2)
-# Test_all_element_numbers()
-# Test_get_mesh_dim(2)                        # Dimenzije x i y svih elemenata duž odabrane zone oplate
-# Test_get_all_mesh_dim()                     # Dimenzije x i y svih elemenata duž svih generiranih zona oplate
-
-# Test_get_web_el_height(1, 1)
-# Test_get_min_flange_el_length()
-# Test_get_min_flange_el_length_between_psm(1, 2)
-# Test_find_largest_divisor(4500, 1000)
-# Test_element_size_transition(1, 2)
-# Test_get_tr_dim_x(5)
-# Test_get_tr_dim_y(4)
-
-# Test_SegmentMesh(2, 1)
-# Test_psm_extent()
-# Test_segment_extent()
-# Test_grillage_plate_extent()
-# Test_plating_zones_ref_array()
-# Test_get_plate_dim(2)
-# Test_calc_element_base_size()
-# Test_calculate_mesh_dimensions()
-# Test_PlatingZoneMesh(1, AOS.NONE)                                         # Izrada mreže jedne zone oplate
-# PlateMesh(mesh1).generate_mesh()                                          # Izrada mreže cijele oplate
-# Test_Segment_element_generation(BeamDirection.LONGITUDINAL, 2, 1)
-# Test_aos_stiffener(4)
-# Test_aos_on_segment(BeamDirection.TRANSVERSE, 3, 1)
-# Test_get_segment_web_element_property(BeamDirection.LONGITUDINAL, 3, 4)
-# Test_Model_check()
-# print(ModelCheck(hc_variant).assign_symmetry())   # Konačno odabrana os simetrije s kojom se ide u izradu mreže
-# Test_mesh_feasibility()
-
-
-end = timer()
-
-print("***************************************************************************************************************")
-print("Code run time =", end - start, "s")

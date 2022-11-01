@@ -45,9 +45,9 @@ plateprop1 = PlateProperty(1, 10, ST24)                                 # inicij
 hc_var_4.add_plate_prop(plateprop1)
 
 # Stiffener layouts
-stifflayout1 = StiffenerLayout(1, initial_stiffener, "spacing", 0.724)
-stifflayout2 = StiffenerLayout(2, initial_stiffener, "spacing", 0.7)
-stifflayout3 = StiffenerLayout(3, initial_stiffener, "spacing", 0.64)
+stifflayout1 = StiffenerLayout(1, initial_stiffener, DefinitionType.SPACING, 0.724)
+stifflayout2 = StiffenerLayout(2, initial_stiffener, DefinitionType.SPACING, 0.7)
+stifflayout3 = StiffenerLayout(3, initial_stiffener, DefinitionType.SPACING, 0.64)
 hc_var_4.add_stiffener_layout(stifflayout1)                                   # dodavanje stiffener layouta u dictionary
 hc_var_4.add_stiffener_layout(stifflayout2)
 hc_var_4.add_stiffener_layout(stifflayout3)

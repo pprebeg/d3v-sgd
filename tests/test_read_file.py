@@ -14,9 +14,9 @@ from timeit import default_timer as timer
 
 start = timer()
 
-# Ucitavanje topologije iz datoteke
-filename = '../grillage savefiles/hc_var_1_savefile.gin'
-hc_variant = GrillageModelData(filename).read_file()
+hc_var = 5
+filename = str("../grillage savefiles/hc_var_") + str(hc_var) + str("_savefile.gin")
+hc_variant = GrillageModelData(filename).read_file()        # Učitavanje topologije iz datoteke
 
 # Ponovno spremanje ucitane topologije pod novim imenom "read_test.txt"
 # GrillageModelData("read_test.txt").write_file(hc_variant)
@@ -735,7 +735,7 @@ def PlotGrillageTopology(grillage):
 # Test_Wmin_Iy_ukrepa(hc_variant)
 # Test_segments_between_psm(hc_variant, 2, 3, BeamDirection.LONGITUDINAL)
 # Test_midpoint()
-# PlotGrillageTopology(hc_variant)
+PlotGrillageTopology(hc_variant)
 
 end = timer()
 

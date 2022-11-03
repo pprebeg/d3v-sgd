@@ -31,11 +31,13 @@ initial_transverse_beam = TBeamProperty(2, 1089, 10, 545, 40, ST24)         # in
 initial_edge_beam = LBeamProperty(3, 1089, 10, 150, 16, ST24)               # inicijalni rubni L beam prop
 initial_stiffener = HatBeamProperty(4, 220, 6, 220, 80, AH36)               # inicijalna ukrepa
 center_girder = TBeamProperty(5, 1089, 10, 560, 40, AH32)
+FB_beam = FBBeamProperty(6, 1089, 10, ST24)
 
 # DRUGI SET - FB JAKI NOSAČI
 # initial_longitudinal_beam = FBBeamProperty(1, 1089, 10, ST24)
 # initial_transverse_beam = FBBeamProperty(2, 1089, 10, ST24)
 # initial_edge_beam = FBBeamProperty(3, 1089, 10, ST24)
+# initial_stiffener = HatBeamProperty(4, 220, 6, 220, 80, AH36)               # inicijalna ukrepa
 # center_girder = FBBeamProperty(5, 1089, 10, ST24)
 
 hc_var_1.add_beam_prop(initial_longitudinal_beam)
@@ -43,7 +45,7 @@ hc_var_1.add_beam_prop(initial_transverse_beam)
 hc_var_1.add_beam_prop(initial_edge_beam)
 hc_var_1.add_beam_prop(initial_stiffener)
 hc_var_1.add_beam_prop(center_girder)
-
+hc_var_1.add_beam_prop(FB_beam)
 
 # Plate property
 plateprop1 = PlateProperty(1, 10, ST24)     # inicijalni plate property za cijeli poklopac
@@ -85,6 +87,7 @@ Grillage.set_plating_prop_transversals(hc_var_1, 4, "stiff_layout", stifflayout2
 # hc_var_1.plating()[5].stiff_layout = stifflayout1                             # Unos drugacijeg layouta da hc_check javi gresku
 # hc_var_1.plating()[1].stiff_dir = BeamDirection.LONGITUDINAL                  # izmjena da zone oplate ne budu simetricne
 # hc_var_1.longitudinal_members()[1].segments[1].beam_prop = center_girder      # izmjena da segmenti ne budu simetricni
+# hc_var_1.set_tran_member_beam_property(1, FB_beam)                            # Izmjena beam property za cijeli nosač
 
 # Izmjena svojstava nosaca
 Grillage.set_tran_member_beam_property(hc_var_1, 3, center_girder)

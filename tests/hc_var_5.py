@@ -47,7 +47,7 @@ hc_var_5.add_plate_prop(plateprop1)
 
 # Stiffener layouts
 stifflayout1 = StiffenerLayout(1, initial_stiffener, DefinitionType.SPACING, 0.724)
-stifflayout2 = StiffenerLayout(2, initial_stiffener, DefinitionType.SPACING, 0.7)
+stifflayout2 = StiffenerLayout(2, initial_stiffener, DefinitionType.SPACING, 0.850)
 stifflayout3 = StiffenerLayout(3, initial_stiffener, DefinitionType.SPACING, 0.64)
 hc_var_5.add_stiffener_layout(stifflayout1)                                   # dodavanje stiffener layouta u dictionary
 hc_var_5.add_stiffener_layout(stifflayout2)
@@ -71,7 +71,7 @@ Grillage.set_all_transverse_PSM(hc_var_5, 6.43, 5.68)
 
 # Izmjene plating property - postavljanje drugačijih svojstava svim poljima oplate između poprečnih nosača koji definiraju polja oplate 1 i 5
 hc_var_5.set_plating_prop_transversals(2, "stiff_layout", stifflayout2)
-hc_var_5.set_plating_prop_transversals(2, "stiff_dir", BeamDirection.LONGITUDINAL)
+hc_var_5.plating()[5].stiff_dir = BeamDirection.LONGITUDINAL
 hc_var_5.set_plating_prop_symmetric(5, "stiff_layout", stifflayout3)
 
 

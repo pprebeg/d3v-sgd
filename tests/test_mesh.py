@@ -9,8 +9,8 @@ hc_var = 1
 filename = str("../grillage savefiles/hc_var_") + str(hc_var) + str("_savefile.gin")
 hc_variant = GrillageModelData(filename).read_file()        # Učitavanje topologije iz datoteke
 
-extents = MeshExtent(hc_variant, AOS.NONE)                # Opseg izrade mreže uz ručni odabir simetrije
-# extents = MeshExtent(hc_variant)                            # Opseg izrade mreže
+# extents = MeshExtent(hc_variant, AOS.NONE)                # Opseg izrade mreže uz ručni odabir simetrije
+extents = MeshExtent(hc_variant)                            # Opseg izrade mreže
 mesh1 = MeshV1(extents)                                     # Dimenzije mreže V1 - novi MeshSize objekt
 
 # Kontrola mreže
@@ -157,44 +157,29 @@ def Test_get_tr_dim_y(plate_id):
 
 def Test_get_tr_element_num(plate_id):
     plate = hc_variant.plating()[plate_id]
-    n_elemenata = mesh1.get_tr_element_num(plate)
-    poprecni_segment = n_elemenata[0]
-    uzduzni_segment = n_elemenata[1]
+    poprecni_segment = mesh1.get_longitudinal_transition_element_num(plate, plate.trans_seg1)
+    uzduzni_segment = mesh1.get_longitudinal_transition_element_num(plate, plate.trans_seg2)
     print("Broj prijelaznih elemenata na zoni oplate", plate_id, "uz elemente prirubnice uzdužnog segmenta duž osi y:", uzduzni_segment,
           ", uz elemente prirubnice poprečnog segmenta duž osi x:", poprecni_segment)
 
 
 def Test_get_element_number(plate_id):
     plate = hc_variant.plating()[plate_id]
-    n_elemenata = mesh1.get_element_number(plate)
-    print("Broj elemenata na zoni oplate", plate_id, "po x:", n_elemenata[0], ", po y:", n_elemenata[1])
-
-
-def Test_all_element_numbers():
-    suma = 0
-    for plate in extents.plating_zones.values():
-        tr_el_longitudinal, tr_el_transverse = mesh1.get_tr_element_num(plate)
-        n_el_x, n_el_y = mesh1.get_element_number(plate)
-        flange_element_number_x, flange_element_number_y = mesh1.get_flange_element_num(plate)
-        ukupno = n_el_x * n_el_y
-        suma += ukupno
-        print("Zona oplate", plate.id, ", broj svih elemenata po x i y:", n_el_x, n_el_y, ", broj prijelaznih",
-              tr_el_longitudinal, tr_el_transverse, ", broj elemenata prirubnica:", flange_element_number_x, flange_element_number_y)
-    print("Ukupan broj quad elemenata oplate:", suma)
+    n_elemenata = mesh1.get_base_element_number(plate)
+    print("Broj elemenata osnovnih dimenzija:", plate_id, "po x:", n_elemenata[0], ", po y:", n_elemenata[1])
 
 
 def Test_get_mesh_dim(plate_id):
-    plate = hc_variant.plating()[plate_id]
     print("Dimenzije svih konačnih elemenata redom za zonu oplate", plate_id)
-    print("Dimenzije x:", mesh1.get_mesh_dim_x(plate))
-    print("Dimenzije y:", mesh1.get_mesh_dim_y(plate))
+    print("Dimenzije x:", mesh1.plate_edge_node_x[plate_id])
+    print("Dimenzije y:", mesh1.plate_edge_node_y[plate_id])
 
 
 def Test_get_all_mesh_dim():
     for plate in extents.plating_zones.values():
         print("Dimenzije svih konačnih elemenata redom za zonu oplate", plate.id)
-        print("Dimenzije x:", mesh1.get_mesh_dim_x(plate))
-        print("Dimenzije y:", mesh1.get_mesh_dim_y(plate))
+        print("Dimenzije x:", mesh1.plate_edge_node_x[plate.id])
+        print("Dimenzije y:", mesh1.plate_edge_node_y[plate.id])
         print("\n")
 
 
@@ -230,7 +215,7 @@ def Test_find_largest_divisor(length, max_val):
           ", što daje vrijednost", length / divisor)
 
 
-def Test_element_size_transition(plate_id, segment_id):
+def Test_transition_element_size_plating_zone(plate_id, segment_id):
     plate = hc_variant.plating()[plate_id]
     transition_dims = mesh1.transition_element_size_plating_zone(plate, segment_id)
     print("Dimenzije prijelaznog elemenata na zoni oplate", plate_id, "uz segment", segment_id, ":", transition_dims)
@@ -284,6 +269,14 @@ def Test_PlatingZoneMesh(plate_id, split_along=AOS.NONE):
     PlatingZoneMesh(mesh1, plate, 1, 1, split_along).generate_mesh()     # izrada mreže jedne zone oplate
 
 
+def Test_PlatingZoneMesh_element_property(plate_id, split_along=AOS.NONE):
+    plate = hc_variant.plating()[plate_id]
+    extents.grillage_plate_extent()        # Izračun koje zone oplate se meshiraju
+    mesh1.identify_unique_property()
+    id_upp = PlatingZoneMesh(mesh1, plate, 1, 1, split_along).get_element_property()
+    print("ID jedinstvenog unique_property u rječniku mesh_size.unique_properties odabrane zone oplate:", id_upp)
+
+
 def Test_plating_zones_ref_array():
     extents.grillage_plate_extent()
     arr = extents.plating_zones_ref_array
@@ -320,6 +313,13 @@ def Test_calculate_mesh_dimensions():
         print("  Zona oplate", i, ":", y_dimenzije[i])
 
 
+def Test_saved_plate_edge_node_dims():
+    for plate_id in mesh1.plate_edge_node_x.keys():
+        print("Zona oplate:", plate_id, ", upisane x dimenzije:", mesh1.plate_edge_node_x[plate_id])
+    for plate_id in mesh1.plate_edge_node_y.keys():
+        print("Zona oplate:", plate_id, ", upisane y dimenzije:", mesh1.plate_edge_node_y[plate_id])
+
+
 def Test_Segment_element_generation(direction: BeamDirection, psm_id, segment_id):
     segment = None
     if direction == BeamDirection.LONGITUDINAL:
@@ -352,6 +352,24 @@ def Test_edge_segment_node_generation(direction: BeamDirection, psm_id, segment_
     print("ID koji se prenosi na idući segment: za čvor", last_node)
 
 
+def Test_get_web_element_property(direction: BeamDirection, psm_id, segment_id):
+    segment = None
+    if direction == BeamDirection.LONGITUDINAL:
+        segment = hc_variant.longitudinal_members()[psm_id].segments[segment_id - 1]
+    elif direction == BeamDirection.TRANSVERSE:
+        segment = hc_variant.transverse_members()[psm_id].segments[segment_id - 1]
+    mesh1.identify_unique_property()
+
+    start_node_id = 1
+    start_element_id = 1
+    seg_mesh = SegmentV1(mesh1, segment, start_node_id, start_element_id)
+    id_upp = seg_mesh.get_web_element_property()
+    prop = mesh1.unique_properties[id_upp]
+    print("Odabrani segment ID", segment_id, ", nosaca", psm_id, direction, ":")
+    print("     ID jedinstvenog unique_property struka u rječniku mesh_size.unique_properties:", id_upp)
+    print("     Debljina materijala:", prop.tp, "mm, materijal:", prop.mat.name)
+
+
 def Test_aos_stiffener(plate_id):
     plate = hc_variant.plating()[plate_id]
     test_btw = extents.aos_between_stiffeners(plate)
@@ -367,20 +385,6 @@ def Test_aos_on_segment(direction: BeamDirection, psm_id, segment_id):
         segment = hc_variant.transverse_members()[psm_id].segments[segment_id - 1]
     test = extents.aos_on_segment(segment)
     print("Test prolazi li os simetrije uz segment:", test)
-
-
-def Test_get_segment_web_element_property(direction: BeamDirection, psm_id, segment_id):
-    segment = None
-    if direction == BeamDirection.LONGITUDINAL:
-        segment = hc_variant.longitudinal_members()[psm_id].segments[segment_id - 1]
-        print("Svojstva segmenta ID", segment_id, "jakog uzdužnog nosača", psm_id, ":")
-
-    elif direction == BeamDirection.TRANSVERSE:
-        segment = hc_variant.transverse_members()[psm_id].segments[segment_id - 1]
-        print("Svojstva segmenta ID", segment_id, "jakog poprečnog nosača", psm_id, ":")
-
-    seg_mesh = SegmentV1(mesh1, segment, 1, 1)
-    seg_mesh.get_web_element_property()
 
 
 def Test_Model_check():
@@ -413,3 +417,20 @@ def Test_mesh_feasibility():
     hc_variant.assign_symmetric_members()
     hc_var_check = check1.mesh_feasibility()
     print(hc_var_check)
+
+
+def Test_identify_split_element_zones():
+    print("Uzdužna os simetrije prolazi između ukrepa na zonama:", extents.long_e_split_zone)
+    print("Poprečna os simetrije prolazi između ukrepa na zonama:", extents.tran_e_split_zone)
+
+
+def Test_get_split_elements_number(plate_id):
+    plate = hc_variant.plating()[plate_id]
+    ldim = mesh1.get_long_split_element_num(plate)
+    tdim = mesh1.get_tran_split_element_num(plate)
+    print("Uzdužna os simeterije prolazi između ukrepa, siječe broj elemenata na pola i stavlja element dimenzije", ldim)
+    print("Poprečna os simeterije prolazi između ukrepa, siječe broj elemenata na pola i ostavlja element dimenzije", tdim)
+
+
+def Test_segment_element_properties():
+    pass

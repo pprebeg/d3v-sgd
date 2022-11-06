@@ -55,7 +55,7 @@ from tests.test_mesh import *
 
 
 # ********************** testovi metoda u PlatingZoneMesh **********************
-# Test_PlatingZoneMesh(1, AOS.NONE)                                         # Izrada mreže jedne zone oplate
+# Test_PlatingZoneMesh(2, AOS.NONE)                                         # Izrada mreže jedne zone oplate
 # Test_PlatingZoneMesh_element_property(1)
 
 
@@ -63,13 +63,50 @@ from tests.test_mesh import *
 # Test_edge_segment_node_generation(BeamDirection.LONGITUDINAL, 1, 1)
 # Test_get_web_element_property(BeamDirection.LONGITUDINAL, 1, 1)
 # Test_Segment_element_generation(BeamDirection.LONGITUDINAL, 1, 1)
+# Test_generate_inward_flange_nodes(BeamDirection.LONGITUDINAsL, 1, 1, FlangeDirection.INWARD)
 
 
 # ********************** testovi metoda u GrillageMesh **********************
 # GrillageMesh(mesh1).generate_plate_mesh()         # Izrada mreže svih zona oplate
 # GrillageMesh(mesh1).generate_psm_mesh()           # Izrada mreže svih segmenata
 # GrillageMesh(mesh1).generate_mesh()
+# GrillageMesh(mesh1).check_node_overlap()
 
+
+# Test nove ideje za algoritam pretraživanja preklapanja čvorova
+"""
+testset = [6245, 525, 1006]
+testset2 = [624, 52, 106]
+
+arraytest = [[testset, 1], [testset, 3, 4]]
+
+print("Čvorovi na drugom setu koordinata:", arraytest[1][1:])
+print(arraytest)
+arraytest.append([testset2, 76, 65, 54])
+print("Nakon dodavanja novog seta koordinata i čvorova:", arraytest)
+arraytest[2].append(888)
+print(arraytest)
+print("samo koordinate testset2:", arraytest[0][0])
+print("FOR TEST ************************")
+print("\n")
+test_coords = [624, 52, 106]
+test_id = 999
+
+exist = False
+for coords in arraytest:
+    print("koordinate:", coords[0], "čvorovi:", coords[1:], "cijeli redak:", coords)
+    if np.allclose(test_coords, coords[0]):
+        print("provjera:", test_coords, coords[0])
+        coords.append(test_id)
+        print("Test koordinate postoje u polju!")
+        exist = True
+        break
+
+if exist is False:
+    print("Test koordinate NE postoje u polju")
+    arraytest.append([test_coords, test_id])
+print("Polje nakon petlje:", arraytest)
+"""
 
 end = timer()
 

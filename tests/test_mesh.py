@@ -17,10 +17,11 @@ mesh1 = MeshV1(extents)                                     # Dimenzije mreže V
 mesh1.min_num_ebs = 1                   # Postavljanje minimalnog broja elemenata između ukrepa
 mesh1.min_num_eweb = 3                  # Postavljanje minimalnog broja elemenata duž visine struka
 mesh1.num_eaf = 1                       # Postavljanje broja elemenata u smjeru širine prirubnice
-mesh1.flange_aspect_ratio = 7           # Postavljanje aspektnog odnosa elemenata prirubnica jakih nosača i oplate uz struk jakih nosača
+mesh1.flange_aspect_ratio = 8           # Postavljanje aspektnog odnosa elemenata prirubnica jakih nosača i oplate uz struk jakih nosača
 mesh1.plate_aspect_ratio = 4            # Postavljanje aspektnog odnosa elemenata oplate i strukova jakih nosača
 mesh1.des_plate_aspect_ratio = 3        # Postavljanje poželjnog aspektnog odnosa elemenata oplate
 
+# Potrebno računati dimenzije mreže za sve testove osim generate_mesh_V1()
 mesh1.calculate_mesh_dimensions()       # Izračun svih dimenzija za odabranu mrežu
 
 
@@ -157,8 +158,8 @@ def Test_get_tr_dim_y(plate_id):
 
 def Test_get_tr_element_num(plate_id):
     plate = hc_variant.plating()[plate_id]
-    poprecni_segment = mesh1.get_longitudinal_transition_element_num(plate, plate.trans_seg1)
-    uzduzni_segment = mesh1.get_longitudinal_transition_element_num(plate, plate.trans_seg2)
+    poprecni_segment = mesh1.get_long_tr_element_num(plate, plate.trans_seg1)
+    uzduzni_segment = mesh1.get_long_tr_element_num(plate, plate.trans_seg2)
     print("Broj prijelaznih elemenata na zoni oplate", plate_id, "uz elemente prirubnice uzdužnog segmenta duž osi y:", uzduzni_segment,
           ", uz elemente prirubnice poprečnog segmenta duž osi x:", poprecni_segment)
 
@@ -198,14 +199,14 @@ def Test_get_min_flange_el_length():
     segment1 = Segment(1, beam_prop1, psm1, psm1, psm1)
     segment2 = Segment(2, beam_prop2, psm1, psm1, psm1)
 
-    min_dim = mesh1.get_min_flange_el_length(segment1, segment2)
+    min_dim = mesh1.get_min_fl_el_len(segment1, segment2)
     print("Minimalna vrijednost je", min_dim)
 
 
 def Test_get_min_flange_el_length_between_psm(member1_id, member2_id):
     member1 = hc_variant.longitudinal_members()[member1_id]
     member2 = hc_variant.longitudinal_members()[member2_id]
-    min_dim = mesh1.get_min_flange_el_length_between_psm(member1, member2)
+    min_dim = mesh1.get_min_fl_el_len_between_psm(member1, member2)
     print("Najmanja vrijednost maksimalne duljine prirubnice svih segmenata između jakih nosača:", min_dim)
 
 
@@ -217,7 +218,7 @@ def Test_find_largest_divisor(length, max_val):
 
 def Test_transition_element_size_plating_zone(plate_id, segment_id):
     plate = hc_variant.plating()[plate_id]
-    transition_dims = mesh1.transition_element_size_plating_zone(plate, segment_id)
+    transition_dims = mesh1.tr_element_size_plating_zone(plate, segment_id)
     print("Dimenzije prijelaznog elemenata na zoni oplate", plate_id, "uz segment", segment_id, ":", transition_dims)
 
 
@@ -345,10 +346,8 @@ def Test_edge_segment_node_generation(direction: BeamDirection, psm_id, segment_
     start_element_id = 1
     seg_mesh = SegmentV1(mesh1, segment, start_node_id, start_element_id)
     seg_mesh.get_plate_edge_nodes()
-    seg_mesh.reference_web_node_ID_array()
-    seg_mesh.reference_L_flange_node_ID_array()
     seg_mesh.generate_web_nodes()
-    last_node = seg_mesh.generate_flange_nodes()
+    last_node = seg_mesh.generate_flange_nodes(FlangeDirection.INWARD, start_node_id)
     print("ID koji se prenosi na idući segment: za čvor", last_node)
 
 
@@ -397,8 +396,8 @@ def Test_Model_check():
     central_tran = check1.central_transversal()
     long_plate = check1.longitudinal_plate_symmetry()
     tran_plate = check1.transverse_plate_symmetry()
-    long_symm = check1.longitudinal_symmetry_tests()
-    tran_symm = check1.transverse_symmetry_tests()
+    long_symm = check1.long_symmetry_tests()
+    tran_symm = check1.tran_symmetry_tests()
     long_segment = check1.longitudinal_segment_symmetry()
     tran_segment = check1.transverse_segment_symmetry()
     aos = check1.assign_symmetry()
@@ -430,6 +429,21 @@ def Test_get_split_elements_number(plate_id):
     tdim = mesh1.get_tran_split_element_num(plate)
     print("Uzdužna os simeterije prolazi između ukrepa, siječe broj elemenata na pola i stavlja element dimenzije", ldim)
     print("Poprečna os simeterije prolazi između ukrepa, siječe broj elemenata na pola i ostavlja element dimenzije", tdim)
+
+
+def Test_generate_inward_flange_nodes(direction: BeamDirection, psm_id, segment_id, flange_dir: FlangeDirection):
+    segment = None
+    if direction == BeamDirection.LONGITUDINAL:
+        segment = hc_variant.longitudinal_members()[psm_id].segments[segment_id - 1]
+    elif direction == BeamDirection.TRANSVERSE:
+        segment = hc_variant.transverse_members()[psm_id].segments[segment_id - 1]
+
+    start_node_id = 1
+    start_element_id = 1
+    seg_mesh = SegmentV1(mesh1, segment, start_node_id, start_element_id)
+    seg_mesh.get_plate_edge_nodes()
+    seg_mesh.generate_web_nodes()
+    seg_mesh.generate_flange_nodes(flange_dir, start_node_id)
 
 
 def Test_segment_element_properties():

@@ -30,6 +30,8 @@ initial_longitudinal_beam = TBeamProperty(1, 1089, 10, 230, 16, ST24)       # in
 initial_transverse_beam = TBeamProperty(2, 1089, 10, 545, 40, ST24)         # inicijalni transverse T beam prop
 initial_edge_beam = LBeamProperty(3, 1089, 10, 150, 16, ST24)               # inicijalni rubni L beam prop
 initial_stiffener = HatBeamProperty(4, 220, 6, 220, 80, AH36)               # inicijalna ukrepa
+# initial_stiffener = BulbBeamProperty(4, 240, 10, AH36)               # inicijalna ukrepa
+
 center_girder = TBeamProperty(5, 1089, 10, 560, 40, AH32)
 FB_beam = FBBeamProperty(6, 1089, 10, ST24)
 
@@ -69,6 +71,16 @@ stiff_dir = BeamDirection.TRANSVERSE                  # inicijalna orijentacija 
 hc_var_1.generate_prim_supp_members()                 # Generacija svih jakih nosaca
 hc_var_1.generate_segments(initial_longitudinal_beam, initial_transverse_beam, initial_edge_beam)  # Generacija svih segmenata
 hc_var_1.generate_plating(plateprop1, stifflayout1, stiff_dir)  # Generacija oplate
+hc_var_1.generate_elementary_plate_panels()                     # Generacija neukrepljenih (elementarnih) polja oplate
+
+# hc_variant.plating()[6].set_intercostal_stiffeners(4, FB_beam)    # Dodavanje interkostalnih ukrepa na sva neukrepljena polja zone 6
+# hc_variant.plating()[7].set_intercostal_stiffeners(4, FB_beam)
+# hc_variant.plating()[10].set_intercostal_stiffeners(4, FB_beam)
+# hc_variant.plating()[11].set_intercostal_stiffeners(4, FB_beam)
+hc_var_1.plating()[1].elementary_plate_panels[1].intercostal_stiffener_num = 1
+hc_var_1.plating()[1].elementary_plate_panels[1].beam_prop = FB_beam
+
+# hc_variant.plating()[1].regenerate_elementary_plate_panel()       # Regeneracija
 
 # Pridruzivanje simetricnih elemenata
 hc_var_1.assign_symmetric_members()
@@ -84,7 +96,7 @@ Grillage.set_plating_prop_transversals(hc_var_1, 1, "stiff_layout", stifflayout2
 Grillage.set_plating_prop_transversals(hc_var_1, 4, "stiff_layout", stifflayout2)
 
 # Grillage.set_plating_prop_symmetric(hc_var_1, 1, "stiff_dir", BeamDirection.LONGITUDINAL)
-# hc_var_1.plating()[5].stiff_layout = stifflayout1                             # Unos drugacijeg layouta da hc_check javi gresku
+# hc_var_1.plating()[5].stiff_layout = stifflayout1                             # Unos drugacijeg layouta da mesh_feasibility javi gresku
 # hc_var_1.plating()[1].stiff_dir = BeamDirection.LONGITUDINAL                  # izmjena da zone oplate ne budu simetricne
 # hc_var_1.longitudinal_members()[1].segments[1].beam_prop = center_girder      # izmjena da segmenti ne budu simetricni
 # hc_var_1.set_tran_member_beam_property(1, FB_beam)                            # Izmjena beam property za cijeli nosač

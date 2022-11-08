@@ -1,6 +1,5 @@
 from typing import List, Dict
 from femdir.geofementity import *
-from femdir.oofemin import OOFEMAnalysisModel
 #d3v imports
 from geometry import BBox
 from selection import SelectionInfo
@@ -86,16 +85,8 @@ class GeoFEM():
         self._selected_entitiy = None
         self._selected_node = None
         self._additional_properties:Dict[FEMElementType,Dict[str,float]] = {}
-        self._oofem: OOFEMAnalysisModel = None
         pass
 
-    @property
-    def oofem(self)->OOFEMAnalysisModel:
-        return self._oofem
-
-    @oofem.setter
-    def oofem(self, value:OOFEMAnalysisModel):
-        self._oofem = value
 
     def get_input_file_path(self):
         return ""

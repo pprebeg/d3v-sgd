@@ -21,8 +21,15 @@ hc_variant = GrillageModelData(filename).read_file()        # Učitavanje topolo
 
 matST24 = MaterialProperty(1, 210000, 0.3, 7850, 235, "ST24")
 FB_beam = FBBeamProperty(6, 1089, 10, matST24)
-hc_variant.plating()[1].elementary_plate_panels[1].intercostal_stiffener_num = 1
-hc_variant.plating()[1].elementary_plate_panels[1].beam_prop = FB_beam
+
+hc_variant.plating()[6].set_intercostal_stiffeners(4, FB_beam)    # Dodavanje interkostalnih ukrepa na sva neukrepljena polja zone 6
+# hc_variant.plating()[7].set_intercostal_stiffeners(4, FB_beam)
+# hc_variant.plating()[10].set_intercostal_stiffeners(4, FB_beam)
+# hc_variant.plating()[11].set_intercostal_stiffeners(4, FB_beam)
+
+# Pojedinačno dodavanje interkostalnih ukrepa - na treći elementarni panel druge zone oplate
+# hc_variant.plating()[2].elementary_plate_panels[3].intercostal_stiffener_num = 1      # Jedna interkostalna ukrepa
+# hc_variant.plating()[2].elementary_plate_panels[3].beam_prop = FB_beam                # beam property interkostala
 
 # Ponovno spremanje ucitane topologije pod novim imenom "read_test.txt"
 # GrillageModelData("read_test.txt").write_file(hc_variant)
@@ -33,12 +40,12 @@ def KoordinateCvorova():
     # Eksplicitno zadani cvorovi krajeva dva okomita nosaca (id, x, y, z) za provjeru:
 
     # Cvorovi koji definiraju prvi nosac:
-    node1 = Node(1, 0, 10, 0)
-    node2 = Node(2, 18, 10, 0)
+    node1 = ModelNode(1, 0, 10, 0)
+    node2 = ModelNode(2, 18, 10, 0)
 
     # Cvorovi koji definiraju drugi nosac:
-    node3 = Node(3, 12, 0, 0)
-    node4 = Node(4, 12, 20, 0)
+    node3 = ModelNode(3, 12, 0, 0)
+    node4 = ModelNode(4, 12, 20, 0)
 
     # Vracanje koordinata kroz metodu coords
     n1 = node1.coords
@@ -645,8 +652,8 @@ def Test_midpoint():
     # node1 = Node(1, 0, 6160, 1200)
     # node2 = Node(2, 0, 12020, 1200)
 
-    node1 = Node(1, 0, 12020, 1200)
-    node2 = Node(2, 6430, 6160, 1200)
+    node1 = ModelNode(1, 0, 12020, 1200)
+    node2 = ModelNode(2, 6430, 6160, 1200)
 
     # Vracanje koordinata kroz metodu coords
     n1 = node1.coords
@@ -690,6 +697,21 @@ def Test_intercostal_coords(grillage, plate_id, elementary_panel_id, intercostal
     elementary_panel = plate.elementary_plate_panels[elementary_panel_id]
     print("Koordinata čvora interkostalne ukrepe na zoni oplate", plate_id, ", elementarni panel broj", elementary_panel_id, ", ukrepa", intercostal_n)
     elementary_panel.get_intercostal_coords(intercostal_n)
+
+
+def Test_all_intercostal_coords(grillage):
+    for plate in grillage.plating().values():
+        print("Zona oplate", plate.id)
+        for elementary_plate in plate.elementary_plate_panels.values():
+            num_of_intercostals = elementary_plate.intercostal_stiffener_num
+            if num_of_intercostals == 0:
+                print("  nema interkostalnih ukrepa")
+                break
+
+            print("  Elementarni panel broj", elementary_plate.id)
+            for intercostal in range(1, num_of_intercostals + 1):
+                node1, node2 = elementary_plate.get_intercostal_coords(intercostal)
+                print("     Interkostalna ukrepa broj", intercostal, ", koordinate:", node1, ",", node2)
 
 
 def PlotGrillageTopology(grillage):
@@ -791,8 +813,9 @@ def PlotGrillageTopology(grillage):
 # Test_segments_between_psm(hc_variant, 2, 3, BeamDirection.LONGITUDINAL)
 # Test_midpoint()
 # DimenzijeElementarnogPanelaOplate(hc_variant)
-# Test_get_elementary_plate(hc_variant, 1)
+# Test_get_elementary_plate(hc_variant, 6)
 # Test_intercostal_coords(hc_variant, 1, 1, 1)
+# Test_all_intercostal_coords(hc_variant)
 # PlotGrillageTopology(hc_variant)
 
 end = timer()

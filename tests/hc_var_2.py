@@ -31,7 +31,9 @@ hc_var_2.add_corrosion_addition(tc)
 initial_longitudinal_beam = TBeamProperty(1, 1089, 10, 230, 16, ST24)       # inicijalni longitudinal T beam prop
 initial_transverse_beam = TBeamProperty(2, 1089, 10, 545, 40, ST24)         # inicijalni transverse T beam prop
 initial_edge_beam = LBeamProperty(3, 1089, 10, 150, 16, ST24)               # inicijalni rubni L beam prop
-initial_stiffener = HatBeamProperty(4, 220, 6, 220, 80, AH36)               # inicijalna ukrepa
+# initial_stiffener = HatBeamProperty(4, 220, 6, 220, 80, AH36)               # inicijalna ukrepa
+initial_stiffener = BulbBeamProperty(4, 240, 10, AH36)               # inicijalna ukrepa
+
 center_girder = TBeamProperty(5, 1089, 10, 560, 40, ST24)
 
 hc_var_2.add_beam_prop(initial_longitudinal_beam)
@@ -45,9 +47,9 @@ plateprop1 = PlateProperty(1, 10, ST24)                                 # inicij
 hc_var_2.add_plate_prop(plateprop1)
 
 # Stiffener layouts
-stifflayout1 = StiffenerLayout(1, initial_stiffener, "spacing", 0.935)  # Inicijalni stiffener layout
-stifflayout2 = StiffenerLayout(2, initial_stiffener, "number", 5)
-stifflayout3 = StiffenerLayout(3, initial_stiffener, "spacing", 0.660)
+stifflayout1 = StiffenerLayout(1, initial_stiffener, DefinitionType.SPACING, 0.935)  # Inicijalni stiffener layout
+stifflayout2 = StiffenerLayout(2, initial_stiffener, DefinitionType.NUMBER, 5)
+stifflayout3 = StiffenerLayout(3, initial_stiffener, DefinitionType.SPACING, 0.660)
 hc_var_2.add_stiffener_layout(stifflayout1)                             # dodavanje stiffener layouta u dictionary
 hc_var_2.add_stiffener_layout(stifflayout2)
 hc_var_2.add_stiffener_layout(stifflayout3)
@@ -59,6 +61,7 @@ stiff_dir = BeamDirection.TRANSVERSE                                  # inicijal
 hc_var_2.generate_prim_supp_members()                                   # Generacija svih jakih nosaca
 hc_var_2.generate_segments(initial_longitudinal_beam, initial_transverse_beam, initial_edge_beam)  # Generacija svih segmenata
 hc_var_2.generate_plating(plateprop1, stifflayout1, stiff_dir)  # Generacija oplate
+hc_var_2.generate_elementary_plate_panels()                     # Generacija neukrepljenih (elementarnih) polja oplate
 
 # Pridruzivanje simetricnih elemenata
 hc_var_2.assign_symmetric_members()

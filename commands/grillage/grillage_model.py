@@ -7,7 +7,7 @@ Department of Naval Architecture and Ocean Engineering
 MODULE FOR GRILLAGE STRUCTURE DEFINITION
 
 
-Minimum input data for grillgeo definition with initial uniform spacing of all elements:
+Minimum input data for grillage definition with initial uniform spacing of all elements:
     Main dimensions: L, B
     Number of elements: longitudinal and transverse primary supporting members, stiffeners between primary supporting members
     Stiffener orientation: LONGITUDINAL / TRANSVERSE
@@ -20,7 +20,7 @@ Minimum input data for grillgeo definition with initial uniform spacing of all e
 
 Measurement units:
     * Grillage main dimensions: [m]
-    * Primary supporting members relative distance values: [m]
+    * Primary supporting members spacing values: [m]
     * All beam property, plate thickness, corrosion addition input dimensions: [mm]
     * Material density: [kg/m3]
     * Modulus of elasticity, yield strength: [N/mm2]
@@ -34,17 +34,43 @@ Global coordinate system (csy):
 """
 
 import numpy as np
-import itertools
 from enum import Enum
+
 
 class BeamDirection(Enum):
     TRANSVERSE = 0
     LONGITUDINAL = 1
 
 
-class Ref(Enum):
+class FlangeDirection(Enum):   # L beam flange orientation
+    INWARD = 1
+    OUTWARD = 2
+
+
+class Ref(Enum):    # Reference edge
     EDGE1 = 1
     EDGE2 = 2
+
+
+class AOS(Enum):    # Axis Of Symmetry
+    TRANSVERSE = 0
+    LONGITUDINAL = 1
+    BOTH = 2
+    NONE = 3
+
+
+class DefinitionType(Enum):     # Stiffener definition type
+    NUMBER = 1
+    SPACING = 2
+
+
+class BeamType(Enum):
+    FB = 1
+    T = 2
+    L = 3
+    Bulb = 4
+    PSM = 5         # Primary Supporting Member
+    Hat = 6
 
 
 class Node:
@@ -215,13 +241,19 @@ class BeamProperty:
     def beam_type(self):
         if isinstance(self, TBeamProperty) and not \
                 (isinstance(self, FBBeamProperty) or isinstance(self, LBeamProperty)):
-            return "T"
+            return BeamType.T
 
         elif isinstance(self, LBeamProperty):
-            return "L"
+            return BeamType.L
 
         elif isinstance(self, FBBeamProperty):
-            return "FB"
+            return BeamType.FB
+
+        elif isinstance(self, BulbBeamProperty):
+            return BeamType.Bulb
+
+        elif isinstance(self, HatBeamProperty):
+            return BeamType.Hat
 
 
 class TBeamProperty(BeamProperty):
@@ -618,13 +650,13 @@ class HatBeamProperty(BeamProperty):
     def mat(self, value):
         self._mat = value
 
-    def getS1_Hat(self, corr_add: CorrosionAddition):  # Net width of Hat profile webs, outside corners at the connection with attached plating - S1, [mm]
-        h = self._h + corr_add.tc       # Net profile height
-        t = self._t - corr_add.tc       # Net flange and web thickness
+    def getS1_Hat(self):  # Width of Hat profile webs at the connection with plating, at the theoretical web centerline - S1, [mm]
+        h = self._h                     # Profile height
+        t = self._t                     # Flange and web thickness
         alpha = (180 - self._fi) / 2
-        bf = self._bf - 2 * corr_add.tc / (2 * np.tan(np.radians(alpha)))        # Net flange width
+        bf = self._bf                   # Flange width
         fi = self._fi
-        S1 = bf + ((2 * (h + t)) / np.tan(np.radians(fi)))
+        S1 = bf + ((2 * h + t) / np.tan(np.radians(fi))) - (t / np.tan(np.radians(alpha)))
         return S1
 
     def getShArea_Hat(self, corr_add: CorrosionAddition):  # Net shear area of Hat profile - Ash, [cm2]
@@ -729,7 +761,8 @@ class PrimarySuppMem:
     def __init__(self, idbeam, direction: BeamDirection, rel_dist, grillage):
         self._id = idbeam
         self._segments = []                             # List of segments for each primary supporting member
-        self._direction: BeamDirection = direction    # Direction of the primary supporting member
+        self._direction: BeamDirection = direction      # Direction of the primary supporting member
+        self._flange_direction: FlangeDirection = grillage.flange_direction
         self._rel_dist = float(rel_dist)                # Relative distance - position of the primary supporting member
         self._grillage = grillage
         self._symmetric_member = None
@@ -745,17 +778,39 @@ class PrimarySuppMem:
             id_segment += 1
 
     @property
-    def end_nodes(self):
-        # Segmenet end node coordinates
-        if self._direction == BeamDirection.LONGITUDINAL:  # Longitudinal primary supporting members
-            node1 = Node(1, 0, self._rel_dist * self._grillage.B_overall, 0)
-            node2 = Node(2, self._grillage.L_overall, self._rel_dist * self._grillage.B_overall, 0)
-            return node1.coords, node2.coords
+    def flange_direction_vector(self):
+        """
+        :return: Flange direction unit vector, based on Primary supporting member direction and flange_direction variable
+            set for the entire grillage model as INWARD (towards the centerline), or OUTWARD (opposite of centerline).
+            Default value of flange_direction is set as INWARD to ensure edge L beams are oriented correctly.
+        """
+        flange_dir = self._flange_direction
 
-        if self._direction == BeamDirection.TRANSVERSE:  # Transverse primary supporting members
-            node1 = Node(1, self._rel_dist * self._grillage.L_overall, 0, 0)
-            node2 = Node(2, self._rel_dist * self._grillage.L_overall, self._grillage.B_overall, 0)
-            return node1.coords, node2.coords
+        if self.direction == BeamDirection.LONGITUDINAL:
+            if (self.rel_dist <= 0.5 and flange_dir == FlangeDirection.INWARD) \
+                    or (self.rel_dist > 0.5 and flange_dir == FlangeDirection.OUTWARD):
+                return np.array((0, 1, 0))
+
+            elif (self.rel_dist <= 0.5 and flange_dir == FlangeDirection.OUTWARD) \
+                    or (self.rel_dist > 0.5 and flange_dir == FlangeDirection.INWARD):
+                return np.array((0, -1, 0))
+
+        if self.direction == BeamDirection.TRANSVERSE:
+            if (self.rel_dist <= 0.5 and flange_dir == FlangeDirection.INWARD) \
+                    or (self.rel_dist > 0.5 and flange_dir == FlangeDirection.OUTWARD):
+                return np.array((1, 0, 0))
+
+            elif (self.rel_dist <= 0.5 and flange_dir == FlangeDirection.OUTWARD) \
+                    or (self.rel_dist > 0.5 and flange_dir == FlangeDirection.INWARD):
+                return np.array((-1, 0, 0))
+
+    @property
+    def flange_direction(self):
+        return self._flange_direction
+
+    @flange_direction.setter
+    def flange_direction(self, value):
+        self._flange_direction = value
 
     @property
     def symmetric_member(self):
@@ -774,6 +829,10 @@ class PrimarySuppMem:
     def set_rel_dist_symmetric(self, value):
         self._rel_dist = value
         self._symmetric_member._rel_dist = 1.0 - value
+
+    @property
+    def end_nodes(self):
+        return Segment.end_nodes(self)
 
     @property
     def grillage(self):
@@ -859,6 +918,27 @@ class Segment:
             self._symmetric_segment = value
             self._symmetric_segment.symmetric_segment = self
 
+    @staticmethod
+    def end_nodes(member: PrimarySuppMem):
+        """
+        :param member: Primary supporting member.
+        :return: Primary supporting member end node coordinates in [mm], at the point of connection with plating.
+                Flange of the primary supporting member is at vertical coordinate z = 0.
+        """
+        grillage = member.grillage
+        hw_end1 = member.segments[0].beam_prop.hw                           # Primary supporting member web height at x or y = 0
+        hw_end2 = member.segments[len(member.segments) - 1].beam_prop.hw    # Primary supporting member web height at x = L or y = B
+
+        if member.direction == BeamDirection.LONGITUDINAL:  # Longitudinal primary supporting members
+            node1 = Node(1, 0, member.rel_dist * grillage.B_overall * 1000, hw_end1)
+            node2 = Node(2, grillage.L_overall * 1000, member.rel_dist * grillage.B_overall * 1000, hw_end2)
+            return node1.coords, node2.coords
+
+        if member.direction == BeamDirection.TRANSVERSE:  # Transverse primary supporting members
+            node1 = Node(1, member.rel_dist * grillage.L_overall * 1000, 0, hw_end1)
+            node2 = Node(2, member.rel_dist * grillage.L_overall * 1000, grillage.B_overall * 1000, hw_end2)
+            return node1.coords, node2.coords
+
     def get_segment_node1(self):
         return self.get_segment_node(self._cross_member1)
 
@@ -923,7 +1003,7 @@ class Segment:
     def Wmin(self):
         """
         :return: Minimum net section modulus of the given Segment. Corrosion addition is stored as
-                the first input value (ID = 1) in dictionary grillgeo.corrosion_addition
+                the first input value (ID = 1) in dictionary grillage.corrosion_addition
         """
         (bp, tp) = self.get_attplate()
         tc = self._primary_supp_mem.grillage.corrosion_addition()[1]
@@ -937,7 +1017,7 @@ class Segment:
 
 
 class StiffenerLayout:
-    def __init__(self, id_layout, beam_prop, definition_type, definition_value):
+    def __init__(self, id_layout, beam_prop, definition_type: DefinitionType, definition_value):
         self._id = id_layout
         self._beam_prop = beam_prop                 # Stiffener beam property
         self._definition_type = definition_type     # Type of stiffener definition: spacing or number of stiffeners between primary supporting members
@@ -981,6 +1061,7 @@ class Plate:
         self._ref_edge: Ref = ref_edge      # Starting segment for layouts defined by spacing between stiffeners
         self._segments = [long_seg1, trans_seg1, long_seg2, trans_seg2]
         self._symmetric_plate_zones = []
+        self._elementary_plate_panels = {}
 
     def test_plate_segment(self, test_segment: Segment):
         # Segment association test
@@ -1015,6 +1096,12 @@ class Plate:
         transverse_dim = Segment.segment_len(self._segments[1])
         return transverse_dim
 
+    def plate_dim_parallel_to_stiffeners(self):
+        if self.stiff_dir == BeamDirection.LONGITUDINAL:
+            return self.plate_longitudinal_dim()
+        elif self.stiff_dir == BeamDirection.TRANSVERSE:
+            return self.plate_transverse_dim()
+
     def get_reference_segment(self):
         # Reference segment for stiffener placement
         if self._stiff_dir == BeamDirection.LONGITUDINAL:
@@ -1028,6 +1115,12 @@ class Plate:
             elif self._ref_edge == Ref.EDGE2:
                 return self._segments[3]
 
+    def get_intercostal_reference_segment(self):
+        if self._stiff_dir == BeamDirection.LONGITUDINAL:
+            return self._segments[1]
+        elif self._stiff_dir == BeamDirection.TRANSVERSE:
+            return self._segments[0]
+
     def get_path_length(self):
         # Returns the stiffener path length based on orientation - dimension of the plating zone perpendicular to stiffener direction
         if self._stiff_dir == BeamDirection.LONGITUDINAL:
@@ -1036,15 +1129,15 @@ class Plate:
             return self.plate_longitudinal_dim()
 
     def get_stiffener_spacing(self):  # Returns stiffener spacing on any plating zone regardless of definition type
-        if self.stiff_layout.definition_type == "number":
+        if self.stiff_layout.definition_type == DefinitionType.NUMBER:
             return self.get_path_length() / (self.stiff_layout.definition_value + 1)
-        elif self.stiff_layout.definition_type == "spacing":
+        elif self.stiff_layout.definition_type == DefinitionType.SPACING:
             return self.stiff_layout.definition_value
 
     def get_stiffener_number(self):  # Returns number of stiffeners on any plating zone regardless of definition type
-        if self.stiff_layout.definition_type == "number":
+        if self.stiff_layout.definition_type == DefinitionType.NUMBER:
             return self.stiff_layout.definition_value
-        elif self.stiff_layout.definition_type == "spacing":
+        elif self.stiff_layout.definition_type == DefinitionType.SPACING:
             return np.ceil((np.round(self.get_path_length(), decimals=6) / self.stiff_layout.definition_value) - 1)
 
     def get_equal_stiffener_offset(self):
@@ -1054,11 +1147,14 @@ class Plate:
         equal_offset = (path_len - ((stiff_num - 1) * stiff_spacing)) / 2
         return equal_offset
 
-    def get_stiff_coords(self, stiffener_n):
-        # Stiffener node coordinates
+    def get_stiff_coords(self, stiffener_n: int):
+        """
+        :param stiffener_n: n-th stiffener on the plating zone. Enter a integer value from 1 to number of stiffeners on the plating zone.
+        :return: Coordinates of the n-th stiffener on the plating zone in [mm], at the point of connection with plating.
+        """
         perpendicular_vector = np.array((0, 0, 0))
-        ref_node1 = Segment.get_segment_node1(self.get_reference_segment())     # Reference node 2
-        ref_node2 = Segment.get_segment_node2(self.get_reference_segment())     # Reference node 2
+        ref_node1 = Segment.get_segment_node1(self.get_reference_segment())     # Reference node 1 coordinates in [mm]
+        ref_node2 = Segment.get_segment_node2(self.get_reference_segment())     # Reference node 2 coordinates in [mm]
         ref_vector = ref_node2 - ref_node1                                      # Reference vector in the direction of the reference segment
         ref_vector_magnitude = np.linalg.norm(ref_vector)                       # Reference vector length
         unit_ref_vector = ref_vector / ref_vector_magnitude                     # Unit reference vector
@@ -1069,8 +1165,9 @@ class Plate:
         elif self.stiff_dir == BeamDirection.TRANSVERSE:
             perpendicular_vector = np.cross(unit_ref_vector, normal_vector)
 
-        spacing_vector = perpendicular_vector * self.get_stiffener_spacing()    # Vector with magnitude of stiffener spacing
-        stiff_offset = self.get_equal_stiffener_offset()                        # First and last stiffener offset, distance from the adjacent Primary Supporting Member
+        stiff_spacing = self.get_stiffener_spacing() * 1000                     # Stiffener spacing in [mm]
+        spacing_vector = perpendicular_vector * stiff_spacing                   # Vector with magnitude of stiffener spacing
+        stiff_offset = self.get_equal_stiffener_offset() * 1000                 # First and last stiffener offset in [mm]
         offset_vector = perpendicular_vector * stiff_offset                     # Vector with magnitude of stiffener offset
 
         if stiffener_n == 1:
@@ -1084,7 +1181,7 @@ class Plate:
     def Wmin(self):
         """
         :return: Minimum net section modulus of stiffeners on the given plating zone. Corrosion addition is stored as
-                the first input value (ID = 1) in dictionary grillgeo.corrosion_addition
+                the first input value (ID = 1) in dictionary grillage.corrosion_addition
         """
         stiff_property = self.stiff_layout.beam_prop
         bp = self.get_stiffener_spacing() * 1000                                        # Stiffener spacing in [mm]
@@ -1104,6 +1201,28 @@ class Plate:
         corr_add = self.long_seg1.primary_supp_mem.grillage.corrosion_addition()[1]
         tp_net = PlateProperty.tp_net(corr_add, tp_gross)
         return tp_net
+
+    def set_intercostal_stiffeners(self, number, beam_prop: BeamProperty):
+        """
+        :param number: Number of intercostal stiffeners placed perpendicular to the stiffenr direction.
+        :param beam_prop: Beam property of intercostal stiffener.
+        :return: Sets the same number and type of intercostal stiffeners on all elementary plate panels
+                on the entire plating zone.
+        """
+        for elementary_plate in self.elementary_plate_panels.values():
+            elementary_plate.intercostal_stiffener_num = number
+            elementary_plate.beam_prop = beam_prop
+
+    def regenerate_elementary_plate_panel(self):
+        """
+        :return: Regenerates elementary plate panels on the plating zone after stiffener number alterations.
+                Can also be used to delete all intercostal stiffeners from a plating zone.
+        """
+        self.elementary_plate_panels.clear()
+        stiff_num = self.get_stiffener_number()             # Number of stiffeners
+        plate_panel_num = int(stiff_num) + 1                # Number of elementary plate panels
+        for panel_id in range(1, plate_panel_num + 1):
+            self.elementary_plate_panels[panel_id] = ElementaryPlatePanel(panel_id, self)
 
     # Symmetric plating zones
     @property
@@ -1173,13 +1292,261 @@ class Plate:
     def plate_segments(self):
         return self._segments
 
+    @property
+    def elementary_plate_panels(self):
+        return self._elementary_plate_panels
 
-class Grillage():
+
+class ElementaryPlatePanel:
+    def __init__(self, id_, plate: Plate, intercostal_stiffener_num: int = 0, beam_prop: BeamProperty = None):
+        """
+        Elementary plate panel describes a part of the plating zone bounded by Primary supporting members
+        and stiffeners defined by the stiffener layout.
+        Adding intercostal stiffeners divides each elementary plate panel into sub panels of equal length.
+
+        :param id_:     Elementary plate panel ID local to each plating zone.
+        :param plate:   Plating zone the elementary plate panel is located on.
+        :param intercostal_stiffener_num: Number of intercostal stiffeners placed perpendicular to the stiffenr direction,
+            symmetrically dividing the unsupported span of ordinary stiffeners between Primary supporting members. 0 by default.
+        :param beam_prop: Beam property of intercostal stiffener.
+        """
+        self._id_ = id_
+        self._plate = plate
+        self._intercostal_stiffener_num = intercostal_stiffener_num
+        self._beam_prop = beam_prop
+
+    @property
+    def id(self):
+        return self._id_
+
+    @property
+    def intercostal_stiffener_num(self):
+        return self._intercostal_stiffener_num
+
+    @intercostal_stiffener_num.setter
+    def intercostal_stiffener_num(self, value):
+        self._intercostal_stiffener_num = value
+
+    @property
+    def beam_prop(self):
+        return self._beam_prop
+
+    @beam_prop.setter
+    def beam_prop(self, value):
+        self._beam_prop = value
+
+    @property
+    def intercostal_type(self):
+        if self._beam_prop:
+            return self._beam_prop.beam_type
+        else:
+            return None
+
+    @property
+    def sub_panel_number(self):
+        """
+        :return: Number of sub panels the elementary plate panel is divided into by intercostal stiffeners.
+                If there are no intercostal stiffeners, the sub panel is the elementary plate panel itself.
+        """
+        if self._intercostal_stiffener_num == 0:
+            return 1
+        else:
+            return self._intercostal_stiffener_num + 1
+
+    def sub_panel_length(self):
+        """
+        :return: Length of sub panel parallel to the stiffener direction in [m], depending on the number of
+                intercostal stiffeners, equally dividing the unsupported span of stiffeners.
+        """
+        if self._plate.stiff_dir == BeamDirection.LONGITUDINAL:
+            if self.sub_panel_number == 1:
+                length = self._plate.plate_longitudinal_dim()
+            else:
+                length = self._plate.plate_longitudinal_dim() / (self._intercostal_stiffener_num + 1)
+        else:
+            if self.sub_panel_number == 1:
+                length = self._plate.plate_transverse_dim()
+            else:
+                length = self._plate.plate_transverse_dim() / (self._intercostal_stiffener_num + 1)
+        return length
+
+    def sub_panel_width(self):
+        """
+        :return: Width of sub panel perpendicular to the stiffener direction in [m], depending on the type of stiffener.
+                Takes into account reduced elementary plate dimension for Hat stiffeners.
+        """
+        plate = self._plate
+        plate_number = len(plate.elementary_plate_panels)
+
+        if self.id == 1 or self.id == plate_number:
+            spacing = plate.get_equal_stiffener_offset()
+        else:
+            spacing = plate.get_stiffener_spacing()
+
+        if self._plate.stiff_layout.beam_prop.beam_type is BeamType.Hat:
+            hat_S1 = self._plate.stiff_layout.beam_prop.getS1_Hat() / 1000  # Width between webs of a Hat profile, [m]
+
+            return spacing - hat_S1
+        else:
+            return spacing
+
+    @property
+    def stiffener_1_id(self):
+        """
+        :return: ID of a stiffener closest to the global coordinate system axis, on the edge of the elementary plate panel.
+        """
+        if self.id == 1:
+            return None
+        else:
+            return self.id - 1
+
+    @property
+    def stiffener_2_id(self):
+        """
+        :return: ID of a stiffener furthest from the global coordinate system axis, on the edge of the elementary plate panel.
+        """
+        if self.id == self._plate.get_stiffener_number() + 1:
+            return None
+        else:
+            return self.id
+
+    def get_edge_1_type(self, sub_n):
+        """
+        :param sub_n: Sub panel ID.
+        :return: Stiffener type on sub panel edge parallel and closest to the global transverse y axis.
+        """
+
+        if self._plate.stiff_dir == BeamDirection.LONGITUDINAL and sub_n == 1:
+            edge1 = BeamType.PSM
+        elif self._plate.stiff_dir == BeamDirection.LONGITUDINAL and sub_n > 1:
+            edge1 = self.intercostal_type
+        else:
+            if self.id == 1:
+                edge1 = BeamType.PSM
+            else:
+                edge1 = self._plate.stiff_layout.beam_prop.beam_type
+        return edge1
+
+    def get_edge_2_type(self, sub_n):
+        """
+        :param sub_n: Sub panel ID.
+        :return: Stiffener type on sub panel edge parallel to and furthest from the global longitudinal x axis.
+        """
+        plate_panel_num = int(self._plate.get_stiffener_number()) + 1
+        if self._plate.stiff_dir == BeamDirection.TRANSVERSE and sub_n == self.sub_panel_number:
+            edge2 = BeamType.PSM
+        elif self._plate.stiff_dir == BeamDirection.TRANSVERSE and sub_n < self.sub_panel_number:
+            edge2 = self.intercostal_type
+        else:
+            if self.id == plate_panel_num:
+                edge2 = BeamType.PSM
+            else:
+                edge2 = self._plate.stiff_layout.beam_prop.beam_type
+        return edge2
+
+    def get_edge_3_type(self, sub_n):
+        """
+        :param sub_n: Sub panel ID.
+        :return: Stiffener type on sub panel edge parallel to and furthest from the global transverse y axis.
+        """
+        plate_panel_num = int(self._plate.get_stiffener_number()) + 1
+        if self._plate.stiff_dir == BeamDirection.LONGITUDINAL and sub_n == self.sub_panel_number:
+            edge3 = BeamType.PSM
+        elif self._plate.stiff_dir == BeamDirection.LONGITUDINAL and sub_n < self.sub_panel_number:
+            edge3 = self.intercostal_type
+        else:
+            if self.id == plate_panel_num:
+                edge3 = BeamType.PSM
+            else:
+                edge3 = self._plate.stiff_layout.beam_prop.beam_type
+        return edge3
+
+    def get_edge_4_type(self, sub_n):
+        """
+        :param sub_n: Sub panel ID.
+        :return: Stiffener type on sub panel edge parallel and closest to the global longitudinal x axis.
+        """
+        if self._plate.stiff_dir == BeamDirection.TRANSVERSE and sub_n == 1:
+            edge4 = BeamType.PSM
+        elif self._plate.stiff_dir == BeamDirection.TRANSVERSE and sub_n > 1:
+            edge4 = self.intercostal_type
+        else:
+            if self.id == 1:
+                edge4 = BeamType.PSM
+            else:
+                edge4 = self._plate.stiff_layout.beam_prop.beam_type
+        return edge4
+
+    def get_edge_beam_types(self, sub_n=1):
+        """
+        :param sub_n: Sub panel ID to return edge stiffener types for. First sub panel (ID=1) selected by default.
+        :return: Edge stiffener beam type list for buckling criteria boundary condition coefficient (c) calculation.
+            Returns edge stiffener beam type list for the first sub panel by default, for when there are no intercostal stiffeners.
+        """
+        edge1 = self.get_edge_1_type(sub_n)
+        edge2 = self.get_edge_2_type(sub_n)
+        edge3 = self.get_edge_3_type(sub_n)
+        edge4 = self.get_edge_4_type(sub_n)
+
+        edge_type_list = [edge1, edge2, edge3, edge4]
+        return edge_type_list
+
+    def get_elementary_plate_dimensions(self):
+        """
+        :return: Length, in [m], of the shorter and longer side of the elementary plate panel.
+        """
+        length = self.sub_panel_length()
+        width = self.sub_panel_width()
+        ss = np.minimum(length, width)
+        ls = np.maximum(length, width)
+        return ss, ls
+
+    def get_intercostal_coords(self, intercostal_n):
+        """
+        :param intercostal_n: n-th intercostal  on the plating zone. Enter a integer value from 1 to number of intercostals.
+        :return: Coordinates of the n-th intercostal stiffener on the plating zone in [mm], at the point of connection with plating.
+        """
+        perp_unit_vector = np.array((0, 0, 0))
+        ref_node1 = self._plate.get_intercostal_reference_segment().get_segment_node1()     # Reference node 1 coordinates in [mm]
+        ref_node2 = self._plate.get_intercostal_reference_segment().get_segment_node2()     # Reference node 2 coordinates in [mm]
+        ref_vector = ref_node2 - ref_node1                                      # Reference vector in the direction of the reference segment
+        ref_vector_magnitude = np.linalg.norm(ref_vector)                       # Reference vector length
+        unit_ref_vector = ref_vector / ref_vector_magnitude                     # Unit reference vector of the intercostal stiffener direction
+        normal_vector = np.array((0, 0, 1))                                     # Vector normal to the plating surface
+        # U slucaju oplate sa prelukom, vektor normale nije (0,0,1) !!!
+
+        if self._plate.stiff_dir == BeamDirection.LONGITUDINAL:
+            perp_unit_vector = np.cross(unit_ref_vector, normal_vector)
+        elif self._plate.stiff_dir == BeamDirection.TRANSVERSE:
+            perp_unit_vector = np.cross(normal_vector, unit_ref_vector)
+
+        length = self.sub_panel_length() * 1000     # Panel length in [mm]
+        width = self.sub_panel_width() * 1000       # Panel width in [mm]
+        parallel_vector = width * unit_ref_vector
+        perpendicular_vector = length * perp_unit_vector
+
+        if self.id == 1:
+            intercostal_node_1 = ref_node1 + perpendicular_vector * intercostal_n
+            intercostal_node_2 = intercostal_node_1 + parallel_vector
+        else:
+            ref_node = self._plate.get_stiff_coords(self.stiffener_1_id)[0]
+            intercostal_node_1 = ref_node + perpendicular_vector * intercostal_n
+            intercostal_node_2 = intercostal_node_1 + parallel_vector
+
+        if intercostal_n > self._intercostal_stiffener_num:
+            raise Exception("ERROR: Can't calculate coordinates for intercostal number", intercostal_n, "if there are only",
+                            self._intercostal_stiffener_num, "intercostal stiffeners")
+
+        return intercostal_node_1, intercostal_node_2
+
+
+class Grillage:
     def __init__(self, L_overall, B_overall, N_longitudinal, N_transverse):
         self._L_overall = L_overall                 # Overall length, m
         self._B_overall = B_overall                 # Overall width, m
         self._N_longitudinal = N_longitudinal       # Number of longitudinal primary supporting members
         self._N_transverse = N_transverse           # Number of transverse primary supporting members
+        self._flange_direction = FlangeDirection.INWARD   # Orientation of L primary supporting member flange; default = INWARD
 
         self._longitudinal_memb = {}
         self._transverse_memb = {}
@@ -1222,6 +1589,14 @@ class Grillage():
     def N_transverse(self, value):
         self._N_transverse = value
 
+    @property
+    def flange_direction(self):
+        return self._flange_direction
+
+    @flange_direction.setter
+    def flange_direction(self, value):
+        self._flange_direction = value
+
     def longitudinal_members(self):
         return self._longitudinal_memb
 
@@ -1263,16 +1638,16 @@ class Grillage():
 
     def add_corrosion_addition(self, value):
         self._corrosion_add[value.id] = value
-    """
-    # ALTERNATIVA?
-    def add_corrosion_addition(self, corr_add_id, tc):
-        corr_add = CorrosionAddition(corr_add_id, tc)
-        self._corrosion_add[corr_add_id] = corr_add
-    """
 
     @staticmethod
     def get_intersection(node1, node2, node3, node4):
-        # Returns the intersection point of two perpendicular girders, defined by two nodes each
+        """
+        :param node1: List of [x, y, z] coordinates of the first point defining the first girder.
+        :param node2: List of [x, y, z] coordinates of the second point defining the first girder.
+        :param node3: List of [x, y, z] coordinates of the first point defining the second girder.
+        :param node4: List of [x, y, z] coordinates of the second point defining the second girder.
+        :return: Coordinates of the intersection of the first and second girder, type numpy.ndarray.
+        """
         vector1 = node2 - node1                 # First girder defined by node1 and node2
         vector2 = node4 - node3                 # Second girder defined by node3 and node4
         magnitude1 = np.linalg.norm(vector1)    # Length of the first girder
@@ -1292,6 +1667,19 @@ class Grillage():
             z_inter = solve[0] * direction1[2] + node1[2]
             coords = np.array([x_inter, y_inter, z_inter])  # x, y, z coordinates of the intersection point
             return coords
+
+    @staticmethod
+    def get_midpoint(node1, node2):
+        """
+        :param node1: List of [x, y, z] coordinates for the first point.
+        :param node2: List of [x, y, z] coordinates for the second point.
+        :return: Coordinates of the midpoint between node1 and node2, type numpy.ndarray.
+        """
+        vector = np.subtract(node2, node1)
+        unit_vector = vector / np.linalg.norm(vector)
+        half_dist = np.linalg.norm(vector) / 2
+        midpoint = unit_vector * half_dist + node1
+        return midpoint
 
     def generate_prim_supp_members(self):
         # Generate primary supporting members
@@ -1346,6 +1734,16 @@ class Grillage():
                                    stiff_dir, ref_edge)
                 self._plating[curr_plate.id] = curr_plate
                 plate_id += 1
+
+    def generate_elementary_plate_panels(self):
+        # Elementary plate panel generation assuming no initial intercostal stiffeners
+        for plate in self.plating().values():
+            stiff_num = plate.get_stiffener_number()     # Number of stiffeners on the plating zone
+            plate_panel_num = int(stiff_num) + 1         # Number of elementary plate panels on the plating zone
+
+            for panel_id in range(1, plate_panel_num + 1):
+                elementary_panel = ElementaryPlatePanel(panel_id, plate)
+                plate.elementary_plate_panels[panel_id] = elementary_panel
 
     @staticmethod
     def get_segment_nodes(segment):
@@ -1437,47 +1835,6 @@ class Grillage():
 
         return mass_long + mass_trans + mass_plate + mass_stiff
 
-    def get_elementary_plate_dimensions(self, plate_id):
-        plate = self.plating()[plate_id]
-        stiff_direction = plate.stiff_dir
-        stiff_spacing = plate.get_stiffener_spacing()
-        dim_x = plate.plate_longitudinal_dim()
-        dim_y = plate.plate_transverse_dim()
-
-        if stiff_direction == BeamDirection.LONGITUDINAL:
-            if plate.stiff_layout.beam_prop is HatBeamProperty:
-                if dim_x > stiff_spacing:
-                    ss = stiff_spacing - 0.5 * HatBeamProperty.getS1_Hat(plate.stiff_layout.beam_prop, self.corrosion_addition()[1])
-                    ls = dim_x
-                else:
-                    ss = dim_x
-                    ls = stiff_spacing
-            else:
-                if dim_x > stiff_spacing:
-                    ss = stiff_spacing
-                    ls = dim_x
-                else:
-                    ss = dim_x
-                    ls = stiff_spacing
-            return ss, ls   # Returns the length, in [m], of the shorter and longer side of the plate panel
-
-        elif stiff_direction == BeamDirection.TRANSVERSE:
-            if plate.stiff_layout.beam_prop is HatBeamProperty:
-                if dim_y > stiff_spacing:
-                    ss = stiff_spacing - 0.5 * HatBeamProperty.getS1_Hat(plate.stiff_layout.beam_prop, self.corrosion_addition()[1])
-                    ls = dim_y
-                else:
-                    ss = dim_y
-                    ls = stiff_spacing
-            else:
-                if dim_y > stiff_spacing:
-                    ss = stiff_spacing
-                    ls = dim_y
-                else:
-                    ss = dim_y
-                    ls = stiff_spacing
-            return ss, ls   # Returns the length, in [m], of the shorter and longer side of the plate panel
-
     @staticmethod
     def plate_common_segment(plate1: Plate, plate2: Plate):
         # Returns the common segment of two given plating zones
@@ -1531,6 +1888,24 @@ class Grillage():
                 identified_zones_list.append(plate)
         return identified_zones_list
 
+    def segments_between_psm(self, test_member1: PrimarySuppMem, test_member2: PrimarySuppMem):
+        # Returns all segments between adjacent Primary Supporting Members
+        identified_segments_set = set()
+        psm_direction = test_member1.direction
+        plates = self.plating_zones_between_psm(test_member1, test_member2)
+
+        if psm_direction == BeamDirection.LONGITUDINAL:
+            for plate in plates:
+                identified_segments_set.add(plate.trans_seg1)
+                identified_segments_set.add(plate.trans_seg2)
+
+        elif psm_direction == BeamDirection.TRANSVERSE:
+            for plate in plates:
+                identified_segments_set.add(plate.long_seg1)
+                identified_segments_set.add(plate.long_seg2)
+
+        return identified_segments_set
+
     def set_longitudinal_PSM_spacing(self, prim_supp_member_id: int, ref_member_id: int, spacing: float):
         """
         :param prim_supp_member_id: ID of the Primary Supporting Member to have relative distance changed based on spacing.
@@ -1539,7 +1914,7 @@ class Grillage():
         :return: Changes the Primary Supporting Member relative distance value based on input spacing value.
                 If both prim_supp_member_id and ref_member_id are the same, the Primary Supporting Member is moved from its
                 original position by the value of spacing in [m]. Edge members are fixed and can not be moved, their position is
-                determined by overall grillgeo dimensions.
+                determined by overall grillage dimensions.
         """
         primary_supp_member = self._longitudinal_memb[prim_supp_member_id]
         adjacent_member = self._longitudinal_memb[ref_member_id]
@@ -1563,7 +1938,7 @@ class Grillage():
         :return: Changes the Primary Supporting Member relative distance value based on input spacing value.
                 If both prim_supp_member_id and ref_member_id are the same, the Primary Supporting Member is moved from its
                 original position by the value of spacing in [m]. Edge members are fixed and can not be moved, their position is
-                determined by overall grillgeo dimensions.
+                determined by overall grillage dimensions.
         """
         primary_supp_member = self._transverse_memb[prim_supp_member_id]
         adjacent_member = self._transverse_memb[ref_member_id]
@@ -1598,7 +1973,7 @@ class Grillage():
                 sumcheck += args[i]
 
             if sumcheck != self.B_overall:
-                print("ERROR: The sum of entered spacing values of", sumcheck, "m does not match overall grillgeo width of", self.B_overall,
+                print("ERROR: The sum of entered spacing values of", sumcheck, "m does not match overall grillage width of", self.B_overall,
                       "m! Adjust spacing values to match or input one less spacing value.")
             else:
                 for psm_id in range(2, self.N_longitudinal):
@@ -1607,12 +1982,12 @@ class Grillage():
 
         elif n_inputs >= self.N_longitudinal:
             print("ERROR: Number of input spacing values for setting all longitudinal primary supporting member positions:", n_inputs,
-                  ", expected at most", self.N_longitudinal - 1, "spacing values for grillgeo with",
+                  ", expected at most", self.N_longitudinal - 1, "spacing values for grillage with",
                   self.N_longitudinal, "longitudinal primary supporting members.")
 
         else:
             print("ERROR: Number of input spacing values for setting all longitudinal primary supporting member positions:", n_inputs,
-                  ", expected at least", self.N_longitudinal - 2, "spacing values for grillgeo with",
+                  ", expected at least", self.N_longitudinal - 2, "spacing values for grillage with",
                   self.N_longitudinal, "longitudinal primary supporting members.")
 
     def set_all_transverse_PSM(self, *args):
@@ -1634,7 +2009,7 @@ class Grillage():
                 sumcheck += args[i]
 
             if sumcheck != self.L_overall:
-                print("ERROR: The sum of entered spacing values of", sumcheck, "m does not match overall grillgeo length of", self.L_overall,
+                print("ERROR: The sum of entered spacing values of", sumcheck, "m does not match overall grillage length of", self.L_overall,
                       "m! Adjust spacing values to match or input one less spacing value.")
             else:
                 for psm_id in range(2, self.N_transverse):
@@ -1643,12 +2018,12 @@ class Grillage():
 
         elif n_inputs >= self._N_transverse:
             print("ERROR: Number of input spacing values for setting all transverse primary supporting member positions:", n_inputs,
-                  ", expected at most", self.N_transverse - 1, "spacing values for grillgeo with",
+                  ", expected at most", self.N_transverse - 1, "spacing values for grillage with",
                   self.N_transverse, "transverse primary supporting members.")
 
         else:
             print("ERROR: Number of input spacing values for setting all transverse primary supporting member positions:", n_inputs,
-                  ", expected at least", self.N_transverse - 2, "spacing values for grillgeo with",
+                  ", expected at least", self.N_transverse - 2, "spacing values for grillage with",
                   self.N_transverse, "transverse primary supporting members.")
 
     def set_plating_prop_longitudinals(self, plate_id, plating_property, property_object):
@@ -1732,22 +2107,19 @@ class Grillage():
         symmetric_plate_list = plate.symmetric_plate_zones
 
         if plating_property == "plate_prop":
-            self.plating()[plate_id].plate_prop = property_object
-            for i in range(0, len(symmetric_plate_list)):
-                plate_id = symmetric_plate_list[i].id
-                self.plating()[plate_id].plate_prop = property_object
+            plate.plate_prop = property_object
+            for plate in symmetric_plate_list:
+                plate.plate_prop = property_object
 
         elif plating_property == "stiff_layout":
-            self.plating()[plate_id].stiff_layout = property_object
-            for i in range(0, len(symmetric_plate_list)):
-                plate_id = symmetric_plate_list[i].id
-                self.plating()[plate_id].stiff_layout = property_object
+            plate.stiff_layout = property_object
+            for plate in symmetric_plate_list:
+                plate.stiff_layout = property_object
 
         elif plating_property == "stiff_dir":
-            self.plating()[plate_id].stiff_dir = property_object
-            for i in range(0, len(symmetric_plate_list)):
-                plate_id = symmetric_plate_list[i].id
-                self.plating()[plate_id].stiff_dir = property_object
+            plate.stiff_dir = property_object
+            for plate in symmetric_plate_list:
+                plate.stiff_dir = property_object
 
         else:
             print("ERROR! Unknown plating property. Choose plate_prop, stiff_layout or stiff_dir")
@@ -1825,53 +2197,12 @@ class Grillage():
         for segment in prim_supp_mem.segments:
             segment.beam_prop = beam_property
 
-    def hc_variant_check(self):
-        hc_check = True
-
-        # 1.)   Plating zones between two common Primary Supporting Members may not have the same stiffener orientation
-        #       and different stiffener spacing
-        # Between longitudinal primary supporting members:
-        for psm_id in range(1, self._N_longitudinal):
-            psm_1 = self._longitudinal_memb[psm_id]
-            psm_2 = self._longitudinal_memb[psm_id + 1]
-            plate_list = self.plating_zones_between_psm(psm_1, psm_2)
-            plate_combinations = itertools.combinations(plate_list, 2)
-            # Plate combinations compares each plating zone stored inside plate_list with others, without duplicate checks
-            for plate in list(plate_combinations):
-                plate1 = plate[0]   # First plating zone of plate combinations
-                plate2 = plate[1]   # Second plating zone of plate combinations
-                spacing1 = Plate.get_stiffener_spacing(plate1)
-                spacing2 = Plate.get_stiffener_spacing(plate2)
-                if plate1.stiff_dir == BeamDirection.LONGITUDINAL and plate2.stiff_dir == BeamDirection.LONGITUDINAL and spacing1 != spacing2:
-                    print("Stiffener spacing of longitudinal stiffeners on plating zones between adjacent longitudinal primary supporting members",
-                          psm_1.id, "and", psm_2.id, "do not match! \n", "     Plating zone", plate1.id, "has stiffener spacing of",
-                          spacing1, "m", ", while plating zone", plate2.id, "has spacing of", spacing2, "m")
-                    hc_check = False
-
-        # Between transverse primary supporting members:
-        for psm_id in range(1, self._N_transverse):
-            psm_1 = self._transverse_memb[psm_id]
-            psm_2 = self._transverse_memb[psm_id + 1]
-            plate_list = self.plating_zones_between_psm(psm_1, psm_2)
-            plate_combinations = itertools.combinations(plate_list, 2)
-            # Plate combinations compares each plating zone stored inside plate_list with others, without duplicate checks
-            for plate in list(plate_combinations):
-                plate1 = plate[0]   # First plating zone of plate combinations
-                plate2 = plate[1]   # Second plating zone of plate combinations
-                spacing1 = Plate.get_stiffener_spacing(plate1)
-                spacing2 = Plate.get_stiffener_spacing(plate2)
-                if plate1.stiff_dir == BeamDirection.TRANSVERSE and plate2.stiff_dir == BeamDirection.TRANSVERSE and spacing1 != spacing2:
-                    print("Stiffener spacing of transverse stiffeners on plating zones between adjacent transverse primary supporting members",
-                          psm_1.id, "and", psm_2.id, "do not match! \n", "     Plating zone", plate1.id, "has stiffener spacing of",
-                          spacing1, "m", ", while plating zone", plate2.id, "has spacing of", spacing2, "m")
-                    hc_check = False
-        return hc_check
 
 class GrillageModelData:
     def __init__(self, filename: str):
         self._filename = filename
 
-    # Save grillgeo model to a file
+    # Save grillage model to a file
     def write_file(self, grillage: Grillage):
         n_longitudinal = str(len(Grillage.longitudinal_members(grillage).keys()))
         n_transverse = str(len(Grillage.transverse_members(grillage).keys()))
@@ -1892,7 +2223,7 @@ class GrillageModelData:
                               len(Grillage.transverse_members(grillage).keys()))
 
         with open(self._filename, "w") as f:
-            # Write input for grillgeo object - dimensions and number of primary supporting members
+            # Write input for grillage object - dimensions and number of primary supporting members
             f.write(grillage_length + "," + grillage_width + "," + n_longitudinal + "," + n_transverse + "\n")  # Grillage object
 
             # Write number of saved properties
@@ -1983,7 +2314,7 @@ class GrillageModelData:
                 stiff_layout = grillage.stiffener_layouts()[i]
                 line = str(stiff_layout.id)
                 line += ',' + str(stiff_layout.beam_prop.id)
-                line += ',' + str(stiff_layout.definition_type)
+                line += ',' + str(stiff_layout.definition_type).split(".")[1]
                 line += ',' + str(stiff_layout.definition_value) + "\n"
                 f.write(line)
 
@@ -2042,6 +2373,10 @@ class GrillageModelData:
                 line += ',' + str(plate.stiff_dir).split(".")[1]
                 line += ',' + str(plate.ref_edge).split(".")[1] + "\n"
                 f.write(line)
+
+            # Write elementary plate panel intercostal stiffener number and beam property
+            # for plate in grillage.plating().values():
+            #     line = str(plate.id)
             f.close()
 
     # Generate model from a saved file
@@ -2131,7 +2466,7 @@ class GrillageModelData:
                 line = lines[i]
                 split = line.split(",")
                 beam_prop = Grillage.beam_props(grillage_variant)[int(split[1])]
-                stiff_layout = StiffenerLayout(int(split[0]), beam_prop, split[2], float(split[3]))
+                stiff_layout = StiffenerLayout(int(split[0]), beam_prop, DefinitionType[split[2].strip()], float(split[3]))
                 Grillage.add_stiffener_layout(grillage_variant, stiff_layout)
 
             # Generate longitudinal Primary supporting members
@@ -2200,4 +2535,7 @@ class GrillageModelData:
                 curr_plate = Plate(int(split[0]), plate_prop, long_seg1, trans_seg1, long_seg2, trans_seg2, stifflayout, stiff_dir, ref_edge)
                 Grillage.add_plating(grillage_variant, curr_plate)
                 i_plate += 1
+
+            # Generate Elementary plate panels
+            Grillage.generate_elementary_plate_panels(grillage_variant)
             return grillage_variant

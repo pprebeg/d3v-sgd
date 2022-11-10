@@ -8,16 +8,19 @@ start = timer()
 hc_var = 1
 filename = str("../grillage savefiles/hc_var_") + str(hc_var) + str("_savefile.gin")
 hc_variant = GrillageModelData(filename).read_file()        # Učitavanje topologije iz datoteke
+print("Generating FE mesh on grillage variant", hc_var)
 
 # extents = MeshExtent(hc_variant, AOS.NONE)                # Opseg izrade mreže uz ručni odabir simetrije
 extents = MeshExtent(hc_variant)                            # Opseg izrade mreže
-mesh1 = MeshV1(extents)                                     # Dimenzije mreže V1 - novi MeshSize objekt
+
+selected_mesh_variant = MeshV1(extents)
+mesh1 = selected_mesh_variant
 
 # Kontrola mreže
 mesh1.min_num_ebs = 1                   # Postavljanje minimalnog broja elemenata između ukrepa
 mesh1.min_num_eweb = 3                  # Postavljanje minimalnog broja elemenata duž visine struka
 mesh1.num_eaf = 1                       # Postavljanje broja elemenata u smjeru širine prirubnice
-mesh1.flange_aspect_ratio = 8           # Postavljanje aspektnog odnosa elemenata prirubnica jakih nosača i oplate uz struk jakih nosača
+mesh1.flange_aspect_ratio = 7           # Postavljanje aspektnog odnosa elemenata prirubnica jakih nosača i oplate uz struk jakih nosača
 mesh1.plate_aspect_ratio = 4            # Postavljanje aspektnog odnosa elemenata oplate i strukova jakih nosača
 mesh1.des_plate_aspect_ratio = 3        # Postavljanje poželjnog aspektnog odnosa elemenata oplate
 
@@ -127,6 +130,8 @@ def Test_get_flange_el_width(psm_id, segment_id):
 
 
 def Test_all_plating_zones_mesh_dimensions():
+    extents.grillage_mesh_extent()
+    mesh1.calc_element_base_size_mesh()
     for plate in extents.plating_zones.values():
         dim_x = mesh1.get_base_dim_x(plate)
         dim_y = mesh1.get_base_dim_y(plate)
@@ -137,10 +142,7 @@ def Test_identify_unique_property():
     mesh1.identify_unique_property()
 
     for prop in mesh1.unique_properties.values():
-        plate_prop = len(prop.plate_prop)
-        beam_prop = len(prop.beam_prop)
-        print("Unique property ID:", prop.id, ", tp =", prop.tp, "mm, material ID", prop.mat.id,
-              ", upisano istih na modelu, plate:", plate_prop, ", beam:", beam_prop)
+        print("Unique property ID:", prop.id, ", tp =", prop.tp, "mm, material ID", prop.mat.id)
 
 
 def Test_get_tr_dim_x(plate_id):
@@ -267,14 +269,14 @@ def Test_PlatingZoneMesh(plate_id, split_along=AOS.NONE):
     plate = hc_variant.plating()[plate_id]
 
     extents.grillage_plate_extent()        # Izračun koje zone oplate se meshiraju
-    PlatingZoneMesh(mesh1, plate, 1, 1, split_along).generate_mesh()     # izrada mreže jedne zone oplate
+    PlatingZoneMesh(mesh1, plate, 1, 1, 1, split_along).generate_mesh()     # izrada mreže jedne zone oplate
 
 
 def Test_PlatingZoneMesh_element_property(plate_id, split_along=AOS.NONE):
     plate = hc_variant.plating()[plate_id]
     extents.grillage_plate_extent()        # Izračun koje zone oplate se meshiraju
     mesh1.identify_unique_property()
-    id_upp = PlatingZoneMesh(mesh1, plate, 1, 1, split_along).get_element_property()
+    id_upp = PlatingZoneMesh(mesh1, plate, 1, 1, 1, split_along).get_plate_element_property()
     print("ID jedinstvenog unique_property u rječniku mesh_size.unique_properties odabrane zone oplate:", id_upp)
 
 
@@ -331,8 +333,7 @@ def Test_Segment_element_generation(direction: BeamDirection, psm_id, segment_id
     start_node_id = 1
     start_element_id = 1
     seg_mesh = SegmentV1(mesh1, segment, start_node_id, start_element_id)
-    last_node, last_element = seg_mesh.generate_mesh()
-    print("ID koji se prenosi na idući segment: za čvor", last_node, ", za element", last_element)
+    seg_mesh.generate_mesh()
 
 
 def Test_edge_segment_node_generation(direction: BeamDirection, psm_id, segment_id):
@@ -446,5 +447,55 @@ def Test_generate_inward_flange_nodes(direction: BeamDirection, psm_id, segment_
     seg_mesh.generate_flange_nodes(flange_dir, start_node_id)
 
 
-def Test_segment_element_properties():
-    pass
+def Test_PlatingZoneMesh_beam_elements(plate_id, split_along=AOS.NONE):
+    plate = hc_variant.plating()[plate_id]
+
+    extents.grillage_plate_extent()        # Izračun koje zone oplate se meshiraju
+    PlatingZoneMesh(mesh1, plate, 1, 1, 1, split_along).generate_beam_elements()
+
+
+def Test_get_flange_element_property(direction: BeamDirection, psm_id, segment_id):
+    segment = None
+    if direction == BeamDirection.LONGITUDINAL:
+        segment = hc_variant.longitudinal_members()[psm_id].segments[segment_id - 1]
+    elif direction == BeamDirection.TRANSVERSE:
+        segment = hc_variant.transverse_members()[psm_id].segments[segment_id - 1]
+    mesh1.identify_unique_property()
+
+    start_node_id = 1
+    start_element_id = 1
+    seg_mesh = SegmentV1(mesh1, segment, start_node_id, start_element_id)
+    id_upp = seg_mesh.get_flange_element_property()
+
+    prop = mesh1.unique_properties[id_upp]
+    print("Odabrani segment ID", segment_id, ", nosaca", psm_id, direction, ":")
+    print("     ID jedinstvenog unique_property prirubnice u rječniku mesh_size.unique_properties:", id_upp)
+    print("     Debljina materijala:", prop.tp, "mm, materijal:", prop.mat.name)
+
+
+def Test_flange_ref_array(direction: BeamDirection, psm_id, segment_id):
+    segment = None
+    if direction == BeamDirection.LONGITUDINAL:
+        segment = hc_variant.longitudinal_members()[psm_id].segments[segment_id - 1]
+    elif direction == BeamDirection.TRANSVERSE:
+        segment = hc_variant.transverse_members()[psm_id].segments[segment_id - 1]
+
+    start_node_id = 1
+    start_element_id = 1
+    seg_mesh = SegmentV1(mesh1, segment, start_node_id, start_element_id)
+    seg_mesh.get_plate_edge_nodes()
+    flange_start_node = 56
+    ref_array = seg_mesh.ref_flange_node_ID_array(flange_start_node)
+    print(ref_array)
+
+
+def Test_generate_element_row(direction: BeamDirection, psm_id, segment_id):
+    segment = None
+    if direction == BeamDirection.LONGITUDINAL:
+        segment = hc_variant.longitudinal_members()[psm_id].segments[segment_id - 1]
+    elif direction == BeamDirection.TRANSVERSE:
+        segment = hc_variant.transverse_members()[psm_id].segments[segment_id - 1]
+
+    start_node_id = 1
+    start_element_id = 101
+    SegmentV2(mesh1, segment, start_node_id, start_element_id).generate_element_row(1, start_element_id)

@@ -77,6 +77,7 @@ hc_var_1.generate_elementary_plate_panels()                     # Generacija neu
 # hc_variant.plating()[7].set_intercostal_stiffeners(4, FB_beam)
 # hc_variant.plating()[10].set_intercostal_stiffeners(4, FB_beam)
 # hc_variant.plating()[11].set_intercostal_stiffeners(4, FB_beam)
+
 hc_var_1.plating()[1].elementary_plate_panels[1].intercostal_stiffener_num = 1
 hc_var_1.plating()[1].elementary_plate_panels[1].beam_prop = FB_beam
 

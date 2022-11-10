@@ -49,26 +49,33 @@ from tests.test_mesh import *
 # Test_get_tr_element_num(1)
 # Test_get_element_number(2)
 
-# Test_get_mesh_dim(2)                        # Dimenzije x i y svih elemenata duž odabrane zone oplate
+# Test_get_mesh_dim(5)                        # Dimenzije x i y svih elemenata duž odabrane zone oplate
 # Test_get_all_mesh_dim()                     # Dimenzije x i y svih elemenata duž svih generiranih zona oplate
 # Test_calc_element_base_size()
 
 
 # ********************** testovi metoda u PlatingZoneMesh **********************
-# Test_PlatingZoneMesh(2, AOS.NONE)                                         # Izrada mreže jedne zone oplate
+# Test_PlatingZoneMesh(1, AOS.NONE)                                         # Izrada mreže jedne zone oplate
 # Test_PlatingZoneMesh_element_property(1)
+# Test_PlatingZoneMesh_beam_elements(5, AOS.BOTH)
 
 
 # ********************** testovi metoda u SegmentMesh **********************
 # Test_edge_segment_node_generation(BeamDirection.LONGITUDINAL, 1, 1)
-# Test_get_web_element_property(BeamDirection.LONGITUDINAL, 1, 1)
-# Test_Segment_element_generation(BeamDirection.LONGITUDINAL, 1, 1)
+# Test_get_web_element_property(BeamDirection.LONGITUDINAL, 3, 2)
+# Test_get_flange_element_property(BeamDirection.TRANSVERSE, 2, 1)
+# Test_Segment_element_generation(BeamDirection.LONGITUDINAL, 2, 1)                 # Izrada mreže na jednom segmentu
 # Test_generate_inward_flange_nodes(BeamDirection.LONGITUDINAsL, 1, 1, FlangeDirection.INWARD)
+# Test_flange_ref_array(BeamDirection.LONGITUDINAL, 2, 1)
+
+
+# ********************** testovi metoda u SegmentV2 **********************
+# Test_generate_element_row(BeamDirection.LONGITUDINAL, 1, 1)
 
 
 # ********************** testovi metoda u GrillageMesh **********************
 # GrillageMesh(mesh1).generate_plate_mesh()         # Izrada mreže svih zona oplate
-# GrillageMesh(mesh1).generate_psm_mesh()           # Izrada mreže svih segmenata
+# GrillageMesh(mesh1).generate_psm_mesh_V1()           # Izrada mreže svih segmenata
 # GrillageMesh(mesh1).generate_mesh()
 # GrillageMesh(mesh1).check_node_overlap()
 

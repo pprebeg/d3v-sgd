@@ -73,7 +73,118 @@ class BeamType(Enum):
     Hat = 6
 
 
-class Node:
+class ResponseAnalysis:
+    """
+    Class for storing references from analysis modules and analysis results.
+
+    Each structural element of the grillage model contains an instance of this object
+    for storing associated FEM elements, analysis results and other information.
+    Used for retrieving the relevant response analysis results for adequacy analysis.
+    """
+    def __init__(self, id_):
+        self._id = id_
+        self.boundary_condition_nodes = {}
+        self.nodal_loads = {}
+        self.flange_elements = {}
+        self.web_elements = {}
+        self.plate_elements = {}
+        self.beam_elements = {}
+        self.analytic_results = []
+        self.fem_results = []
+
+    def add_boundary_node(self, key, value):
+        self.boundary_condition_nodes[key] = value
+
+    def add_nodal_load(self, key, value):
+        self.nodal_loads[key] = value
+
+    def add_flange_element(self, key, value):
+        self.flange_elements[key] = value
+
+    def add_web_element(self, key, value):
+        self.web_elements[key] = value
+
+    def add_plate_element(self, key, value):
+        self.plate_elements[key] = value
+
+    def add_beam_element(self, key, value):
+        self.beam_elements[key] = value
+
+    def get_deflection(self):
+        """
+        :return: Maximum deflection of the grillage structure element.
+        For primary supporting member deflection limit criteria.
+        """
+        pass
+
+    def get_avg_normal_stress(self):
+        pass
+
+    def get_avg_shear_stress(self):
+        """
+        :return: Average shear stress considering the actual dimensions.
+        For primary supporting member web panel critical buckling stress check.
+        """
+        pass
+
+    def get_avg_shear_stress_square(self):
+        """
+        :return: Average shear stress considering a presumed square panel.
+        For primary supporting member web panel critical buckling stress check.
+        """
+        pass
+
+    def get_max_x_compressive_stress(self):
+        """
+        :return: Maximum compressive stress in the direction of global x axis.
+        For elementary plate and ordinary stiffener critical buckling stress check.
+        """
+        pass
+
+    def get_max_y_compressive_stress(self):
+        """
+        :return: Maximum compressive stress in the direction of global y axis.
+        For elementary plate and ordinary stiffener critical buckling stress check.
+        """
+        pass
+
+    def get_max_compressive_stress(self):
+        """
+        :return: Maximum value of compressive stress anywhere on the grillage structure element.
+        For general strength check criteria.
+        """
+        pass
+
+    def get_min_compressive_stress(self):
+        """
+        :return: Minimum compressive stress anywhere on the grillage structure element.
+        For elementary plate critical buckling stress check.
+        """
+        pass
+
+    def get_max_tensile_stress(self):
+        """
+        :return: Maximum tensile stress anywhere on the grillage structure element.
+        For general strength check criteria.
+        """
+        pass
+
+    def get_max_normal_stress(self):
+        """
+        :return: Maximum normal stress anywhere on the grillage structure element.
+        For primary supporting member checking criteria.
+        """
+        pass
+
+    def get_max_shear_stress(self):
+        """
+        :return: Maximum shear stress anywhere on the grillage structure element.
+        For primary supporting member checking criteria.
+        """
+        pass
+
+
+class ModelNode:
     def __init__(self, id_: int, x=0.0, y=0.0, z=0.0):
         self._id = id_
         self._coords = np.array([x, y, z])
@@ -871,6 +982,7 @@ class Segment:
         self._cross_member1 = cross_member1
         self._cross_member2 = cross_member2
         self._symmetric_segment = None
+        self.analysis_results: ResponseAnalysis
 
     @property
     def id(self):
@@ -918,6 +1030,14 @@ class Segment:
             self._symmetric_segment = value
             self._symmetric_segment.symmetric_segment = self
 
+    @property
+    def analysis_results(self):
+        return self.analysis_results
+
+    @analysis_results.setter
+    def analysis_results(self, value):
+        self.analysis_results = value
+
     @staticmethod
     def end_nodes(member: PrimarySuppMem):
         """
@@ -930,13 +1050,13 @@ class Segment:
         hw_end2 = member.segments[len(member.segments) - 1].beam_prop.hw    # Primary supporting member web height at x = L or y = B
 
         if member.direction == BeamDirection.LONGITUDINAL:  # Longitudinal primary supporting members
-            node1 = Node(1, 0, member.rel_dist * grillage.B_overall * 1000, hw_end1)
-            node2 = Node(2, grillage.L_overall * 1000, member.rel_dist * grillage.B_overall * 1000, hw_end2)
+            node1 = ModelNode(1, 0, member.rel_dist * grillage.B_overall * 1000, hw_end1)
+            node2 = ModelNode(2, grillage.L_overall * 1000, member.rel_dist * grillage.B_overall * 1000, hw_end2)
             return node1.coords, node2.coords
 
         if member.direction == BeamDirection.TRANSVERSE:  # Transverse primary supporting members
-            node1 = Node(1, member.rel_dist * grillage.L_overall * 1000, 0, hw_end1)
-            node2 = Node(2, member.rel_dist * grillage.L_overall * 1000, grillage.B_overall * 1000, hw_end2)
+            node1 = ModelNode(1, member.rel_dist * grillage.L_overall * 1000, 0, hw_end1)
+            node2 = ModelNode(2, member.rel_dist * grillage.L_overall * 1000, grillage.B_overall * 1000, hw_end2)
             return node1.coords, node2.coords
 
     def get_segment_node1(self):
@@ -1062,6 +1182,7 @@ class Plate:
         self._segments = [long_seg1, trans_seg1, long_seg2, trans_seg2]
         self._symmetric_plate_zones = []
         self._elementary_plate_panels = {}
+        self.analysis_results: ResponseAnalysis
 
     def test_plate_segment(self, test_segment: Segment):
         # Segment association test
@@ -1115,7 +1236,7 @@ class Plate:
             elif self._ref_edge == Ref.EDGE2:
                 return self._segments[3]
 
-    def get_intercostal_reference_segment(self):
+    def get_intercostal_ref_segment(self):
         if self._stiff_dir == BeamDirection.LONGITUDINAL:
             return self._segments[1]
         elif self._stiff_dir == BeamDirection.TRANSVERSE:
@@ -1296,6 +1417,14 @@ class Plate:
     def elementary_plate_panels(self):
         return self._elementary_plate_panels
 
+    @property
+    def analysis_results(self):
+        return self.analysis_results
+
+    @analysis_results.setter
+    def analysis_results(self, value):
+        self.analysis_results = value
+
 
 class ElementaryPlatePanel:
     def __init__(self, id_, plate: Plate, intercostal_stiffener_num: int = 0, beam_prop: BeamProperty = None):
@@ -1314,6 +1443,7 @@ class ElementaryPlatePanel:
         self._plate = plate
         self._intercostal_stiffener_num = intercostal_stiffener_num
         self._beam_prop = beam_prop
+        self.analysis_results: ResponseAnalysis
 
     @property
     def id(self):
@@ -1341,6 +1471,14 @@ class ElementaryPlatePanel:
             return self._beam_prop.beam_type
         else:
             return None
+
+    @property
+    def analysis_results(self):
+        return self.analysis_results
+
+    @analysis_results.setter
+    def analysis_results(self, value):
+        self.analysis_results = value
 
     @property
     def sub_panel_number(self):
@@ -1385,7 +1523,6 @@ class ElementaryPlatePanel:
 
         if self._plate.stiff_layout.beam_prop.beam_type is BeamType.Hat:
             hat_S1 = self._plate.stiff_layout.beam_prop.getS1_Hat() / 1000  # Width between webs of a Hat profile, [m]
-
             return spacing - hat_S1
         else:
             return spacing
@@ -1507,8 +1644,8 @@ class ElementaryPlatePanel:
         :return: Coordinates of the n-th intercostal stiffener on the plating zone in [mm], at the point of connection with plating.
         """
         perp_unit_vector = np.array((0, 0, 0))
-        ref_node1 = self._plate.get_intercostal_reference_segment().get_segment_node1()     # Reference node 1 coordinates in [mm]
-        ref_node2 = self._plate.get_intercostal_reference_segment().get_segment_node2()     # Reference node 2 coordinates in [mm]
+        ref_node1 = self._plate.get_intercostal_ref_segment().get_segment_node1()     # Reference node 1 coordinates in [mm]
+        ref_node2 = self._plate.get_intercostal_ref_segment().get_segment_node2()     # Reference node 2 coordinates in [mm]
         ref_vector = ref_node2 - ref_node1                                      # Reference vector in the direction of the reference segment
         ref_vector_magnitude = np.linalg.norm(ref_vector)                       # Reference vector length
         unit_ref_vector = ref_vector / ref_vector_magnitude                     # Unit reference vector of the intercostal stiffener direction
@@ -1522,14 +1659,26 @@ class ElementaryPlatePanel:
 
         length = self.sub_panel_length() * 1000     # Panel length in [mm]
         width = self.sub_panel_width() * 1000       # Panel width in [mm]
+        plate_panel_num = int(self._plate.get_stiffener_number()) + 1
         parallel_vector = width * unit_ref_vector
         perpendicular_vector = length * perp_unit_vector
 
+        if self._plate.stiff_layout.beam_prop.beam_type is BeamType.Hat:
+            half_hat_S1 = self._plate.stiff_layout.beam_prop.getS1_Hat() / 2
+        else:
+            half_hat_S1 = 0
+
         if self.id == 1:
             intercostal_node_1 = ref_node1 + perpendicular_vector * intercostal_n
-            intercostal_node_2 = intercostal_node_1 + parallel_vector
+            intercostal_node_2 = intercostal_node_1 + parallel_vector + half_hat_S1 * unit_ref_vector
+
+        elif self.id == plate_panel_num:
+            ref_node = self._plate.get_stiff_coords(self.stiffener_1_id)[0] + half_hat_S1 * unit_ref_vector
+            intercostal_node_1 = ref_node + perpendicular_vector * intercostal_n
+            intercostal_node_2 = intercostal_node_1 + parallel_vector + half_hat_S1 * unit_ref_vector
+
         else:
-            ref_node = self._plate.get_stiff_coords(self.stiffener_1_id)[0]
+            ref_node = self._plate.get_stiff_coords(self.stiffener_1_id)[0] + half_hat_S1 * unit_ref_vector
             intercostal_node_1 = ref_node + perpendicular_vector * intercostal_n
             intercostal_node_2 = intercostal_node_1 + parallel_vector
 

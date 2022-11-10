@@ -15,77 +15,14 @@ MODULE FOR GRILLAGE FINITE ELEMENT MESH GENERATION
 import itertools
 from grillage.grillage_model import *
 from femdir.custom_exceptions import *
+from grillage.grillage_fem import GeoGrillageFEM
+import femdir.geofementity as gfe
 
 np.set_printoptions(linewidth=400)
 
 
 # import femdir.geofementity as gfe
 # import femdir.geofem
-
-
-class Node:
-    # Privremeni copy paste Node iz geofementity za testiranje
-    # algoritma za preklapanje čvorova
-    def __init__(self, node_id: int = 0, p: np.ndarray = None):
-        self._node_id = node_id
-        if p is None:
-            self.p = np.zeros(3)
-        else:
-            self.p = p
-        pass
-
-    @property
-    def node_id(self):
-        return self._node_id
-
-    @staticmethod
-    def get_distance_betweeen_nodes(node1, node2):
-        p1 = node1.p
-        p2 = node2.p
-        p3 = p2 - p1
-        return np.linalg.norm(p3)
-
-    @staticmethod
-    def get_point_betweeen_nodes(node1, node2, relative_position):
-        p1 = node1.p
-        p2 = node2.p
-        p3 = p2 - p1
-        length = np.linalg.norm(p3)
-        p3 = p3 / length
-        pbwn = p1 + relative_position * length * p3
-        return pbwn
-
-    @staticmethod
-    def get_area_between_nodes(nodes: list):
-        n = len(nodes)
-        area = 0.0
-        if n >= 3:
-            for i in range(1, n - 1):
-                p1p2 = np.subtract(nodes[i], nodes[0])
-                p1p3 = np.subtract(nodes[i + 1], nodes[0])
-                u = np.cross(p1p2, p1p3)
-                area += 0.5 * np.linalg.norm(u)
-        return area
-
-    def x(self):
-        return self.p[0]
-
-    def y(self):
-        return self.p[1]
-
-    def z(self):
-        return self.p[2]
-
-    def init(self, x, y, z):
-        self.p[0] = x
-        self.p[1] = y
-        self.p[2] = z
-
-    def get_info(self) -> str:
-        msg = self.__class__.__name__
-        msg += '\nid=' + str(self._node_id)
-        msg += '\ncoords' + str(self.p)
-        return msg
 
 
 class ModelCheck:
@@ -1222,7 +1159,7 @@ class MeshSize:
         return self._unique_properties
 
     def create_GeoFEM_materials(self):
-        """
+
         for material in self._grillage.material_props().values():
             # print(" ID =", material.id)
             # print(" Naziv: ", material.name)
@@ -1231,12 +1168,13 @@ class MeshSize:
             # print(" Gustoca materijala,    ro = ", material.ro, "kg/m3")
             # print(" Granica razvlacenja,  Reh = ", material.Reh, "N/mm2", "\n")
 
-            new_material = Material(material.id, material.name)
+            new_material = gfe.Material()
+            new_material.init(material.id, material.name)
             new_material.E = material.E
             new_material.ni = material.v
             new_material.rho = material.ro
             new_material.ReH = material.Reh
-        """
+
         pass
 
     def create_unique_plate_property(self, thickness, material: MaterialProperty):
@@ -2456,7 +2394,7 @@ class PlatingZoneMesh:
         node_id_array = np.reshape(id_list, [row_limit, column_limit])
         return node_id_array
 
-    def generate_nodes(self):
+    def generate_nodes(self,fem:GeoGrillageFEM):
         """
         :return: Generates nodes on the entire plating zone and returns last
             node ID to continue node numeration on other plating zones.
@@ -2502,20 +2440,21 @@ class PlatingZoneMesh:
                 node_coords = spacing_vector + ref_node1
 
                 # Ovdje instanciraj objekt čvora
-                node = Node(node_id, node_coords)
+                #node = Node(node_id, node_coords)
+                node = fem.add_node(node_coords)
                 # SPREMANJE U DICT ZA TEST
                 # self._mesh_size.nodes[node_id] = node_coords
                 if row == 0 or row == row_limit - 1:  # longitudinal edges
-                    self._mesh_size.node_overlaps[node_id] = node
+                    fem.add_node_to_node_overlaps(node)
                 if column == 0 or column == column_limit - 1:
-                    self._mesh_size.node_overlaps[node_id] = node
+                    fem.add_node_to_node_overlaps(node)
 
                 print(" Node ID:", node_id, ", koordinate:", node_coords)
                 node_id += 1
 
         return node_id
 
-    def generate_elements(self):
+    def generate_elements(self,fem:GeoGrillageFEM):
         """
         :return: Generates elements on the entire plating zone and returns last
             element ID to continue element numeration on other plating zones.
@@ -2532,19 +2471,19 @@ class PlatingZoneMesh:
 
         print("Elementi zone oplate", self._plate.id, ", imaju jedinstveno svojstvo ID",
               id_upp, ", materijal", plate_property.mat.name, ", debljina", plate_property.tp, "mm")
-
+        id_el_nodes=[None]*4
         for row in range(0, row_limit - 1):
             for column in range(0, column_limit - 1):
-                node1_id = node_id_array[row, column]
-                node2_id = node_id_array[row, column + 1]
-                node3_id = node_id_array[row + 1, column + 1]
-                node4_id = node_id_array[row + 1, column]
-
+                id_el_nodes[0] = node_id_array[row, column]
+                id_el_nodes[1] = node_id_array[row, column + 1]
+                id_el_nodes[2] = node_id_array[row + 1, column + 1]
+                id_el_nodes[3] = node_id_array[row + 1, column]
+                fem.add_quad_element(id_upp, id_el_nodes)
                 # Ovdje instanciraj objekt quad elementa,
                 # dodaj čvorove, svojstvo elementu, itd.
 
                 print(" Quad element ID", element_id, ", Node IDs:",
-                      node1_id, node2_id, node3_id, node4_id)
+                      id_el_nodes)
 
                 element_id += 1
         return element_id
@@ -2576,7 +2515,7 @@ class PlatingZoneMesh:
                 id_list.append(key)
         return id_list
 
-    def generate_beam_elements(self):
+    def generate_beam_elements(self,fem:GeoGrillageFEM):
         """
         :return: Generates beam elements of ordinary stiffeners between nodes
             identified using method identify_beam_nodes. Returns last beam
@@ -2598,34 +2537,38 @@ class PlatingZoneMesh:
 
         stiff_id = 1
         node_id_index_list = self.identify_beam_nodes()
+        id_el_nodes = [None] * 2
+
         if stiff_dir == BeamDirection.LONGITUDINAL:
             for index in node_id_index_list:
                 print("  Ukrepa broj", stiff_id)
                 stiff_id += 1
                 for i in range(0, column_limit - 1):
-                    node1_id = node_id_array[index, i]
-                    node2_id = node_id_array[index, i + 1]
-                    print("    Beam element ID", beam_id, ", čvorovi:", node1_id, ",", node2_id)
+                    id_el_nodes[0] = node_id_array[index, i]
+                    id_el_nodes[1] = node_id_array[index, i + 1]
+                    #fem.add_beam_element(0,id_el_nodes,np.ndarray([0.0,0.0,-1.0]))
+                    print("    Beam element ID", beam_id, ", čvorovi:",id_el_nodes)
                     beam_id += 1
         else:
             for index in node_id_index_list:
                 print("  Ukrepa broj", stiff_id)
                 stiff_id += 1
                 for i in range(0, row_limit - 1):
-                    node1_id = node_id_array[i, index]
-                    node2_id = node_id_array[i + 1, index]
-                    print("    Beam element ID", beam_id, ", čvorovi:", node1_id, ",", node2_id)
+                    id_el_nodes[0] = node_id_array[i, index]
+                    id_el_nodes[1] = node_id_array[i + 1, index]
+                    #fem.add_beam_element(0, id_el_nodes,np.ndarray([0.0,0.0,-1.0]))
+                    print("    Beam element ID", beam_id, ", čvorovi:", id_el_nodes)
                     beam_id += 1
         return beam_id
 
-    def generate_mesh(self):
+    def generate_mesh(self,fem:GeoGrillageFEM):
         """
         :return: Generates all nodes and elements on the selected plating zone.
             Returns last node and element IDs to continue numeration.
         """
-        nodes = self.generate_nodes()
-        elements = self.generate_elements()
-        beams = self.generate_beam_elements()
+        nodes = self.generate_nodes(fem)
+        elements = self.generate_elements(fem)
+        beams = self.generate_beam_elements(fem)
         return nodes, elements, beams
 
 
@@ -2782,10 +2725,10 @@ class SegmentMesh:
         web_node_id_array = np.reshape(id_list, [row_limit, column_limit])
         return web_node_id_array
 
-    def generate_web_nodes(self):
+    def generate_web_nodes(self,fem:GeoGrillageFEM):
         pass
 
-    def generate_web_elements(self):
+    def generate_web_elements(self,fem:GeoGrillageFEM):
         pass
 
     def ref_flange_node_ID_array(self, flange_start_node):
@@ -2813,13 +2756,13 @@ class SegmentMesh:
 
         return flange_node_id_array
 
-    def generate_flange_nodes(self, direction: FlangeDirection, start_node_id):
+    def generate_flange_nodes(self,fem:GeoGrillageFEM, direction: FlangeDirection, start_node_id):
         pass
 
-    def generate_flange_elements(self, start_node_id, start_element_id):
+    def generate_flange_elements(self,fem:GeoGrillageFEM, start_node_id, start_element_id):
         pass
 
-    def generate_mesh(self):
+    def generate_mesh(self,fem:GeoGrillageFEM):
         """
         :return: Generates all nodes and elements on a segment of a primary
             supporting member. Returns last node and element ID to continue
@@ -2831,27 +2774,28 @@ class SegmentMesh:
         self.get_plate_edge_nodes()
         beam_type = self._segment.beam_prop.beam_type
         flange_dir = self._segment.primary_supp_mem.flange_direction
+
         if beam_type is BeamType.T:
-            web_nodes = self.generate_web_nodes()
-            web_elements = self.generate_web_elements()
-            flange_nodes = self.generate_flange_nodes(FlangeDirection.INWARD, web_nodes)
-            elements = self.generate_flange_elements(web_nodes, web_elements)
+            web_nodes = self.generate_web_nodes(fem)
+            web_elements = self.generate_web_elements(fem)
+            flange_nodes = self.generate_flange_nodes(fem,FlangeDirection.INWARD, web_nodes)
+            elements = self.generate_flange_elements(fem,web_nodes, web_elements)
 
             if not self._mesh_extent.aos_on_segment(self._segment):
-                nodes = self.generate_flange_nodes(FlangeDirection.OUTWARD, flange_nodes)
-                elements = self.generate_flange_elements(flange_nodes, elements)
+                nodes = self.generate_flange_nodes(fem,FlangeDirection.OUTWARD, flange_nodes)
+                elements = self.generate_flange_elements(fem,flange_nodes, elements)
             else:
                 nodes = flange_nodes
 
         elif beam_type is BeamType.L:
-            nodes = self.generate_web_nodes()
-            elements = self.generate_web_elements()
-            nodes = self.generate_flange_nodes(flange_dir, nodes)
-            elements = self.generate_flange_elements(nodes, elements)
+            nodes = self.generate_web_nodes(fem)
+            elements = self.generate_web_elements(fem)
+            nodes = self.generate_flange_nodes(fem,flange_dir, nodes)
+            elements = self.generate_flange_elements(fem,nodes, elements)
 
         elif beam_type is BeamType.FB:
-            nodes = self.generate_web_nodes()
-            elements = self.generate_web_elements()
+            nodes = self.generate_web_nodes(fem)
+            elements = self.generate_web_elements(fem)
 
         return nodes, elements
 
@@ -2872,7 +2816,7 @@ class SegmentV1(SegmentMesh):
         self._start_element_id = start_e_id  # Starting element ID
         self._split = split
 
-    def generate_web_nodes(self):
+    def generate_web_nodes(self,fem:GeoGrillageFEM):
         """
         :return: Generates nodes on the web of one segment of a primary
             supporting member and returns last node ID to continue node
@@ -2920,13 +2864,15 @@ class SegmentV1(SegmentMesh):
 
                 # SPREMANJE U DICT ZA TEST
                 # self._mesh_size.nodes[node_id] = node_coords
-                node = Node(node_id, node_coords)
-                self._mesh_size.node_overlaps[node_id] = node
+                #node = Node(node_id, node_coords)
+                node= fem.add_node(node_coords)
+                fem.add_node_to_node_overlaps(node)
+                #self._mesh_size.node_overlaps[node_id] = node
 
                 node_id += 1
         return node_id
 
-    def generate_flange_nodes(self, direction: FlangeDirection, flange_start_node):
+    def generate_flange_nodes(self,fem:GeoGrillageFEM, direction: FlangeDirection, flange_start_node):
         """
         :param direction: Selected flange direction for node generation.
         :param flange_start_node: Starting node ID for node generation.
@@ -2992,14 +2938,16 @@ class SegmentV1(SegmentMesh):
                 print(" Node ID:", node_id, ", koordinate:", node_coords)
 
                 # SPREMANJE U DICT ZA TEST
-                node = Node(node_id, node_coords)
+                #node = Node(node_id, node_coords)
+                node = fem.add_node(node_coords)
+                fem.add_node_to_node_overlaps(node)
                 # Izolirati čvorove na kraju nekako da se ubrza pretraživanje
-                self._mesh_size.node_overlaps[node_id] = node
+                #self._mesh_size.node_overlaps[node_id] = node
                 node_id += 1
 
         return node_id
 
-    def generate_web_elements(self):
+    def generate_web_elements(self,fem:GeoGrillageFEM):
         """
         :return: Generates elements on the entire segment web and returns last
             element ID to continue element numeration on other segments.
@@ -3019,24 +2967,24 @@ class SegmentV1(SegmentMesh):
               ", segmenta broj", self._segment.id,
               ", jedinstvenog svojstva ID", id_upp, ", materijal",
               plate_property.mat.name, ", debljina", plate_property.tp, "mm")
-
+        id_el_nodes = [None] * 4
         for row in range(0, self._mesh_size.min_num_eweb):
             for column in range(0, column_limit - 1):
-                node1_id = node_id_array[row, column]
-                node2_id = node_id_array[row, column + 1]
-                node3_id = node_id_array[row + 1, column + 1]
-                node4_id = node_id_array[row + 1, column]
-
+                id_el_nodes[0] = node_id_array[row, column]
+                id_el_nodes[1] = node_id_array[row, column + 1]
+                id_el_nodes[2] = node_id_array[row + 1, column + 1]
+                id_el_nodes[3] = node_id_array[row + 1, column]
+                fem.add_quad_element(id_upp, id_el_nodes)
                 # Ovdje instanciraj objekt quad elementa,
                 # dodaj čvorove, svojstvo elementu, itd.
 
                 print(" Quad element ID", element_id,
-                      ", Node IDs:", node1_id, node2_id, node3_id, node4_id)
+                      ", Node IDs:", id_el_nodes)
 
                 element_id += 1
         return element_id
 
-    def generate_flange_elements(self, flange_start_node, start_element_id):
+    def generate_flange_elements(self,fem:GeoGrillageFEM, flange_start_node, start_element_id):
         element_id = start_element_id
         row_limit, column_limit = np.shape(self.ref_flange_node_ID_array(flange_start_node))
         flange_id_array = self.ref_flange_node_ID_array(flange_start_node)
@@ -3048,19 +2996,19 @@ class SegmentV1(SegmentMesh):
               ", segmenta broj", self._segment.id,
               ", jedinstvenog svojstva ID", id_upp, ", materijal",
               plate_property.mat.name, ", debljina", plate_property.tp, "mm")
-
+        id_el_nodes = [None] * 4
         for row in range(0, row_limit - 1):
             for column in range(0, column_limit - 1):
-                node1_id = flange_id_array[row, column]
-                node2_id = flange_id_array[row, column + 1]
-                node3_id = flange_id_array[row + 1, column + 1]
-                node4_id = flange_id_array[row + 1, column]
-
+                id_el_nodes[0] = flange_id_array[row, column]
+                id_el_nodes[1] = flange_id_array[row, column + 1]
+                id_el_nodes[2] = flange_id_array[row + 1, column + 1]
+                id_el_nodes[3] = flange_id_array[row + 1, column]
+                fem.add_quad_element(id_upp, id_el_nodes)
                 # Ovdje instanciraj objekt quad elementa,
                 # dodaj čvorove, svojstvo elementu, itd.
 
                 print(" Quad element ID", element_id,
-                      ", Node IDs:", node1_id, node2_id, node3_id, node4_id)
+                      ", Node IDs:", id_el_nodes)
 
                 element_id += 1
         return element_id
@@ -3289,7 +3237,7 @@ class GrillageMesh:
     def start_element_id(self, value):
         self._start_element_id = value
 
-    def generate_plate_mesh(self):
+    def generate_plate_mesh(self,fem:GeoGrillageFEM):
         n_id = self.start_node_id
         e_id = self.start_element_id
         b_id = self.start_beam_id
@@ -3297,45 +3245,47 @@ class GrillageMesh:
         for plate in self._mesh_extent.full_plate_zones.values():
             pzm=PlatingZoneMesh(self._mesh_size, plate, n_id, e_id,
                                                b_id, AOS.NONE)
-            n_id, e_id, b_id = pzm.generate_mesh()
+            n_id, e_id, b_id = pzm.generate_mesh(fem)
 
         for plate in self._mesh_extent.long_half_plate_zones.values():
             n_id, e_id, b_id = PlatingZoneMesh(self._mesh_size, plate, n_id, e_id,
-                                               b_id, AOS.LONGITUDINAL).generate_mesh()
+                                               b_id, AOS.LONGITUDINAL).generate_mesh(fem)
 
         for plate in self._mesh_extent.tran_half_plate_zones.values():
             n_id, e_id, b_id = PlatingZoneMesh(self._mesh_size, plate, n_id, e_id,
-                                               b_id, AOS.TRANSVERSE).generate_mesh()
+                                               b_id, AOS.TRANSVERSE).generate_mesh(fem)
 
         for plate in self._mesh_extent.quarter_plate_zone.values():
             n_id, e_id, b_id = PlatingZoneMesh(self._mesh_size, plate, n_id, e_id,
-                                               b_id, AOS.BOTH).generate_mesh()
+                                               b_id, AOS.BOTH).generate_mesh(fem)
 
         self.start_node_id = n_id
         self.start_element_id = e_id
 
-    def generate_psm_mesh_V1(self):
+    def generate_psm_mesh_V1(self,fem:GeoGrillageFEM):
         n_id = self.start_node_id
         e_id = self.start_element_id
 
         for segment in self._mesh_extent.full_segments.values():
             n_id, e_id = SegmentV1(self._mesh_size, segment, n_id, e_id,
-                                   split=False).generate_mesh()
+                                   split=False).generate_mesh(fem)
 
         for segment in self._mesh_extent.half_segments.values():
             n_id, e_id = SegmentV1(self._mesh_size, segment, n_id, e_id,
-                                   split=True).generate_mesh()
+                                   split=True).generate_mesh(fem)
 
-    def generate_mesh(self):
+    def generate_mesh(self,name):
+        fem = GeoGrillageFEM(name)
         print("Generating plate and primary supporting member mesh...")
-        self.generate_plate_mesh()
+        self.generate_plate_mesh(fem)
 
         if isinstance(self._mesh_size, MeshV1):
-            self.generate_psm_mesh_V1()
+            self.generate_psm_mesh_V1(fem)
         # elif isinstance(self._mesh_size, MeshV2):
         #     self.generate_psm_mesh_V2()
 
         print("Mesh generation complete.")
+        return fem
 
     def check_node_overlap(self):
         """

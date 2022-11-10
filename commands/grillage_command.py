@@ -16,6 +16,8 @@ from selinfo import SelectionInfo
 from core import Geometry
 from grillage.grillage_model import *
 from grillage.grillage_visualizer import GrillageGeometry
+from grillage.grillage_mesher import *
+from timeit import default_timer as timer
 
 from core import geometry_manager as manager
 import logging
@@ -112,23 +114,54 @@ class SGDCommand(Command):
         mb = self.mainwin.menuBar()
 
         self.menuModel = QMenu("&Model")
-        self.menuAnalysis = QMenu("&Analysis")
         self.menuMain.addMenu(self.menuModel)
+        self.menuAnalysis = QMenu("&Analysis")
         self.menuMain.addMenu(self.menuAnalysis)
         mb.addMenu(self.menuMain)
 
         actionNewHatch = self.menuModel.addAction("&New Hatch Cover")
         actionNewHatch.triggered.connect(self.onNewHatchCover)
 
+        actionGenerateFEM = self.menuAnalysis.addAction("&Generate FEM")
+        actionGenerateFEM.triggered.connect(self.onGenerateFEM)
+
         try:
-            Signals.get().importGeometry.connect(self.register_grillage_geometry)
             manager.selected_geometry_changed.connect(self.onSelectedGeometryChanged)
+            manager.geometry_created.connect(self.onGeometryCreated)
         except BaseException as error:
             print('An exception occurred: {}'.format(error))
         except:
             print('Unknown exception occurred during signals connection')
         self.mainwin.update()
 
+    def onGenerateFEM(self):
+        QApplication.changeOverrideCursor(QCursor(Qt.WaitCursor))
+        tart = timer()
+        # extents = MeshExtent(hc_variant, AOS.NONE)                # Opseg izrade mreže uz ručni odabir simetrije
+        extents = MeshExtent(self._grillgeo.grillage)  # Opseg izrade mreže uz automatsko prepoznavanje simetrije
+        mesher = MeshV1(extents)  # Izračun dimenzija mreže za V1
+        # mesher = MeshV2(extents)       # Izračun dimenzija mreže za V2
+
+        # Kontrola mreže
+        mesher.min_num_ebs = 1  # Postavljanje minimalnog broja elemenata između ukrepa
+        mesher.min_num_eweb = 3  # Postavljanje minimalnog broja elemenata duž visine struka
+        mesher.num_eaf = 1  # Postavljanje broja elemenata u smjeru širine prirubnice
+        mesher.flange_aspect_ratio = 8  # Postavljanje aspektnog odnosa elemenata prirubnica jakih nosača i oplate uz struk jakih nosača
+        mesher.plate_aspect_ratio = 4  # Postavljanje aspektnog odnosa elemenata oplate i strukova jakih nosača
+        mesher.des_plate_aspect_ratio = 3  # Postavljanje poželjnog aspektnog odnosa elemenata oplate
+
+        # Potrebno računati dimenzije mreže za sve testove osim generate_mesh_V1()
+        mesher.calculate_mesh_dimensions()  # Izračun svih dimenzija za odabranu mrežu
+        gm = GrillageMesh(mesher)
+        grill_fem = gm.generate_mesh('naziv modela')
+        grill_fem.regenerate()
+        if grill_fem is not None:
+            manager.add_geometry([grill_fem])
+            manager.show_geometry([grill_fem])
+        QApplication.restoreOverrideCursor()
+
+
+        pass
 
     def onNewHatchCover(self):
         QApplication.changeOverrideCursor(QCursor(Qt.WaitCursor))
@@ -142,10 +175,13 @@ class SGDCommand(Command):
             manager.show_geometry([self._grillgeo])
         QApplication.restoreOverrideCursor()
 
+
     @Slot()
-    def register_grillage_geometry(self, grillgeo):
-        if isinstance(grillgeo, GrillageGeometry):
-            self._grillgeo = grillgeo
+    def onGeometryCreated(self, geometries: List[Geometry]):
+        for g in geometries:
+            if isinstance(g, GrillageGeometry):
+                self._grillgeo = g
+                break
 
     @Slot()
     def onSelectedGeometryChanged(self, visible: List[Geometry], loaded: List[Geometry], selected: List[Geometry]):

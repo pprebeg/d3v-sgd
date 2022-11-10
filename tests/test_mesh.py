@@ -1,7 +1,7 @@
 """
 Modul za testiranje diskretizacije učitanog modela
 """
-from femdir.grillage_mesh import *
+from grillage.grillage_mesher import *
 from timeit import default_timer as timer
 
 start = timer()

@@ -395,34 +395,7 @@ class T_Profile_BeamPropery (DescriptorBeamProperty):
     def init(self, id, name):
         super().init(id,name)
 
-    @property
-    def area(self):
-        return self.aw + self.af
-    @property
-    def Iy(self):
-        zna = self.z_na
-        aw= self.aw
-        af = self.af
-        dw = zna - self.hw/2.0
-        df = zna - self.hw+self.tf/2.0
-        iy = (self.hw**2.0*aw) / 12.0 + self.aw * dw ** 2.0
-        iy += (self.tf**2.0*af) / 12.0 + self.af * df ** 2.0
-        return iy
-    @property
-    def Iz(self):
-        return  0.0
-    @property
-    def Ik(self):
-        return 0.0
-    @property
-    def shear_coeff(self):
-        return 0.0
-    @property
-    def shear_area_y(self):
-        return 0.0
-    @property
-    def shear_area_z(self):
-        return 0.0
+
     @property
     def z_na(self):
         return (self.aw * self.hw / 2.0 + self.af * (self.hw + self.bf / 2.0)) / self.area
@@ -436,6 +409,43 @@ class T_Profile_BeamPropery (DescriptorBeamProperty):
     @property
     def af(self):
         return self.bf * self.tf
+    # OOFEM cross section characteristics
+    @property
+    def area(self):
+        return self.aw + self.af
+
+    @property
+    def Iy(self):
+        zna = self.z_na
+        aw = self.aw
+        af = self.af
+        dw = zna - self.hw / 2.0
+        df = zna - self.hw + self.tf / 2.0
+        iy = (self.hw ** 2.0 * aw) / 12.0 + self.aw * dw ** 2.0
+        iy += (self.tf ** 2.0 * af) / 12.0 + self.af * df ** 2.0
+        return iy
+
+    @property
+    def Iz(self):
+        return 0.0
+
+    @property
+    def Ik(self):
+        return 0.0
+
+    @property
+    def shear_coeff(self):
+        return 0.0
+
+    @property
+    def shear_area_y(self):
+        return 0.0
+
+    @property
+    def shear_area_z(self):
+        return 0.0
+
+    # end of OOFEM cross section characteristics
 
     def get_yz_point_pairs_for_plane_visualization(self)->List[np.ndarray]:
         pp = []

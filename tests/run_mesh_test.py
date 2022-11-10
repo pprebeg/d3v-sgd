@@ -76,10 +76,11 @@ Test_get_opposite_flange_width(BeamDirection.TRANSVERSE, 1, 2)
 
 
 # ********************** testovi metoda u GrillageMesh **********************
-# GrillageMesh(test_mesh).generate_plate_mesh()         # Izrada mreže svih zona oplate
-# GrillageMesh(test_mesh).generate_psm_mesh_V1()           # Izrada mreže svih segmenata
-# GrillageMesh(test_mesh).generate_mesh()
-# GrillageMesh(test_mesh).check_node_overlap()
+# gm = GrillageMesh(test_mesh)
+# gm.generate_plate_mesh()         # Izrada mreže svih zona oplate
+# gm.generate_psm_mesh_V1()           # Izrada mreže svih segmenata
+# gm.generate_mesh()
+# gm.check_node_overlap()
 
 
 # Test nove ideje za algoritam pretraživanja preklapanja čvorova

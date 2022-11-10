@@ -683,6 +683,10 @@ class GrillageGeometry(GrillageBaseGeometry):
 		self._grill = grillage
 		super().__init__(name,mesh_resolution,plate_n_of_subdivision)
 
+	@property
+	def grillage(self):
+	    return self._grill
+
 	def _gen_mesh_or_subgeometry(self):
 		try:
 			self.mesh=om.TriMesh()

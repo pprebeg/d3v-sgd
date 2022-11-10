@@ -50,6 +50,7 @@ class FEMCommand(Command):
             self._show_oofem_analysis_menu = True
 
         self.add_toolbars_and_menus()
+        self.meshctrl = DialogMeshControl(self.mainwin)
 
 
         try:
@@ -135,15 +136,16 @@ class FEMCommand(Command):
     @Slot()
     def registerSelection(self, si: SelectionInfo):
         self.si = si
-        if si.isEmpty():
-            self.femmdl.unselect()
-        else:
-            pos: QPoint = self._mainwin.pos()
-            pos.setX(pos.x() + self._mainwin.glWin.dragInfo.wStartPos.x() + 20)
-            pos.setY(pos.y() + self._mainwin.glWin.size().height() - self._mainwin.glWin.dragInfo.wStartPos.y())
-            msg = self.femmdl.selected_entitiy.get_info()
-            QApplication.instance().clipboard().setText(str(msg))
-            QToolTip.showText(pos, msg, msecShowTime=10)
+        if self.femmdl is not None:
+            if si.isEmpty():
+                self.femmdl.unselect()
+            else:
+                pos: QPoint = self._mainwin.pos()
+                pos.setX(pos.x() + self._mainwin.glWin.dragInfo.wStartPos.x() + 20)
+                pos.setY(pos.y() + self._mainwin.glWin.size().height() - self._mainwin.glWin.dragInfo.wStartPos.y())
+                msg = self.femmdl.selected_entitiy.get_info()
+                QApplication.instance().clipboard().setText(str(msg))
+                QToolTip.showText(pos, msg, msecShowTime=10)
 
     def onOptimize(self):
         if isinstance(self.femmdl, GeoFEM):

@@ -1,10 +1,10 @@
 from typing import List, Dict
 from femdir.geofementity import *
 #d3v imports
-from geometry import BBox
+from bounds import BBox
 from selection import SelectionInfo
 #from extendedgeometry import ConnectedModel,ModelBasedGeometry
-
+from geometry_extend import GeometryExtension
 
 #helper methods
 def get_string_from_list(inlist: List):
@@ -35,10 +35,11 @@ def get_float_list_from_string(line: str,delim:str = ' '):
     return flist
 
 
-#class GeoFEM(ConnectedModel):
-class GeoFEM():
-    def __init__(self):
-        super().__init__()
+
+class GeoFEM(GeometryExtension):
+    def __init__(self,name=''):
+        super().__init__(name)
+        self.mesh = om.PolyMesh() # just to have empty mesh
         self.nodes = {}
         self.elements = {}
         self.materials = {}
@@ -75,18 +76,23 @@ class GeoFEM():
         self.facetoelement:Dict[int,int] = {}
         self.nodetoelement:Dict[int,int] = {}
         #geometry handling
-        #self._allfegeo= ModelBasedGeometry(self)
-        #self._allnodgeo = ModelBasedGeometry(self)
-        self._allfegeo = None
-        self._allnodgeo = None
-        self._allnodgeo._show_mesh_wireframe = False
-        self.addgeometry(self._allfegeo)
-        self.addgeometry(self._allnodgeo)
+        self._allfegeo= self.get_init_fem_geo()
+        self._allnodgeo = self.get_init_node_geo()
+        #Next 2 lines temporyry commented
+        #self.sub_geometry.append(self._allfegeo)
+        #self.sub_geometry.append(self._allnodgeo)
         self._selected_entitiy = None
         self._selected_node = None
         self._additional_properties:Dict[FEMElementType,Dict[str,float]] = {}
         pass
 
+    def get_init_fem_geo(self):
+        g = GeometryExtension()
+        return g
+    def get_init_node_geo(self):
+        g = GeometryExtension()
+        g.show_mesh_faces  = False
+        return g
 
     def get_input_file_path(self):
         return ""
@@ -439,6 +445,7 @@ class GeoFEM():
             #colors = mesh.face_colors()
             #colors[:]= [1.0,0.0,0.0,1.0]
         self._allnodgeo.mesh = mesh
+        self.mesh=self._allfegeo.mesh
 
         if __debug__:
             dt = time.perf_counter() - ts

@@ -110,16 +110,12 @@ class SGDCommand(Command):
         self.selected_geometries=[]
         self.menuMain = QMenu("Grillage")
         mb = self.mainwin.menuBar()
-        mb.addMenu(self.menuMain)
+
         self.menuModel = QMenu("&Model")
-        self.menuFEM = QMenu("&FEM")
         self.menuAnalysis = QMenu("&Analysis")
         self.menuMain.addMenu(self.menuModel)
-        self.menuMain.addMenu(self.menuFEM)
         self.menuMain.addMenu(self.menuAnalysis)
-
-
-        self.menuMain.show()
+        mb.addMenu(self.menuMain)
 
         actionNewHatch = self.menuModel.addAction("&New Hatch Cover")
         actionNewHatch.triggered.connect(self.onNewHatchCover)

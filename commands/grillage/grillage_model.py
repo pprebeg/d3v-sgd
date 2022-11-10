@@ -415,7 +415,7 @@ class FBBeamProperty(TBeamProperty):
         self._hw = float(hw)  # Flat Bar height
         self._tw = float(tw)  # Flat Bar thickness
         self._bf = float(bf)  # Second plate attached plating width, default bf=0.0 as ordinary FB stiffner
-        self._tf = float(tf)  # Second plate attached plating thickness, default tf=0.0 as ordinary FB stiffner
+        self._tf = float(tf)  # Se  cond plate attached plating thickness, default tf=0.0 as ordinary FB stiffner
         self._mat = mat       # Material
 
     def get_Iw(self, corr_add: CorrosionAddition):  # Sectorial moment of inertia in [cm6]

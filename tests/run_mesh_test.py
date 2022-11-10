@@ -36,7 +36,7 @@ from tests.test_mesh import *
 # Test_saved_plate_edge_node_dims()
 # Test_get_split_elements_number(5)
 # Test_calc_element_base_size()           # Dimenzije dim_x i dim_y lokalno određene za sve zone oplate koje se meshiraju
-Test_get_opposite_flange_width(BeamDirection.TRANSVERSE, 1, 2)
+# Test_get_opposite_flange_width(BeamDirection.TRANSVERSE, 1, 2)
 
 
 # ********************** testovi metoda u MeshV1 **********************
@@ -79,7 +79,7 @@ Test_get_opposite_flange_width(BeamDirection.TRANSVERSE, 1, 2)
 # gm = GrillageMesh(test_mesh)
 # gm.generate_plate_mesh()         # Izrada mreže svih zona oplate
 # gm.generate_psm_mesh_V1()           # Izrada mreže svih segmenata
-# gm.generate_mesh()
+# gm.generate_mesh("test")
 # gm.check_node_overlap()
 
 

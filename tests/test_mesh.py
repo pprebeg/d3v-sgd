@@ -22,7 +22,7 @@ test_mesh = selected_mesh_variant
 test_mesh.min_num_ebs = 1                   # Postavljanje minimalnog broja elemenata između ukrepa
 test_mesh.min_num_eweb = 3                  # Postavljanje minimalnog broja elemenata duž visine struka
 test_mesh.num_eaf = 1                       # Postavljanje broja elemenata u smjeru širine prirubnice
-test_mesh.flange_aspect_ratio = 8           # Postavljanje aspektnog odnosa elemenata prirubnica jakih nosača i oplate uz struk jakih nosača
+test_mesh.flange_aspect_ratio = 7           # Postavljanje aspektnog odnosa elemenata prirubnica jakih nosača i oplate uz struk jakih nosača
 test_mesh.plate_aspect_ratio = 4            # Postavljanje aspektnog odnosa elemenata oplate i strukova jakih nosača
 test_mesh.des_plate_aspect_ratio = 3        # Postavljanje poželjnog aspektnog odnosa elemenata oplate
 

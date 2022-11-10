@@ -83,20 +83,14 @@ class ResponseAnalysis:
     """
     def __init__(self, id_):
         self._id = id_
-        self.boundary_condition_nodes = {}
-        self.nodal_loads = {}
+        # self.boundary_condition_nodes = {}
+        # self.nodal_loads = {}
         self.flange_elements = {}
         self.web_elements = {}
         self.plate_elements = {}
         self.beam_elements = {}
         self.analytic_results = []
         self.fem_results = []
-
-    def add_boundary_node(self, key, value):
-        self.boundary_condition_nodes[key] = value
-
-    def add_nodal_load(self, key, value):
-        self.nodal_loads[key] = value
 
     def add_flange_element(self, key, value):
         self.flange_elements[key] = value
@@ -1323,6 +1317,14 @@ class Plate:
         tp_net = PlateProperty.tp_net(corr_add, tp_gross)
         return tp_net
 
+    def elementary_plate_number(self):
+        """
+        :return: Number of elementary plate panels between ordinary stiffeners and primary supporting members.
+        """
+        stiff_num = self.get_stiffener_number()             # Number of stiffeners
+        elementary_plate_number = int(stiff_num) + 1        # Number of elementary plate panels
+        return elementary_plate_number
+
     def set_intercostal_stiffeners(self, number, beam_prop: BeamProperty):
         """
         :param number: Number of intercostal stiffeners placed perpendicular to the stiffenr direction.
@@ -1337,12 +1339,10 @@ class Plate:
     def regenerate_elementary_plate_panel(self):
         """
         :return: Regenerates elementary plate panels on the plating zone after stiffener number alterations.
-                Can also be used to delete all intercostal stiffeners from a plating zone.
+            Can also be used to delete all intercostal stiffeners from a plating zone.
         """
         self.elementary_plate_panels.clear()
-        stiff_num = self.get_stiffener_number()             # Number of stiffeners
-        plate_panel_num = int(stiff_num) + 1                # Number of elementary plate panels
-        for panel_id in range(1, plate_panel_num + 1):
+        for panel_id in range(1, self.elementary_plate_number() + 1):
             self.elementary_plate_panels[panel_id] = ElementaryPlatePanel(panel_id, self)
 
     # Symmetric plating zones
@@ -1887,12 +1887,30 @@ class Grillage:
     def generate_elementary_plate_panels(self):
         # Elementary plate panel generation assuming no initial intercostal stiffeners
         for plate in self.plating().values():
-            stiff_num = plate.get_stiffener_number()     # Number of stiffeners on the plating zone
-            plate_panel_num = int(stiff_num) + 1         # Number of elementary plate panels on the plating zone
-
-            for panel_id in range(1, plate_panel_num + 1):
+            for panel_id in range(1, plate.elementary_plate_number() + 1):
                 elementary_panel = ElementaryPlatePanel(panel_id, plate)
                 plate.elementary_plate_panels[panel_id] = elementary_panel
+
+    def identify_intercostals(self):
+        """
+        :return: Returns plating zone IDs and number of elementary plate panels
+            with intercostal stiffeners o them in the dictionary zones. Sum of
+            dictionary values determines number of write lines needed in
+            grillage savefile for intercostals.
+        """
+        zones = {}
+        for plate in self.plating().values():
+            plate_has_intercostals = False
+            n_elem_plate_panels = 0
+            for elementary_plate in plate.elementary_plate_panels.values():
+                if elementary_plate.intercostal_stiffener_num == 0:
+                    continue
+                else:
+                    n_elem_plate_panels += 1
+                    plate_has_intercostals = True
+            if plate_has_intercostals:
+                zones[plate.id] = n_elem_plate_panels
+        return zones
 
     @staticmethod
     def get_segment_nodes(segment):
@@ -2054,6 +2072,64 @@ class Grillage:
                 identified_segments_set.add(plate.long_seg2)
 
         return identified_segments_set
+
+    def get_segments_at_intersection(self, member1: PrimarySuppMem,
+                                     member2: PrimarySuppMem):
+        """
+        :param member1: First primary supporting member.
+        :param member2: Second primary supporting member.
+        :return: List of longitudinal and transverse segments connected at the
+            intersection of two given primary supporting members. One of the
+            primary supporting members has to be longitudinal and the other
+            transverse.
+        """
+        node1, node2 = member1.end_nodes
+        node3, node4 = member2.end_nodes
+        intersection = self.get_intersection(node1, node2, node3, node4)
+        long_segments = []
+        tran_segments = []
+
+        for member in self.longitudinal_members().values():
+            for segment in member.segments:
+                end1, end2 = self.get_segment_nodes(segment)
+                if np.allclose(intersection, end1) or np.allclose(intersection, end2):
+                    long_segments.append(segment)
+
+        for member in self.transverse_members().values():
+            for segment in member.segments:
+                end1, end2 = self.get_segment_nodes(segment)
+                if np.allclose(intersection, end1) or np.allclose(intersection, end2):
+                    tran_segments.append(segment)
+
+        return long_segments, tran_segments
+
+    def get_long_intersect_flange_width(self, member1: PrimarySuppMem, member2: PrimarySuppMem):
+        """
+        :param member1: First primary supporting member.
+        :param member2: Second primary supporting member.
+        :return: Method returns maximum net flange width of longitudinal segments
+            connected at intersection of two primary supporting members.
+        """
+        long_segments = self.get_segments_at_intersection(member1, member2)[0]
+        bf1 = long_segments[0].beam_prop.bf_net(self.corrosion_addition()[1])
+        bf2 = 0
+        if len(long_segments) > 1:
+            bf2 = long_segments[1].beam_prop.bf_net(self.corrosion_addition()[1])
+        return np.amax([bf1, bf2])
+
+    def get_tran_intersect_flange_width(self, member1: PrimarySuppMem, member2: PrimarySuppMem):
+        """
+        :param member1: First primary supporting member.
+        :param member2: Second primary supporting member.
+        :return: Method returns maximum net flange width of transverse segments
+            connected at intersection of two primary supporting members.
+        """
+        tran_segments = self.get_segments_at_intersection(member1, member2)[1]
+        bf1 = tran_segments[0].beam_prop.bf_net(self.corrosion_addition()[1])
+        bf2 = 0
+        if len(tran_segments) > 1:
+            bf2 = tran_segments[1].beam_prop.bf_net(self.corrosion_addition()[1])
+        return np.amax([bf1, bf2])
 
     def set_longitudinal_PSM_spacing(self, prim_supp_member_id: int, ref_member_id: int, spacing: float):
         """
@@ -2370,18 +2446,23 @@ class GrillageModelData:
                               len(Grillage.longitudinal_members(grillage).keys()))
         n_tran_segments = str((len(Grillage.longitudinal_members(grillage).keys()) - 1) *
                               len(Grillage.transverse_members(grillage).keys()))
+        # Number of elementary plate zones with intercostal stiffeners
+        n_ele_plate_zones = str(sum(grillage.identify_intercostals().values()))
 
         with open(self._filename, "w") as f:
             # Write input for grillage object - dimensions and number of primary supporting members
-            f.write(grillage_length + "," + grillage_width + "," + n_longitudinal + "," + n_transverse + "\n")  # Grillage object
+            f.write(grillage_length + "," + grillage_width + ","
+                    + n_longitudinal + "," + n_transverse + "\n")  # Grillage object
 
             # Write number of saved properties
-            f.write(n_material_prop + "," + n_corrosion_add + "," + n_beam_prop + "," + n_plate_prop + "," + n_stiff_layout + ","
-                    + n_longitudinal + "," + n_transverse + "," + n_long_segments + "," + n_tran_segments + "\n")
+            f.write(n_material_prop + "," + n_corrosion_add + "," + n_beam_prop
+                    + "," + n_plate_prop + "," + n_stiff_layout + ","
+                    + n_longitudinal + "," + n_transverse + ","
+                    + n_long_segments + "," + n_tran_segments + ","
+                    + n_ele_plate_zones + "\n")
 
             # Write material properties
-            for i in grillage.material_props():
-                mat_property = grillage.material_props()[i]
+            for mat_property in grillage.material_props().values():
                 line = str(mat_property.id)
                 line += ',' + str(mat_property.E)
                 line += ',' + str(mat_property.v)
@@ -2391,16 +2472,13 @@ class GrillageModelData:
                 f.write(line)
 
             # Write corrosion additions
-            for i in grillage.corrosion_addition():
-                corr_add = grillage.corrosion_addition()[i]
+            for corr_add in grillage.corrosion_addition().values():
                 line = str(corr_add.id)
                 line += ',' + str(corr_add.tc) + "\n"
                 f.write(line)
 
             # Write beam properties
-            for i in grillage.beam_props():
-                beam_property = grillage.beam_props()[i]
-
+            for beam_property in grillage.beam_props().values():
                 if isinstance(beam_property, TBeamProperty) and not\
                         (isinstance(beam_property, FBBeamProperty) or isinstance(beam_property, LBeamProperty)):
                     line = str(beam_property.id)
@@ -2451,16 +2529,14 @@ class GrillageModelData:
                     f.write(line)
 
             # Write plate properties
-            for i in grillage.plate_props():
-                plate_property = grillage.plate_props()[i]
+            for plate_property in grillage.plate_props().values():
                 line = str(plate_property.id)
                 line += ',' + str(plate_property.tp)
                 line += ',' + str(plate_property.plate_mat.id) + "\n"
                 f.write(line)
 
             # Write stiffener layouts
-            for i in grillage.stiffener_layouts():
-                stiff_layout = grillage.stiffener_layouts()[i]
+            for stiff_layout in grillage.stiffener_layouts().values():
                 line = str(stiff_layout.id)
                 line += ',' + str(stiff_layout.beam_prop.id)
                 line += ',' + str(stiff_layout.definition_type).split(".")[1]
@@ -2468,46 +2544,41 @@ class GrillageModelData:
                 f.write(line)
 
             # Write longitudinal primary supporting members
-            for i in grillage.longitudinal_members():
-                long_member = grillage.longitudinal_members()[i]
+            for long_member in grillage.longitudinal_members().values():
                 line = str(long_member.id)
                 line += ',' + str(long_member.direction).split(".")[1]
                 line += ',' + str(long_member.rel_dist) + "\n"
                 f.write(line)
 
             # Write transverse primary supporting members
-            for i in grillage.transverse_members():
-                tran_member = grillage.transverse_members()[i]
+            for tran_member in grillage.transverse_members().values():
                 line = str(tran_member.id)
                 line += ',' + str(tran_member.direction).split(".")[1]
                 line += ',' + str(tran_member.rel_dist) + "\n"
                 f.write(line)
 
             # Write longitudinal segments
-            for i in grillage.longitudinal_members():
-                for segment in range(0, int(n_transverse) - 1):
-                    curr_segment = grillage.longitudinal_members()[i].segments[segment]
-                    line = str(curr_segment.id)
-                    line += ',' + str(curr_segment.beam_prop.id)
-                    line += ',' + str(curr_segment.primary_supp_mem.id)
-                    line += ',' + str(curr_segment.cross_member1.id)
-                    line += ',' + str(curr_segment.cross_member2.id) + "\n"
+            for member in grillage.longitudinal_members().values():
+                for segment in member.segments:
+                    line = str(segment.id)
+                    line += ',' + str(segment.beam_prop.id)
+                    line += ',' + str(segment.primary_supp_mem.id)
+                    line += ',' + str(segment.cross_member1.id)
+                    line += ',' + str(segment.cross_member2.id) + "\n"
                     f.write(line)
 
             # Write transverse segments
-            for i in grillage.transverse_members():
-                for segment in range(0, int(n_longitudinal) - 1):
-                    curr_segment = grillage.transverse_members()[i].segments[segment]
-                    line = str(curr_segment.id)
-                    line += ',' + str(curr_segment.beam_prop.id)
-                    line += ',' + str(curr_segment.primary_supp_mem.id)
-                    line += ',' + str(curr_segment.cross_member1.id)
-                    line += ',' + str(curr_segment.cross_member2.id) + "\n"
+            for member in grillage.transverse_members().values():
+                for segment in member.segments:
+                    line = str(segment.id)
+                    line += ',' + str(segment.beam_prop.id)
+                    line += ',' + str(segment.primary_supp_mem.id)
+                    line += ',' + str(segment.cross_member1.id)
+                    line += ',' + str(segment.cross_member2.id) + "\n"
                     f.write(line)
 
             # Write plating zones
-            for i in grillage.plating().keys():
-                plate = grillage.plating()[i]
+            for plate in grillage.plating().values():
                 line = str(plate.id)
                 line += ',' + str(plate.plate_prop.id)
                 line += ',' + str(plate.long_seg1.primary_supp_mem.id)
@@ -2524,8 +2595,17 @@ class GrillageModelData:
                 f.write(line)
 
             # Write elementary plate panel intercostal stiffener number and beam property
-            # for plate in grillage.plating().values():
-            #     line = str(plate.id)
+            zones = grillage.identify_intercostals()
+            for plate_id in zones.keys():
+                plate = grillage.plating()[plate_id]
+                for elementary_plate in plate.elementary_plate_panels.values():
+                    num_of_intercostals = elementary_plate.intercostal_stiffener_num
+                    if num_of_intercostals != 0:
+                        line = str(plate.id)
+                        line += ',' + str(elementary_plate.id)
+                        line += ',' + str(num_of_intercostals)
+                        line += ',' + str(elementary_plate.beam_prop.id) + "\n"
+                        f.write(line)
             f.close()
 
     # Generate model from a saved file
@@ -2552,6 +2632,7 @@ class GrillageModelData:
             n_transverse = int(split[6])
             n_long_segments = int(split[7])
             n_tran_segments = int(split[8])
+            n_ele_plate_zones = int(split[9])
 
             # Generate MaterialProperty - read from the third line
             line_start = 2
@@ -2687,4 +2768,16 @@ class GrillageModelData:
 
             # Generate Elementary plate panels
             Grillage.generate_elementary_plate_panels(grillage_variant)
+            line_start = line_end
+            line_end = line_start + n_ele_plate_zones
+            for i in range(line_start, line_end):
+                line = lines[i]
+                split = line.split(",")
+                plate_id = int(split[0])
+                panel_id = int(split[1])
+                intercostal_num = int(split[2])
+                beam_prop = grillage_variant.beam_props()[int(split[3])]
+                grillage_variant.plating()[plate_id].elementary_plate_panels[panel_id].intercostal_stiffener_num = intercostal_num
+                grillage_variant.plating()[plate_id].elementary_plate_panels[panel_id].beam_prop = beam_prop
+
             return grillage_variant

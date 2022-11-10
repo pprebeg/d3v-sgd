@@ -73,15 +73,15 @@ hc_var_1.generate_segments(initial_longitudinal_beam, initial_transverse_beam, i
 hc_var_1.generate_plating(plateprop1, stifflayout1, stiff_dir)  # Generacija oplate
 hc_var_1.generate_elementary_plate_panels()                     # Generacija neukrepljenih (elementarnih) polja oplate
 
-# hc_variant.plating()[6].set_intercostal_stiffeners(4, FB_beam)    # Dodavanje interkostalnih ukrepa na sva neukrepljena polja zone 6
-# hc_variant.plating()[7].set_intercostal_stiffeners(4, FB_beam)
-# hc_variant.plating()[10].set_intercostal_stiffeners(4, FB_beam)
-# hc_variant.plating()[11].set_intercostal_stiffeners(4, FB_beam)
+# hc_var_1.plating()[6].set_intercostal_stiffeners(4, FB_beam)    # Dodavanje interkostalnih ukrepa na sva neukrepljena polja zone 6
+# hc_var_1.plating()[7].set_intercostal_stiffeners(4, FB_beam)
+# hc_var_1.plating()[10].set_intercostal_stiffeners(4, FB_beam)
+# hc_var_1.plating()[11].set_intercostal_stiffeners(4, FB_beam)
 
-hc_var_1.plating()[1].elementary_plate_panels[1].intercostal_stiffener_num = 1
-hc_var_1.plating()[1].elementary_plate_panels[1].beam_prop = FB_beam
+# hc_var_1.plating()[1].elementary_plate_panels[1].intercostal_stiffener_num = 1    # Dodavanje interkostalnih ukrepa na jedno elementarno polje
+# hc_var_1.plating()[1].elementary_plate_panels[1].beam_prop = FB_beam
 
-# hc_variant.plating()[1].regenerate_elementary_plate_panel()       # Regeneracija
+# hc_var_1.plating()[6].regenerate_elementary_plate_panel()       # Regeneracija - brisanje svih interkostala sa zone oplate 6
 
 # Pridruzivanje simetricnih elemenata
 hc_var_1.assign_symmetric_members()

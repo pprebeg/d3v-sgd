@@ -19,18 +19,6 @@ hc_var = 1
 filename = str("../grillage savefiles/hc_var_") + str(hc_var) + str("_savefile.gin")
 hc_variant = GrillageModelData(filename).read_file()        # Učitavanje topologije iz datoteke
 
-matST24 = MaterialProperty(1, 210000, 0.3, 7850, 235, "ST24")
-FB_beam = FBBeamProperty(6, 1089, 10, matST24)
-
-hc_variant.plating()[6].set_intercostal_stiffeners(4, FB_beam)    # Dodavanje interkostalnih ukrepa na sva neukrepljena polja zone 6
-# hc_variant.plating()[7].set_intercostal_stiffeners(4, FB_beam)
-# hc_variant.plating()[10].set_intercostal_stiffeners(4, FB_beam)
-# hc_variant.plating()[11].set_intercostal_stiffeners(4, FB_beam)
-
-# Pojedinačno dodavanje interkostalnih ukrepa - na treći elementarni panel druge zone oplate
-# hc_variant.plating()[2].elementary_plate_panels[3].intercostal_stiffener_num = 1      # Jedna interkostalna ukrepa
-# hc_variant.plating()[2].elementary_plate_panels[3].beam_prop = FB_beam                # beam property interkostala
-
 # Ponovno spremanje ucitane topologije pod novim imenom "read_test.txt"
 # GrillageModelData("read_test.txt").write_file(hc_variant)
 
@@ -294,10 +282,10 @@ def PoljaOplate(grillage):
               ",  tp =", plate.plate_prop.tp, "mm",
               ", tp_net =", PlateProperty.tp_net(grillage.corrosion_addition()[1], plate.plate_prop.tp),
               ",  Reh =", plate.plate_prop.plate_mat.Reh,
-              # ",  segm.", grillage.plating()[plate_id].long_seg1.id, ",",
-              # grillage.plating()[plate_id].long_seg2.id,
-              # ",  popr. segm.", grillage.plating()[plate_id].trans_seg1.id, ",",
-              # grillage.plating()[plate_id].trans_seg2.id,
+              ", long seg1", grillage.plating()[plate_id].long_seg1.id, "psm", grillage.plating()[plate_id].long_seg1.primary_supp_mem.id,
+              ", long seg2", grillage.plating()[plate_id].long_seg2.id, "psm", grillage.plating()[plate_id].long_seg2.primary_supp_mem.id,
+              ", tran seg1", grillage.plating()[plate_id].trans_seg1.id, "psm", grillage.plating()[plate_id].trans_seg1.primary_supp_mem.id,
+              ", tran seg2", grillage.plating()[plate_id].trans_seg2.id, "psm", grillage.plating()[plate_id].trans_seg2.primary_supp_mem.id,
               ", def type: ", plate.stiff_layout.definition_type,
               ", iznos: ", plate.stiff_layout.definition_value,
               " ,", plate.stiff_dir)
@@ -444,9 +432,7 @@ def DimenzijeElementarnogPanelaOplate(grillage):
     for plate in grillage.plating().values():
         for panel in plate.elementary_plate_panels.values():
             ss, ls = panel.get_elementary_plate_dimensions()
-            print(" Polje oplate ID:", plate.id, ", elementarni panel:", panel.id, ", ls=:", ls, "m, ss=", ss, "m",
-                  ", edge1:", panel.edge_stiffener_1, ", edge2:", panel.edge_stiffener_2, ", edge3:", panel.edge_stiffener_3,
-                  ", edge4:", panel.edge_stiffener_4)
+            print(" Polje oplate ID:", plate.id, ", elementarni panel:", panel.id, ", ls=:", ls, "m, ss=", ss, "m")
         print("\n")
 
 
@@ -701,17 +687,58 @@ def Test_intercostal_coords(grillage, plate_id, elementary_panel_id, intercostal
 
 def Test_all_intercostal_coords(grillage):
     for plate in grillage.plating().values():
-        print("Zona oplate", plate.id)
         for elementary_plate in plate.elementary_plate_panels.values():
             num_of_intercostals = elementary_plate.intercostal_stiffener_num
             if num_of_intercostals == 0:
-                print("  nema interkostalnih ukrepa")
-                break
+                continue
+            else:
+                print("Zona oplate", plate.id)
+                print("  Elementarni panel broj", elementary_plate.id, ", ukupan broj interkostala:", num_of_intercostals)
+                for intercostal in range(1, num_of_intercostals + 1):
+                    node1, node2 = elementary_plate.get_intercostal_coords(intercostal)
+                    print("     Interkostalna ukrepa broj", intercostal, ", koordinate:", node1, ",", node2)
 
-            print("  Elementarni panel broj", elementary_plate.id)
-            for intercostal in range(1, num_of_intercostals + 1):
-                node1, node2 = elementary_plate.get_intercostal_coords(intercostal)
-                print("     Interkostalna ukrepa broj", intercostal, ", koordinate:", node1, ",", node2)
+
+def Test_identify_number_of_intercostals(grillage):
+    zones = grillage.identify_intercostals()
+    print(zones)
+    zonesum = sum(zones.values())
+    print("Ukupan broj elementarnih panela sa interkostalima:", zonesum)
+
+    zones = grillage.identify_intercostals()
+    for plate_id in zones.keys():
+        plate = grillage.plating()[plate_id]
+        for elementary_plate in plate.elementary_plate_panels.values():
+            num_of_intercostals = elementary_plate.intercostal_stiffener_num
+            if num_of_intercostals == 0:
+                continue
+            else:
+                print("Oplata ID", plate.id,
+                      "  Elementarni panel broj", elementary_plate.id,
+                      ", ukupan broj interkostala:", num_of_intercostals,
+                      ", beamproperty ID interkostala", elementary_plate.beam_prop.id)
+
+
+def Test_get_segments_at_intersection(grillage, long_id, tran_id):
+    member1 = grillage.longitudinal_members()[long_id]
+    member2 = grillage.transverse_members()[tran_id]
+    long_segments, tran_segments = grillage.get_segments_at_intersection(member1, member2)
+
+    print("Na sjecištu jakog uzdužnog nosača", long_id, "i jakog poprečnog nosača", tran_id, "se nalaze segmenti:")
+    print("Uzdužni segmenti")
+    for segment in long_segments:
+        print("Nosač", segment.primary_supp_mem.direction.name, segment.primary_supp_mem.id, ", segment ID", segment.id)
+    print("Poprečni segmenti")
+    for segment in tran_segments:
+        print("Nosač", segment.primary_supp_mem.direction.name, segment.primary_supp_mem.id, ", segment ID", segment.id)
+
+
+def Test_get_intersect_flange_width(grillage, long_id, tran_id):
+    member1 = grillage.longitudinal_members()[long_id]
+    member2 = grillage.transverse_members()[tran_id]
+    long = grillage.get_long_intersect_flange_width(member1, member2)
+    tran = grillage.get_tran_intersect_flange_width(member1, member2)
+    print("Longitudinal bf net:", long, ", transverse bf net:", tran)
 
 
 def PlotGrillageTopology(grillage):
@@ -816,6 +843,9 @@ def PlotGrillageTopology(grillage):
 # Test_get_elementary_plate(hc_variant, 6)
 # Test_intercostal_coords(hc_variant, 1, 1, 1)
 # Test_all_intercostal_coords(hc_variant)
+# Test_identify_number_of_intercostals(hc_variant)
+# Test_get_segments_at_intersection(hc_variant, 1, 2)
+# Test_get_intersect_flange_width(hc_variant, 2, 2)
 # PlotGrillageTopology(hc_variant)
 
 end = timer()

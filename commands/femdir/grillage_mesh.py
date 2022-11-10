@@ -1445,8 +1445,7 @@ class MeshSize:
             based only on number of elements between stiffeners, in [mm].
         """
         stiff_spacing = plate.get_stiffener_spacing() * 1000
-        n_elem_bs = self._min_num_ebs
-        perp_dim = stiff_spacing / n_elem_bs
+        perp_dim = stiff_spacing / self._min_num_ebs
         return perp_dim
 
     def element_size_para_to_stiffeners(self, plate: Plate, plate_dim):
@@ -1590,7 +1589,6 @@ class MeshSize:
                 2.) Maximum element dimension: method get_min_flange_el_length
         """
         x = self.element_size_para_to_stiffeners(plate, plate_dim)
-
         if plate.stiff_dir == BeamDirection.LONGITUDINAL:
             max_dim = self.get_min_fl_el_len(plate.long_seg1, plate.long_seg2)
         else:
@@ -1619,12 +1617,12 @@ class MeshSize:
             dim_y = self.element_size_plating_zone_perp(plate)
         else:
             dim_x = self.element_size_plating_zone_perp(plate)
-            dim_y = self.element_size_para_to_stiffeners(plate, plate_dim)
-
-        dim_xf = self.get_min_fl_el_len(plate.long_seg1, plate.long_seg2)
-        dim_yf = self.get_min_fl_el_len(plate.trans_seg1, plate.trans_seg2)
+            dim_y = self.element_size_plating_zone_para(plate, plate_dim)
 
         if self.element_aspect_ratio(dim_x, dim_y) > self._plate_aspect_ratio:
+            dim_xf = self.get_min_fl_el_len(plate.long_seg1, plate.long_seg2)
+            dim_yf = self.get_min_fl_el_len(plate.trans_seg1, plate.trans_seg2)
+
             dim_x_limit = np.minimum(dim_xf, dim_y * self.plate_aspect_ratio)
             dim_y_limit = np.minimum(dim_yf, dim_x * self.plate_aspect_ratio)
 
@@ -1686,6 +1684,10 @@ class MeshSize:
             plating_zones = [self._grillage.plating()[plate_id]
                              for plate_id in plating_zone_IDs]
 
+            x_list = [mesh_dim_x[plate.id] for plate in plating_zones]
+            dim_x = np.amin(x_list)
+            final_mesh_dim_x[column] = dim_x
+
             for plate in plating_zones:
                 if plate.stiff_dir == BeamDirection.TRANSVERSE:
                     tran1 = self._grillage.transverse_members()[column]
@@ -1699,12 +1701,6 @@ class MeshSize:
                     else:
                         final_mesh_dim_x[column] = dim_x
                     break  # Stop after finding transverse stiffeners
-
-                else:
-                    dim_x_list = [mesh_dim_x[plate.id]
-                                  for plate in plating_zones]
-                    dim_x = np.amin(dim_x_list)
-                    final_mesh_dim_x[column] = dim_x
 
         return final_mesh_dim_x
 
@@ -1731,6 +1727,10 @@ class MeshSize:
             plating_zones = [self._grillage.plating()[plate_id]
                              for plate_id in plating_zone_IDs]
 
+            y_list = [mesh_dim_y[plate.id] for plate in plating_zones]
+            dim_y = np.amin(y_list)
+            final_mesh_dim_y[row] = dim_y
+
             for plate in plating_zones:
                 if plate.stiff_dir == BeamDirection.LONGITUDINAL:
                     long1 = self._grillage.longitudinal_members()[row]
@@ -1744,12 +1744,6 @@ class MeshSize:
                     else:  # If dim_y does not exceed the maximum max_y
                         final_mesh_dim_y[row] = dim_y
                     break  # Stop after finding longitudinal stiffeners
-
-                else:
-                    dim_y_list = [mesh_dim_y[plate.id]
-                                  for plate in plating_zones]
-                    dim_y = np.amin(dim_y_list)
-                    final_mesh_dim_y[row] = dim_y
 
         return final_mesh_dim_y
 
@@ -1802,6 +1796,30 @@ class MeshSize:
             return 0
         else:
             return self.num_eaf
+
+    def get_opposite_flange_width(self, segment: Segment):
+        """
+        :param segment: Selected segment of a primary supporting member.
+        :return: Maximum net flange width of both perpendicular segments
+            connected at the intersection of primary supporting members.
+            Returns value bf_net at both ends of the selected segment.
+        """
+        psm = segment.primary_supp_mem
+        cross1 = segment.cross_member1
+        cross2 = segment.cross_member2
+        if psm.direction is BeamDirection.LONGITUDINAL:
+            bf_net_1 = self._grillage.get_tran_intersect_flange_width(psm, cross1)
+            bf_net_2 = self._grillage.get_tran_intersect_flange_width(psm, cross2)
+        else:
+            bf_net_1 = self._grillage.get_long_intersect_flange_width(psm, cross1)
+            bf_net_2 = self._grillage.get_long_intersect_flange_width(psm, cross2)
+        return bf_net_1, bf_net_2
+
+    # Do ovdje OK za MeshV2, potrebne nove metode za prijelazne elemente:
+    # posebno za oplatu posebno za prirubnice
+
+    # napraviti zajedničku metodu:
+    # def tr_element_size_plating_zone
 
     def calc_element_transition_size_mesh(self):
         pass
@@ -1866,6 +1884,7 @@ class MeshSize:
         else:
             return 0
 
+    # Modificirati - zajednička metoda za varijante mreže bez preslikavanja **********
     def plate_edge_node_spacing_x(self, plate: Plate):
         """
         :param plate: Selected plating zone.
@@ -1892,12 +1911,15 @@ class MeshSize:
 
         self.plate_edge_node_x[plate.id] = x_spacing
 
+    # Modificirati - zajednička metoda za varijante mreže bez preslikavanja **********
     def plate_edge_node_spacing_y(self, plate: Plate):
         pass
 
+    # Metoda za varijante mreže bez preslikavanja **********
     def flange_edge_node_spacing_x(self, segment: Segment):
         pass
 
+    # Metoda za varijante mreže bez preslikavanja **********
     def flange_edge_node_spacing_y(self, segment: Segment):
         pass
 
@@ -2055,6 +2077,7 @@ class MeshV1(MeshSize):
                 else:
                     return dim_tr_x, 0
 
+    # Testirati mogu li ove metode za prijelazne elemente opločenja biti zajedničke *******
     def assign_transition_dim_x(self):
         """
         Method for global consideration of transition mesh dimension x, for each
@@ -2369,6 +2392,7 @@ class MeshV2(MeshSize):
             1.) All primary supporting members need to have the same web height.
             2.) Flange element overlap has to be in the same plane.
             3.) Grillage plating can not be defined with any camber.
+            4.) Value of num_eaf can not be greater than 1. ???????????????
         """
         super().__init__(mesh_extent)
 

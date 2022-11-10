@@ -1,15 +1,24 @@
 from femdir.oofemin import *
+import femdir.geofem
 from femdir.geofem import GeoFEM,PlateProperty,BeamProperty,RodProperty,GroupNodalBC,GroupDoffBasedLoad
 from femdir.geofem import NodeRigidArm,NodeGroup,ElementGroup,BeamElement,Node,BeamOrientationNode
 from femdir.geofem import AccelerationLoad,GroupPressureLoad
 from typing import List,Dict
 from femdir.oofemenum import CrossSectionProperty as csp
 
+try:
+    from femdir.oofemanalysis import OOFEMAnalysisModel
+except BaseException as error:
+    print('An exception occurred: {}'.format(error))
+except:
+    print('Unknown exception occurred')
+
+
 
 def generate_OOFEM_input_file(file_path:str, mdl:GeoFEM, eltypes:Dict[FEMElementType,str], do_outtype_sets:bool,
                               dict_elkeyword_add_cschhar:Dict[str, Dict[str, float]]=None)->Dict[int, OutputElementType]:
     """
-    Generate new OOFEM input file
+    Generate new GeoOOFEM input file
     If file already exist, it will be overwritten
 
     :param file_path: file path to the new file
@@ -396,7 +405,4 @@ def analyse_with_OOFEM(file_path,dict_idset_outtypes, mdl:GeoFEM=None):
                             print(shell_out[ilc][index_el])
                     except ValueError:
                         pass
-
-
-
     return

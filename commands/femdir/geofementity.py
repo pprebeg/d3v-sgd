@@ -239,7 +239,7 @@ class RodProperty (Property):
 class BeamProperty (Property):
     """
     Beam Property
-    OOFEM Beam3d coordinate system definition is used
+    GeoOOFEM Beam3d coordinate system definition is used
     y axix is in reference plane defined by reference node and two beam definition nodes
     z axis is perpendicular to reference plane
     z axis coincides with web direction for beams used in ship structures
@@ -848,7 +848,7 @@ class BeamOrientationNode(BeamOrientation):
 class BeamElement(Element):
     """
     Beam Element
-    OOFEM Beam3d coordinate system definition is used
+    GeoOOFEM Beam3d coordinate system definition is used
     x axis from first node to second node
     y axix is in reference plane defined by reference node and two beam definition nodes
     z axis is perpendicular to reference plane

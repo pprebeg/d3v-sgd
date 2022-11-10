@@ -6,7 +6,7 @@ import copy
 from grillage.grillage_model import BeamDirection as bd
 from grillage.grillage_model import Plate,PrimarySuppMem,Grillage,Segment
 from grillage.grillage_model import TBeamProperty,BulbBeamProperty,HatBeamProperty
-from core.geometry import Geometry
+from geometry_extend import GeometryExtension
 from typing import List,Dict
 
 class Resolution_Value_Error(Exception):
@@ -115,21 +115,20 @@ class BeamSegmentMesher():
 		self.beam_prop = beam._beam_prop
 		self.primary_supp_mem = beam._primary_supp_mem
 		self.beam_dir = self.primary_supp_mem._direction
-		self.beam_len = beam.segment_len()
+		self.beam_len = beam.segment_len()*1000
 		self.beam_position = beam.get_segment_node1()
 		# print(f"beam pos: {self.beam_position}")
 		# self.beam_node2 = beam.get_segment_node2()
 		# self.beam_vector = self.beam_node2 - self.beam_node1
-		self.t = beam.get_attplate()[1] / 1000
+		self.t = beam.get_attplate()[1]
 		
 	
 
 	def make_beam_segment_mesh(self):
-		# /1000 because original is in [mm]	  
-		hw = self.beam_prop.hw / 1000  # Web height
-		tw = self.beam_prop.tw / 1000	# Web thickness
-		bf = self.beam_prop.bf / 1000 # Flange width
-		tf = self.beam_prop.tf / 1000  # Flange thickness
+		hw = self.beam_prop.hw  # Web height
+		tw = self.beam_prop.tw	# Web thickness
+		bf = self.beam_prop.bf # Flange width
+		tf = self.beam_prop.tf  # Flange thickness
 		
 		beam_points_transverse = np.array([
 			[tw/2,0,0],
@@ -204,9 +203,9 @@ class PlateMesher():
 		
 		#plate and stiff properties:
 		self.stiff_N = int(self.plate.get_stiffener_number())
-		self.t = self.plate.plate_prop.tp/1000											#plate thickness [mm] so /1000
-		self.xlen = self.plate.plate_longitudinal_dim()								#x plate lenght	[m]
-		self.ylen = self.plate.plate_transverse_dim()								#y plate lenght	[m]		
+		self.t = self.plate.plate_prop.tp											#plate thickness [mm] s
+		self.xlen = self.plate.plate_longitudinal_dim()*1000							#x plate lenght	[mm]
+		self.ylen = self.plate.plate_transverse_dim()*1000							#y plate lenght	[mm]
 		# self.plate_pos = self.plate.get_reference_segment().get_segment_node1()
 		
 		# if self.plate._ref_edge == gm.Ref.EDGE1:
@@ -222,7 +221,7 @@ class PlateMesher():
 		self.stiff_orientation = self.plate.stiff_dir 
 		self.stiff_property = self.plate.stiff_layout._beam_prop
 		self.stiff_type = type(self.stiff_property)					#T, HP, HAT
-		self.stiff_spacing = self.plate.get_stiffener_spacing()
+		self.stiff_spacing = self.plate.get_stiffener_spacing()*1000
 		
 		# min n of plate segments is equal to n_stiff
 		self.n_of_plate_segments_in_row = int(((self.stiff_N + 1) * (self.plate_n_of_subdivision + 1)))
@@ -298,11 +297,10 @@ class PlateMesher():
 	
 	
 	def make_Tstiff_segment_mesh(self):
-		# /1000 because original is in [mm]	  
-		hw = self.stiff_property.hw / 1000  # Web height
-		tw = self.stiff_property.tw / 1000	# Web thickness
-		bf = self.stiff_property.bf / 1000 # Flange width
-		tf = self.stiff_property.tf / 1000  # Flange thickness
+		hw = self.stiff_property.hw  # Web height
+		tw = self.stiff_property.tw	# Web thickness
+		bf = self.stiff_property.bf # Flange width
+		tf = self.stiff_property.tf  # Flange thickness
 		
 		Tstiff_points_transverse = np.array([
 			[tw/2,0,0],
@@ -362,9 +360,8 @@ class PlateMesher():
 		
 		
 	def make_HPstiff_mesh(self):
-		# /1000 because original is in [mm]	  
-		hw = self.stiff_property.hw_HP / 1000  # Web height
-		tw = self.stiff_property.tw_HP / 1000	# Web thickness
+		hw = self.stiff_property.hw_HP  # Web height
+		tw = self.stiff_property.tw_HP	# Web thickness
 			
 		HPstiff_points_transverse = np.array([
 			[0.5,0,0.7665],
@@ -435,10 +432,10 @@ class PlateMesher():
 		
 	
 	def make_HATstiff_mesh(self):
-		h = self.stiff_property.h / 1000 
-		tw = self.stiff_property.t / 1000 
+		h = self.stiff_property.h
+		tw = self.stiff_property.t
 		t = self.t
-		bf = self.stiff_property.bf / 1000 
+		bf = self.stiff_property.bf
 		fi = self.stiff_property.fi * 2*np.pi/360		#turn into radians
 		
 		
@@ -531,9 +528,9 @@ class PlateMesher():
 
 			
 			# if stiff_type is gm.StiffPropertyHP:
-				# stiff_wt = stiff_prop.tw_HP / 1000				#/1000 because original is in [mm]
+				# stiff_wt = stiff_prop.tw_HP				#
 			# if stiff_type is gm.TBeamProperty:
-				# stiff_wt = stiff_prop.tw / 1000					#/1000 because original is in [mm]
+				# stiff_wt = stiff_prop.tw 					#
 				
 		
 			# if stiff_dir == gm.BeamOrientation.LONGITUDINAL:
@@ -551,7 +548,7 @@ class PlateMesher():
 		
 			
 		
-		# self.tp = self.plating[plate_id].plate_prop.tp/1000											#plate thickness [mm] so /1000
+		# self.tp = self.plating[plate_id].plate_prop.tp
 		# self.xlen = self.plating[plate_id].plate_longitudinal_dim()								#x plate lenght	[m]
 		# self.ylen = self.plating[plate_id].plate_transverse_dim()								#y plate lenght	[m]		
 		# self._B_overall                # Overall width, m
@@ -561,12 +558,14 @@ class PlateMesher():
 		# mesh1 = self.make_plate_mesh()
 
 
-class GrillageBaseGeometry(Geometry):
+class GrillageBaseGeometry(GeometryExtension):
 	def __init__(self, name = '', mesh_resolution = 0.3, plate_n_of_subdivision = 0):
 		self.mesh_resolution =  mesh_resolution		#DO NOT GO BELOW 0.05 UNLESS YOU HAVE STRONG CPU
 		self.plate_n_of_subdivision = plate_n_of_subdivision		# 0 for no subdivision
 		super().__init__(name)
 		self._gen_mesh_or_subgeometry()
+		self.show_mesh_edges = True
+		self.show_mesh_faces = True
 		pass
 
 	def regenerateMesh(self):
@@ -680,7 +679,7 @@ class TransversalsGeometry(Longs_or_Trans_Geometry):
 
 class GrillageGeometry(GrillageBaseGeometry):
 
-	def __init__(self, grillage: Grillage, name = '', mesh_resolution = 20, plate_n_of_subdivision = 0):
+	def __init__(self, grillage: Grillage, name = '', mesh_resolution = 20000, plate_n_of_subdivision = 0):
 		self._grill = grillage
 		super().__init__(name,mesh_resolution,plate_n_of_subdivision)
 
@@ -691,9 +690,9 @@ class GrillageGeometry(GrillageBaseGeometry):
 			self.sub_geometry.append(LongitudinalsGeometry(self._grill.longitudinal_members(),'Longitudinal Beams',
 														   self.mesh_resolution,self.plate_n_of_subdivision))
 			self.sub_geometry.append(TransversalsGeometry(self._grill.transverse_members(),'Transverse Beams',
-														   self.mesh_resolution,self.plate_n_of_subdivision))
+			 											   self.mesh_resolution,self.plate_n_of_subdivision))
 			self.sub_geometry.append(PlatingGeometry(self._grill.plating(), 'Plating',
-														   self.mesh_resolution,self.plate_n_of_subdivision))
+			 											   self.mesh_resolution,self.plate_n_of_subdivision))
 			self.mesh = self._appendmesh(self.mesh)
 		except BaseException as error:
 			print('An exception occurred during visualization mesh generation: {}'.format(error))

@@ -3295,8 +3295,9 @@ class GrillageMesh:
         b_id = self.start_beam_id
 
         for plate in self._mesh_extent.full_plate_zones.values():
-            n_id, e_id, b_id = PlatingZoneMesh(self._mesh_size, plate, n_id, e_id,
-                                               b_id, AOS.NONE).generate_mesh()
+            pzm=PlatingZoneMesh(self._mesh_size, plate, n_id, e_id,
+                                               b_id, AOS.NONE)
+            n_id, e_id, b_id = pzm.generate_mesh()
 
         for plate in self._mesh_extent.long_half_plate_zones.values():
             n_id, e_id, b_id = PlatingZoneMesh(self._mesh_size, plate, n_id, e_id,

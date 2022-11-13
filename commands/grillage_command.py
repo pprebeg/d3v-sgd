@@ -125,6 +125,9 @@ class SGDCommand(Command):
         actionGenerateFEM = self.menuAnalysis.addAction("&Generate FEM")
         actionGenerateFEM.triggered.connect(self.onGenerateFEM)
 
+        actionRunTest = self.menuAnalysis.addAction("&Execute Test")
+        actionRunTest.triggered.connect(self.onActionRunTest)
+
         try:
             manager.selected_geometry_changed.connect(self.onSelectedGeometryChanged)
             manager.geometry_created.connect(self.onGeometryCreated)
@@ -134,6 +137,10 @@ class SGDCommand(Command):
             print('Unknown exception occurred during signals connection')
         self.mainwin.update()
 
+    def onActionRunTest(self):
+        from tests.test_mesh import *
+        #paste code for test
+        pass
     def onGenerateFEM(self):
         QApplication.changeOverrideCursor(QCursor(Qt.WaitCursor))
         tart = timer()

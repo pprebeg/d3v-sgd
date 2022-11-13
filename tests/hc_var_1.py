@@ -29,8 +29,12 @@ hc_var_1.add_corrosion_addition(tc)
 initial_longitudinal_beam = TBeamProperty(1, 1089, 10, 230, 16, ST24)       # inicijalni longitudinal T beam prop
 initial_transverse_beam = TBeamProperty(2, 1089, 10, 545, 40, ST24)         # inicijalni transverse T beam prop
 initial_edge_beam = LBeamProperty(3, 1089, 10, 150, 16, ST24)               # inicijalni rubni L beam prop
-initial_stiffener = HatBeamProperty(4, 220, 6, 220, 80, AH36)               # inicijalna ukrepa
-# initial_stiffener = BulbBeamProperty(4, 240, 10, AH36)               # inicijalna ukrepa
+initial_stiffener = HatBeamProperty(4, 150, 10, 200, 50, AH36)             # inicijalna ukrepa Hat
+# initial_stiffener = BulbBeamProperty(4, 240, 10, AH36)                    # inicijalna ukrepa Bulb
+# initial_stiffener = TBeamProperty(4, 250, 8, 90, 12, ST24)                # inicijalna ukrepa T
+# initial_stiffener = FBBeamProperty(4, 250, 8, ST24)                       # inicijalna ukrepa FB
+# stiffener2 = BulbBeamProperty(6, 240, 10, AH36)                    # inicijalna ukrepa Bulb
+
 
 center_girder = TBeamProperty(5, 1089, 10, 560, 40, AH32)
 FB_beam = FBBeamProperty(6, 1089, 10, ST24)
@@ -48,6 +52,7 @@ hc_var_1.add_beam_prop(initial_edge_beam)
 hc_var_1.add_beam_prop(initial_stiffener)
 hc_var_1.add_beam_prop(center_girder)
 hc_var_1.add_beam_prop(FB_beam)
+# hc_var_1.add_beam_prop(stiffener2)
 
 # Plate property
 plateprop1 = PlateProperty(1, 10, ST24)     # inicijalni plate property za cijeli poklopac

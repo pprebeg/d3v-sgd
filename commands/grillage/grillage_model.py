@@ -57,6 +57,7 @@ class AOS(Enum):    # Axis Of Symmetry
     LONGITUDINAL = 1
     BOTH = 2
     NONE = 3
+    # AUTO = 4 ?
 
 
 class DefinitionType(Enum):     # Stiffener definition type
@@ -629,9 +630,21 @@ class BulbBeamProperty(BeamProperty):
         tf = (hw_HP / 9.2) - 2
         return tf
 
+    def hw_ekv_net(self, corr_add: CorrosionAddition):
+        return self.hw_ekv + corr_add.tc
+
+    def tw_ekv_net(self, corr_add: CorrosionAddition):
+        return self.tw_ekv - corr_add.tc
+
+    def bf_ekv_net(self, corr_add: CorrosionAddition):
+        return self.bf_ekv - corr_add.tc
+
+    def tf_ekv_net(self, corr_add: CorrosionAddition):
+        return self.tf_ekv - corr_add.tc
+
     def getShArea_HP(self, corr_add: CorrosionAddition):  # Net shear area of HP profile - Ash, [cm2]
-        hw = self.hw_ekv + corr_add.tc
-        tw = self.tw_ekv - corr_add.tc
+        hw = self.hw_ekv_net(corr_add)
+        tw = self.tw_ekv_net(corr_add)
         Ash = (hw * tw) * 0.01
         return Ash
 
@@ -645,19 +658,19 @@ class BulbBeamProperty(BeamProperty):
         return A
 
     def getArea_I(self, bp, tp_gross, corr_add: CorrosionAddition):  # Net area of HP stiffener with attached plating - A, [cm2]
-        hw = self.hw_ekv + corr_add.tc
-        tw = self.tw_ekv - corr_add.tc
-        bf = self.bf_ekv - corr_add.tc
-        tf = self.tf_ekv - corr_add.tc
+        hw = self.hw_ekv_net(corr_add)
+        tw = self.tw_ekv_net(corr_add)
+        bf = self.bf_ekv_net(corr_add)
+        tf = self.tf_ekv_net(corr_add)
         tp_net = tp_gross - corr_add.tc
         A = (bf * tf + hw * tw + bp * tp_net) * 0.01
         return A
 
     def get_z_na_I(self, bp, tp_gross, corr_add: CorrosionAddition):  # Neutral axis measured from the top of the attached plating - zna, [mm]
-        hw = self.hw_ekv + corr_add.tc
-        tw = self.tw_ekv - corr_add.tc
-        bf = self.bf_ekv - corr_add.tc
-        tf = self.tf_ekv - corr_add.tc
+        hw = self.hw_ekv_net(corr_add)
+        tw = self.tw_ekv_net(corr_add)
+        bf = self.bf_ekv_net(corr_add)
+        tf = self.tf_ekv_net(corr_add)
         tp = tp_gross - corr_add.tc
         A = self.getArea_I(bp, tp_gross, corr_add)
         zna = ((bf * tf * (tp + hw + tf * 0.5)) + (hw * tw * (tp + hw * 0.5) + (bp * (tp ** 2) * 0.5))) / (100 * A)
@@ -668,10 +681,10 @@ class BulbBeamProperty(BeamProperty):
         return zmax
 
     def get_Iy_I(self, bp, tp_gross, corr_add: CorrosionAddition):  # Net moment of inertia around the local y axis - Iy, [cm4]
-        hw = self.hw_ekv + corr_add.tc
-        tw = self.tw_ekv - corr_add.tc
-        bf = self.bf_ekv - corr_add.tc
-        tf = self.tf_ekv - corr_add.tc
+        hw = self.hw_ekv_net(corr_add)
+        tw = self.tw_ekv_net(corr_add)
+        bf = self.bf_ekv_net(corr_add)
+        tf = self.tf_ekv_net(corr_add)
         tp = tp_gross - corr_add.tc
         zna = self.get_z_na_I(bp, tp_gross, corr_add)
         Iy = (bf * tf * ((tf ** 2) / 12 + (tf * 0.5 + hw + tp - zna) ** 2) + hw * tw * (
@@ -680,27 +693,27 @@ class BulbBeamProperty(BeamProperty):
         return Iy * (10 ** (-4))
 
     def get_Iw(self, corr_add: CorrosionAddition):  # Sectorial moment of inertia in [cm6]
-        hw = self.hw_ekv + corr_add.tc
-        tw = self.tw_ekv - corr_add.tc
-        bf = self.bf_ekv - corr_add.tc
-        tf = self.tf_ekv - corr_add.tc
+        hw = self.hw_ekv_net(corr_add)
+        tw = self.tw_ekv_net(corr_add)
+        bf = self.bf_ekv_net(corr_add)
+        tf = self.tf_ekv_net(corr_add)
         Iw = ((bf ** 3 * hw ** 2) / (12 * (bf + hw) ** 2)) *\
              (tf * (bf ** 2 + 2 * bf * hw + 4 * hw ** 2) + 3 * tw * bf * hw) * 10 ** (-6)
         return Iw
 
     def get_Ip(self, corr_add: CorrosionAddition):  # Polar moment of inertia in [cm4]
-        hw = self.hw_ekv + corr_add.tc
-        tw = self.tw_ekv - corr_add.tc
-        bf = self.bf_ekv - corr_add.tc
-        tf = self.tf_ekv - corr_add.tc
+        hw = self.hw_ekv_net(corr_add)
+        tw = self.tw_ekv_net(corr_add)
+        bf = self.bf_ekv_net(corr_add)
+        tf = self.tf_ekv_net(corr_add)
         Ip = ((((hw ** 3) * tw) / 3) + ((hw ** 2) * bf * tf)) * 10 ** (-4)
         return Ip
 
     def get_It(self, corr_add: CorrosionAddition):  # St Venant's moment of inertia in [cm4]
-        hw = self.hw_ekv + corr_add.tc
-        tw = self.tw_ekv - corr_add.tc
-        bf = self.bf_ekv - corr_add.tc
-        tf = self.tf_ekv - corr_add.tc
+        hw = self.hw_ekv_net(corr_add)
+        tw = self.tw_ekv_net(corr_add)
+        bf = self.bf_ekv_net(corr_add)
+        tf = self.tf_ekv_net(corr_add)
         It = (1 / 3) * ((hw * tw ** 3) + (bf * tf ** 3) * (1 - 0.63 * (tf / bf))) * 10 ** (-4)
         return It
 
@@ -755,13 +768,44 @@ class HatBeamProperty(BeamProperty):
     def mat(self, value):
         self._mat = value
 
+    def x_tc(self, corr_add: CorrosionAddition):
+        # Reduction of flange width due to corrosion addition
+        tc = corr_add.tc
+        fi = self.fi
+        x_tc = (tc / 2) * np.tan(np.radians(fi / 2))
+        return x_tc
+
+    def bf_net(self, corr_add: CorrosionAddition):
+        # Net flange width
+        bf = self.bf
+        x = self.x_tc(corr_add)
+        bf_net = bf - 2 * x
+        return bf_net
+
+    def h_net(self, corr_add: CorrosionAddition):
+        tc = corr_add.tc
+        h = self._h
+        h_net = h + tc
+        return h_net
+
+    def t_net(self, corr_add: CorrosionAddition):
+        t = self.t
+        tc = corr_add.tc
+        t_net = t - tc
+        return t_net
+
+    @staticmethod
+    def tp_net(tp_gross, corr_add: CorrosionAddition):
+        tc = corr_add.tc
+        tp_net = tp_gross - tc
+        return tp_net
+
     def getS1_Hat(self):  # Width of Hat profile webs at the connection with plating, at the theoretical web centerline - S1, [mm]
         h = self._h                     # Profile height
         t = self._t                     # Flange and web thickness
-        alpha = (180 - self._fi) / 2
         bf = self._bf                   # Flange width
         fi = self._fi
-        S1 = bf + ((2 * h + t) / np.tan(np.radians(fi))) - (t / np.tan(np.radians(alpha)))
+        S1 = bf + ((2 * h + t) / np.tan(np.radians(fi))) - (t * np.tan(np.radians(fi / 2)))
         return S1
 
     def getShArea_Hat(self, corr_add: CorrosionAddition):  # Net shear area of Hat profile - Ash, [cm2]
@@ -781,59 +825,60 @@ class HatBeamProperty(BeamProperty):
         return A
 
     def getArea_I(self, bp, tp_gross, corr_add: CorrosionAddition):  # Net area of Hat stiffener with attached plating - A, [cm2]
-        h = self._h + corr_add.tc       # Net profile height
-        t = self._t - corr_add.tc       # Net flange and web thickness
-        alpha = (180 - self._fi) / 2
-        bf = self._bf - 2 * corr_add.tc / (2 * np.tan(np.radians(alpha)))        # Net flange width
-        tp_net = tp_gross - corr_add.tc
+        h = self.h_net(corr_add)
+        t = self.t_net(corr_add)
+        bf = self.bf_net(corr_add)
+        tp = self.tp_net(tp_gross, corr_add)
         fi = self._fi
-        A = ((2 * h * t) / np.sin(np.radians(fi)) + t ** 2 / np.tan(np.radians(fi)) + bf * t + bp * tp_net) * 0.01
+        A = ((2 * h * t) / np.sin(np.radians(fi)) + (t ** 2) / np.tan(np.radians(fi)) + bf * t + bp * tp) * 0.01
         return A
 
     def get_z_na_Hat(self, bp, tp_gross, corr_add: CorrosionAddition):
-        h = self._h + corr_add.tc       # Net profile height
-        t = self._t - corr_add.tc       # Net flange and web thickness
+        h = self.h_net(corr_add)
+        t = self.t_net(corr_add)
         fi = self._fi
-        tp = tp_gross - corr_add.tc
+        tp = self.tp_net(tp_gross, corr_add)
         A = self.getArea_I(bp, tp_gross, corr_add)
         zna = ((h * t / np.sin(np.radians(fi))) * (h + t) + t ** 3 / (6 * np.tan(np.radians(fi))) +
                (h + (tp + t) / 2) * bp * tp) / (A * 100)
         return zna
 
     def get_Iy_I(self, bp, tp_gross, corr_add: CorrosionAddition):  # Moment of inertia around the local y axis - Iy, [cm4]
-        h = self._h + corr_add.tc       # Net profile height
-        t = self._t - corr_add.tc       # Net flange and web thickness
-        alpha = (180 - self._fi) / 2
-        bf = self._bf - 2 * corr_add.tc / (2 * np.tan(np.radians(alpha)))        # Net flange width
+        h = self.h_net(corr_add)
+        t = self.t_net(corr_add)
+        bf = self.bf_net(corr_add)
         fi = self._fi
-        tp = tp_gross - corr_add.tc
+        tp = self.tp_net(tp_gross, corr_add)
         zna = self.get_z_na_Hat(bp, tp_gross, corr_add)
-        Iy = (2 * ((t * h ** 3 / (12 * np.sin(np.radians(fi)))) + (((t + h) / 2 - zna) ** 2) * (h * t / np.sin(np.radians(fi)))) +
-              2 * ((t ** 4 / (36 * np.tan(np.radians(fi)))) + (((zna - t / 6) ** 2) * (t ** 2 / (2 * np.tan(np.radians(fi)))))) +
-              ((bf * t ** 3 / 12) + zna ** 2 * bf * t) + ((bp * tp ** 3 / 12) + ((h + ((tp + t) / 2 - zna)) ** 2 * bp * tp)))
+        sin_fi = np.sin(np.radians(fi))
+        tan_fi = np.tan(np.radians(fi))
+        Iy = 2 * (t * h ** 3 / (12 * sin_fi))
+        Iy += 2 * (((t + h) / 2 - zna) ** 2) * (h * t / sin_fi)
+        Iy += 2 * (t ** 4 / (36 * tan_fi))
+        Iy += 2 * (((zna - t / 6) ** 2) * (t ** 2 / (2 * tan_fi)))
+        Iy += ((bf * t ** 3 / 12) + zna ** 2 * bf * t)
+        Iy += (bp * tp ** 3 / 12) + ((h + ((tp + t) / 2 - zna)) ** 2 * bp * tp)
         return Iy * (10 ** (-4))
 
     def get_Ip(self, corr_add: CorrosionAddition):  # Polar moment of inertia in [cm4]
-        h = self._h + corr_add.tc       # Net profile height
-        t = self._t - corr_add.tc       # Net flange and web thickness
-        alpha = (180 - self._fi) / 2
-        bf = self._bf - 2 * corr_add.tc / (2 * np.tan(np.radians(alpha)))        # Net flange width
+        h = self.h_net(corr_add)
+        t = self.t_net(corr_add)
+        bf = self.bf_net(corr_add)
         Ip = ((((h ** 3) * t) / 3) + ((h ** 2) * bf * t)) * 10 ** (-4)
         return Ip
 
     def get_It(self, corr_add: CorrosionAddition):  # St Venant's moment of inertia in [cm4]
-        h = self._h + corr_add.tc       # Net profile height
-        t = self._t - corr_add.tc       # Net flange and web thickness
-        alpha = (180 - self._fi) / 2
-        bf = self._bf - 2 * corr_add.tc / (2 * np.tan(np.radians(alpha)))        # Net flange width
+        h = self.h_net(corr_add)
+        t = self.t_net(corr_add)
+        bf = self.bf_net(corr_add)
         It = (1 / 3) * ((h * t ** 3) + (bf * t ** 3) * (1 - 0.63 * (t / bf))) * 10 ** (-4)
         return It
 
     def getWmin(self, bp, tp, corr_add: CorrosionAddition):
         Iy = self.get_Iy_I(bp, tp, corr_add)
         zna = self.get_z_na_Hat(bp, tp, corr_add)
-        t = self._t - corr_add.tc                   # Net flange and web thickness
-        h = self._h + corr_add.tc                   # Net profile height
+        h = self.h_net(corr_add)
+        t = self.t_net(corr_add)
         wf = Iy / ((zna + (t / 2)) * 0.1)           # Section modulus of the flange - Wf, [cm3]
         wp = Iy / ((tp + h + t * 0.5 - zna) * 0.1)  # Section modulus of the plating - Wp, [cm3]
         if wp < wf:

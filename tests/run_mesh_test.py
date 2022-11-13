@@ -14,6 +14,7 @@ from tests.test_mesh import *
 # Test_get_plate_dim(2)
 # Test_psm_extent()
 # Test_segment_extent()
+# Test_all_segment_extent()
 # Test_grillage_plate_extent()
 # Test_aos_stiffener(2)
 # Test_aos_on_segment(BeamDirection.LONGITUDINAL, 3, 1)
@@ -21,7 +22,6 @@ from tests.test_mesh import *
 
 
 # ********************** testovi metoda u MeshSize **********************
-# Test_identify_unique_property()
 # Test_find_closest_divisor(4133, 935)
 # Test_find_closest_divisor(4238, 935)
 # Test_find_largest_divisor(4500, 1000)
@@ -39,7 +39,7 @@ from tests.test_mesh import *
 # Test_get_opposite_flange_width(BeamDirection.TRANSVERSE, 1, 2)
 
 
-# ********************** testovi metoda u MeshV1 **********************
+# ********************** testovi metoda u ElementSizeV1 **********************
 # Test_element_size_mesh()                    # Konacno odabrane osnovne dimenzije mreze dim_x i dim_y
 # Test_get_reduced_plate_dim(1)
 # Test_transition_element_size_plating_zone(1, 1)
@@ -58,14 +58,13 @@ from tests.test_mesh import *
 
 # ********************** testovi metoda u PlatingZoneMesh **********************
 # Test_PlatingZoneMesh(1, AOS.NONE)                                         # Izrada mreže jedne zone oplate
-# Test_PlatingZoneMesh_element_property(1)
 # Test_PlatingZoneMesh_beam_elements(5, AOS.BOTH)
 
 
 # ********************** testovi metoda u SegmentMesh **********************
 # Test_edge_segment_node_generation(BeamDirection.LONGITUDINAL, 1, 1)
-# Test_get_web_element_property(BeamDirection.LONGITUDINAL, 3, 2)
-# Test_get_flange_element_property(BeamDirection.TRANSVERSE, 2, 1)
+# Test_get_segment_element_property(BeamDirection.LONGITUDINAL, 3, 1)
+# Test_ALL_segment_element_property()
 # Test_Segment_element_generation(BeamDirection.LONGITUDINAL, 2, 1)                 # Izrada mreže na jednom segmentu
 # Test_generate_inward_flange_nodes(BeamDirection.LONGITUDINAsL, 1, 1, FlangeDirection.INWARD)
 # Test_flange_ref_array(BeamDirection.LONGITUDINAL, 2, 1)
@@ -77,11 +76,25 @@ from tests.test_mesh import *
 
 # ********************** testovi metoda u GrillageMesh **********************
 # gm = GrillageMesh(test_mesh)
-# gm.generate_plate_mesh()         # Izrada mreže svih zona oplate
-# gm.generate_psm_mesh_V1()           # Izrada mreže svih segmenata
-# gm.generate_mesh("test")
-# gm.check_node_overlap()
+# gm.generate_grillage_mesh_v1("test")
+# gm.generate_plate_mesh(grillage_fem)         # Izrada mreže svih zona oplate
+# gm.generate_psm_mesh_V1(grillage_fem)           # Izrada mreže svih segmenata
+# GeoGrillageFEM.check_node_overlap(grillage_fem)
 
+
+# ********************** testovi beam property u geofementity ***************
+# Test_T_Profile_BeamPropery(1089, 8, 543, 38)
+# Test_Hat_Profile_BeamProperty(152, 8, 199.06738468369, 50)
+# Test_Bulb_Profile_BeamProperty(217.913043, 10, 43.820896, 22.086957)
+# Test_FB_Profile_BeamProperty(220, 10)
+
+
+# ********************** testovi GeoFEM property ***************
+# test_mesh.identify_unique_beam_property(grillage_fem)
+# Test_GeoFEM_materials()
+# Test_GeoFEM_plate_property()
+# Test_GeoFEM_T_L_beam_property()
+# Test_GeoFEM_Bulb_beam_property()
 
 # Test nove ideje za algoritam pretraživanja preklapanja čvorova
 """

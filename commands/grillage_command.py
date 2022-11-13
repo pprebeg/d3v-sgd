@@ -137,24 +137,23 @@ class SGDCommand(Command):
     def onGenerateFEM(self):
         QApplication.changeOverrideCursor(QCursor(Qt.WaitCursor))
         tart = timer()
-        extents = MeshExtent(self._grillgeo.grillage, AOS.NONE)                # Opseg izrade mreže uz ručni odabir simetrije
-        # extents = MeshExtent(self._grillgeo.grillage)  # Opseg izrade mreže uz automatsko prepoznavanje simetrije
-        mesher = MeshV1(extents)  # Izračun dimenzija mreže za V1
-        # mesher = MeshV2(extents)       # Izračun dimenzija mreže za V2
+
+        # extents = MeshExtent(self._grillgeo.grillage, AOS.NONE)                # Opseg izrade mreže uz ručni odabir simetrije
+        extents = MeshExtent(self._grillgeo.grillage)  # Opseg izrade mreže uz automatsko prepoznavanje simetrije
+        mesher = ElementSizeV1(extents)  # Izračun dimenzija mreže za V1
 
         # Kontrola mreže
         mesher.min_num_ebs = 1  # Postavljanje minimalnog broja elemenata između ukrepa
         mesher.min_num_eweb = 3  # Postavljanje minimalnog broja elemenata duž visine struka
         mesher.num_eaf = 1  # Postavljanje broja elemenata u smjeru širine prirubnice
-        mesher.flange_aspect_ratio = 7  # Postavljanje aspektnog odnosa elemenata prirubnica jakih nosača i oplate uz struk jakih nosača
+        mesher.flange_aspect_ratio = 8  # Postavljanje aspektnog odnosa elemenata prirubnica jakih nosača i oplate uz struk jakih nosača
         mesher.plate_aspect_ratio = 4  # Postavljanje aspektnog odnosa elemenata oplate i strukova jakih nosača
         mesher.des_plate_aspect_ratio = 3  # Postavljanje poželjnog aspektnog odnosa elemenata oplate
 
-        # Potrebno računati dimenzije mreže za sve testove osim generate_mesh_V1()
-        mesher.calculate_mesh_dimensions()  # Izračun svih dimenzija za odabranu mrežu
-
         gm = GrillageMesh(mesher)
-        grill_fem = gm.generate_mesh('naziv modela')
+        grill_fem = gm.generate_grillage_mesh_v1('Mesh variant V1 test')
+        grill_fem.merge_coincident_nodes()
+
         grill_fem.regenerate()
         if grill_fem is not None:
             manager.add_geometry([grill_fem])

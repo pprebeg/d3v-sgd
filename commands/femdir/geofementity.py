@@ -355,17 +355,21 @@ class DescriptorBeamProperty (BeamProperty):
             self._lowerbounds = [0.0]*self.get_num_vals()
         self._lowerbounds[index] = lb
 
-class T_Profile_BeamPropery (DescriptorBeamProperty):
-    def __init__(self,values:List[float]=None,material:Material = None):
-        super().__init__(values,material)
+
+class T_Profile_BeamProperty (DescriptorBeamProperty):
+    def __init__(self, values: List[float] = None, material: Material = None):
+        super().__init__(values, material)
 
     def get_num_vals(self):
         return 4
+
     def get_desc_names(self):
-        return ['hw','tw','bf','tf']
+        return ['hw', 'tw', 'bf', 'tf']
+
     @property
     def hw(self):
         return self._descriptors[0]
+
     @hw.setter
     def hw(self, value):
         self._descriptors[0] = value
@@ -373,6 +377,7 @@ class T_Profile_BeamPropery (DescriptorBeamProperty):
     @property
     def tw(self):
         return self._descriptors[1]
+
     @tw.setter
     def tw(self, value):
         self._descriptors[1] = value
@@ -380,6 +385,7 @@ class T_Profile_BeamPropery (DescriptorBeamProperty):
     @property
     def bf(self):
         return self._descriptors[2]
+
     @bf.setter
     def bf(self, value):
         self._descriptors[2] = value
@@ -393,22 +399,29 @@ class T_Profile_BeamPropery (DescriptorBeamProperty):
         self._descriptors[3] = value
 
     def init(self, id, name):
-        super().init(id,name)
-
+        super().init(id, name)
 
     @property
     def z_na(self):
-        return (self.aw * self.hw / 2.0 + self.af * (self.hw + self.bf / 2.0)) / self.area
+        hw = self.hw
+        tf = self.tf
+        aw = self.aw
+        af = self.af
+        area = self.area
+        return ((af * (hw + tf * 0.5)) + (aw * (hw * 0.5))) / area
+
     @property
     def y_na(self):
         return 0.0
 
     @property
     def aw(self):
-        return self.hw*self.tw
+        return self.hw * self.tw
+
     @property
     def af(self):
         return self.bf * self.tf
+
     # OOFEM cross section characteristics
     @property
     def area(self):
@@ -416,13 +429,13 @@ class T_Profile_BeamPropery (DescriptorBeamProperty):
 
     @property
     def Iy(self):
-        zna = self.z_na
+        hw = self.hw
+        tf = self.tf
         aw = self.aw
         af = self.af
-        dw = zna - self.hw / 2.0
-        df = zna - self.hw + self.tf / 2.0
-        iy = (self.hw ** 2.0 * aw) / 12.0 + self.aw * dw ** 2.0
-        iy += (self.tf ** 2.0 * af) / 12.0 + self.af * df ** 2.0
+        zna = self.z_na
+        iy = (af * ((tf ** 2) / 12 + (tf * 0.5 + hw - zna) ** 2))
+        iy += aw * ((hw ** 2) / 12 + (hw * 0.5 - zna) ** 2)
         return iy
 
     @property
@@ -447,18 +460,307 @@ class T_Profile_BeamPropery (DescriptorBeamProperty):
 
     # end of OOFEM cross section characteristics
 
-    def get_yz_point_pairs_for_plane_visualization(self)->List[np.ndarray]:
+    def get_yz_point_pairs_for_plane_visualization(self) -> List[np.ndarray]:
         pp = []
-        hl=-self.z_na
-        hu=hl+self.hw
-        pp.append(np.array([0,hl]))
-        pp.append(np.array([0,hu]))
-        pp.append(np.array([-self.bf / 2.0, hu]))
+        hl = - self.z_na
+        hu = hl + self.hw
+        pp.append(np.array([0, hl]))
+        pp.append(np.array([0, hu]))
+        pp.append(np.array([- self.bf / 2.0, hu]))
         pp.append(np.array([self.bf / 2.0, hu]))
         return pp
 
 
-class T_ProfileAttachPlate_BeamPropery (T_Profile_BeamPropery):
+class Hat_Profile_BeamProperty (DescriptorBeamProperty):
+    def __init__(self, values: List[float] = None, material: Material = None):
+        super().__init__(values, material)
+
+    def get_num_vals(self):
+        return 4
+
+    def get_desc_names(self):
+        return ['h', 't', 'bf', 'fi']
+
+    @property
+    def h(self):
+        return self._descriptors[0]
+
+    @h.setter
+    def h(self, value):
+        self._descriptors[0] = value
+
+    @property
+    def t(self):
+        return self._descriptors[1]
+
+    @t.setter
+    def t(self, value):
+        self._descriptors[1] = value
+
+    @property
+    def bf(self):
+        return self._descriptors[2]
+
+    @bf.setter
+    def bf(self, value):
+        self._descriptors[2] = value
+
+    @property
+    def fi(self):
+        return self._descriptors[3]
+
+    @fi.setter
+    def fi(self, value):
+        self._descriptors[3] = value
+
+    def init(self, id, name):
+        super().init(id, name)
+
+    @property
+    def tan_fi(self):
+        fi = self.fi
+        return np.tan(np.radians(fi))
+
+    @property
+    def sin_fi(self):
+        fi = self.fi
+        return np.sin(np.radians(fi))
+
+    @property
+    def area(self):
+        h = self.h
+        t = self.t
+        bf = self.bf
+        tan_fi = self.tan_fi
+        sin_fi = self.sin_fi
+        area = ((2 * h * t) / sin_fi) + (t ** 2 / tan_fi) + (bf * t)
+        return area
+
+    @property
+    def z_na(self):
+        h = self.h
+        t = self.t
+        tan_fi = self.tan_fi
+        sin_fi = self.sin_fi
+        area = self.area
+        z_na = ((h * t / sin_fi) * (h + t) + t ** 3 /
+                (6 * tan_fi) + (h + t) / 2) / area
+        return z_na
+
+    @property
+    def y_na(self):
+        return 0.0
+
+    @property
+    def Iy(self):
+        h = self.h
+        t = self.t
+        bf = self.bf
+        tan_fi = self.tan_fi
+        sin_fi = self.sin_fi
+        zna = self.z_na
+        Iy = 2 * (t * h ** 3 / (12 * sin_fi))
+        Iy += 2 * (((t + h) / 2 - zna) ** 2) * (h * t / sin_fi)
+        Iy += 2 * (t ** 4 / (36 * tan_fi))
+        Iy += 2 * (((zna - t / 6) ** 2) * (t ** 2 / (2 * tan_fi)))
+        Iy += ((bf * t ** 3 / 12) + zna ** 2 * bf * t)
+        return Iy
+
+    @property
+    def Iz(self):
+        return 0.0
+
+    @property
+    def Ik(self):
+        return 0.0
+
+    @property
+    def shear_coeff(self):
+        return 0.0
+
+    @property
+    def shear_area_y(self):
+        return 0.0
+
+    @property
+    def shear_area_z(self):
+        return 0.0
+
+
+class Bulb_Profile_BeamProperty (DescriptorBeamProperty):
+    def __init__(self, values: List[float] = None, material: Material = None):
+        super().__init__(values, material)
+
+    def get_num_vals(self):
+        return 4
+
+    def get_desc_names(self):
+        return ['hw_ekv', 'tw_ekv', 'bf_ekv', 'tf_ekv']
+
+    @property
+    def hw_ekv(self):
+        return self._descriptors[0]
+
+    @hw_ekv.setter
+    def hw_ekv(self, value):
+        self._descriptors[0] = value
+
+    @property
+    def tw_ekv(self):
+        return self._descriptors[1]
+
+    @tw_ekv.setter
+    def tw_ekv(self, value):
+        self._descriptors[1] = value
+
+    @property
+    def bf_ekv(self):
+        return self._descriptors[2]
+
+    @bf_ekv.setter
+    def bf_ekv(self, value):
+        self._descriptors[2] = value
+
+    @property
+    def tf_ekv(self):
+        return self._descriptors[3]
+
+    @tf_ekv.setter
+    def tf_ekv(self, value):
+        self._descriptors[3] = value
+
+    def init(self, id, name):
+        super().init(id, name)
+
+    @property
+    def z_na(self):
+        hw = self.hw_ekv
+        tf = self.tf_ekv
+        aw = self.aw
+        af = self.af
+        area = self.area
+        return ((af * (hw + tf * 0.5)) + (aw * (hw * 0.5))) / area
+
+    @property
+    def y_na(self):
+        return 0.0
+
+    @property
+    def aw(self):
+        return self.hw_ekv * self.tw_ekv
+
+    @property
+    def af(self):
+        return self.bf_ekv * self.tf_ekv
+
+    @property
+    def area(self):
+        return self.aw + self.af
+
+    @property
+    def Iy(self):
+        hw = self.hw_ekv
+        tf = self.tf_ekv
+        aw = self.aw
+        af = self.af
+        zna = self.z_na
+        iy = (af * ((tf ** 2) / 12 + (tf * 0.5 + hw - zna) ** 2))
+        iy += aw * ((hw ** 2) / 12 + (hw * 0.5 - zna) ** 2)
+        return iy
+
+    @property
+    def Iz(self):
+        return 0.0
+
+    @property
+    def Ik(self):
+        return 0.0
+
+    @property
+    def shear_coeff(self):
+        return 0.0
+
+    @property
+    def shear_area_y(self):
+        return 0.0
+
+    @property
+    def shear_area_z(self):
+        return 0.0
+
+
+class FB_Profile_BeamProperty (DescriptorBeamProperty):
+    def __init__(self, values: List[float] = None, material: Material = None):
+        super().__init__(values, material)
+
+    def get_num_vals(self):
+        return 2
+
+    def get_desc_names(self):
+        return ['hw', 'tw']
+
+    @property
+    def hw(self):
+        return self._descriptors[0]
+
+    @hw.setter
+    def hw(self, value):
+        self._descriptors[0] = value
+
+    @property
+    def tw(self):
+        return self._descriptors[1]
+
+    @tw.setter
+    def tw(self, value):
+        self._descriptors[1] = value
+
+    def init(self, id, name):
+        super().init(id, name)
+
+    @property
+    def z_na(self):
+        hw = self.hw
+        return hw * 0.5
+
+    @property
+    def y_na(self):
+        return 0.0
+
+    @property
+    def area(self):
+        return self.hw * self.tw
+
+    @property
+    def Iy(self):
+        hw = self.hw
+        tw = self.tw
+        area = self.area
+        zna = self.z_na
+        return (tw * hw ** 3) / 12
+
+    @property
+    def Iz(self):
+        return 0.0
+
+    @property
+    def Ik(self):
+        return 0.0
+
+    @property
+    def shear_coeff(self):
+        return 0.0
+
+    @property
+    def shear_area_y(self):
+        return 0.0
+
+    @property
+    def shear_area_z(self):
+        return 0.0
+
+
+class T_ProfileAttachPlate_BeamProperty (T_Profile_BeamProperty):
     def __init__(self,values:List[float]=None,material:Material = None):
         super().__init__(values,material)
 

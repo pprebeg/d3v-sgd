@@ -3,31 +3,38 @@ Modul za testiranje diskretizacije učitanog modela
 """
 from grillage.grillage_mesher import *
 from timeit import default_timer as timer
+import femdir.geofementity as gfe
+
 
 start = timer()
-hc_var = 1
+hc_var = 5
 filename = str("../grillage savefiles/hc_var_") + str(hc_var) + str("_savefile.gin")
 hc_variant = GrillageModelData(filename).read_file()        # Učitavanje topologije iz datoteke
 print("Generating FE mesh on grillage variant", hc_var)
 
+grillage_fem = GeoGrillageFEM("test_mesh")
+
 # extents = MeshExtent(hc_variant, AOS.NONE)                # Opseg izrade mreže uz ručni odabir simetrije
 extents = MeshExtent(hc_variant)                            # Opseg izrade mreže uz automatsko prepoznavanje simetrije
 
-selected_mesh_variant = MeshV1(extents)         # Izračun dimenzija mreže za V1
-# selected_mesh_variant = MeshV2(extents)       # Izračun dimenzija mreže za V2
-
-test_mesh = selected_mesh_variant
+test_mesh = ElementSizeV1(extents)         # Izračun dimenzija mreže za V1
+# test_mesh = ElementSizeV2(extents)       # Izračun dimenzija mreže za V2
 
 # Kontrola mreže
 test_mesh.min_num_ebs = 1                   # Postavljanje minimalnog broja elemenata između ukrepa
 test_mesh.min_num_eweb = 3                  # Postavljanje minimalnog broja elemenata duž visine struka
 test_mesh.num_eaf = 1                       # Postavljanje broja elemenata u smjeru širine prirubnice
-test_mesh.flange_aspect_ratio = 7           # Postavljanje aspektnog odnosa elemenata prirubnica jakih nosača i oplate uz struk jakih nosača
+test_mesh.flange_aspect_ratio = 8           # Postavljanje aspektnog odnosa elemenata prirubnica jakih nosača i oplate uz struk jakih nosača
 test_mesh.plate_aspect_ratio = 4            # Postavljanje aspektnog odnosa elemenata oplate i strukova jakih nosača
 test_mesh.des_plate_aspect_ratio = 3        # Postavljanje poželjnog aspektnog odnosa elemenata oplate
 
-# Potrebno računati dimenzije mreže za sve testove osim generate_mesh_V1()
-test_mesh.calculate_mesh_dimensions()       # Izračun svih dimenzija za odabranu mrežu
+# Potrebno računati dimenzije mreže za sve testove osim generate_grillage_mesh_v1()
+# test_mesh.calculate_mesh_dimensions()       # Izračun svih dimenzija za odabranu mrežu
+
+gm = GrillageMesh(test_mesh)
+grillage_test_mesh = gm.generate_grillage_mesh_v1("test_mesh")
+grillage_test_mesh.merge_coincident_nodes()
+# grillage_test_mesh.full_model_node_overlap_check()
 
 
 def Test_get_reduced_plate_dim(plate_id):
@@ -134,17 +141,10 @@ def Test_get_flange_el_width(psm_id, segment_id):
 def Test_all_plating_zones_mesh_dimensions():
     extents.grillage_mesh_extent()
     test_mesh.calc_element_base_size_mesh()
-    for plate in extents.plating_zones.values():
+    for plate in extents.all_plating_zones.values():
         dim_x = test_mesh.get_base_dim_x(plate)
         dim_y = test_mesh.get_base_dim_y(plate)
         print("Zona oplate ID:", plate.id, ",   dim_x =", "{:.2f}".format(dim_x), "mm", ",   dim_y =", "{:.2f}".format(dim_y), "mm")
-
-
-def Test_identify_unique_property():
-    test_mesh.identify_unique_property()
-
-    for prop in test_mesh.unique_properties.values():
-        print("Unique property ID:", prop.id, ", tp =", prop.tp, "mm, material ID", prop.mat.id)
 
 
 def Test_get_tr_dim_x(plate_id):
@@ -181,10 +181,10 @@ def Test_get_mesh_dim(plate_id):
 
 
 def Test_get_all_mesh_dim():
-    for plate in extents.plating_zones.values():
+    for plate in extents.all_plating_zones.values():
         print("Dimenzije svih konačnih elemenata redom za zonu oplate", plate.id)
-        print("Dimenzije x:", test_mesh.plate_edge_node_x[plate.id])
-        print("Dimenzije y:", test_mesh.plate_edge_node_y[plate.id])
+        print("Dimenzije x:", test_mesh.plate_edge_node_spacing_x(plate))
+        print("Dimenzije y:", test_mesh.plate_edge_node_spacing_y(plate))
         print("\n")
 
 
@@ -237,49 +237,62 @@ def Test_psm_extent():
 
 def Test_segment_extent():
     extents.grillage_segment_extent()
+    print("Ukupno identificiranih segmenata za punu izradu mreže:", len(extents.full_segments))
+    for item in extents.full_segments.items():
+        key, segment = item
+        print("  ", key, "Jaki", segment.primary_supp_mem.direction.name,
+              segment.beam_prop.beam_type.name, "nosač broj", segment.primary_supp_mem.id,
+              ", segmenta broj", segment.id)
+    print("Ukupno identificiranih segmenata za polovičnu izradu mreže:", len(extents.half_segments))
+    for item in extents.half_segments.items():
+        key, segment = item
+        print("  ", key, "Jaki", segment.primary_supp_mem.direction.name,
+              segment.beam_prop.beam_type.name, "nosač broj", segment.primary_supp_mem.id,
+              ", segmenta broj", segment.id)
+
+
+def Test_all_segment_extent():
+    print("Ukupno identificiranih segmenata za izradu mreže:", len(extents.all_segments))
+    print("ID segmenata za izradu mreže:")
+    for item in extents.all_segments.items():
+        key, segment = item
+        print(key, "Jaki", segment.primary_supp_mem.direction.name,
+              segment.beam_prop.beam_type.name, "nosač broj", segment.primary_supp_mem.id,
+              ", segmenta broj", segment.id)
 
 
 def Test_grillage_plate_extent():
-    extents.grillage_plate_extent()
     print("Odabrana je", extents.axis_of_symm, "os simetrije.")
 
-    print("Ukupno identificiranih zona za izradu mreže:", len(extents.plating_zones))
+    print("Ukupno identificiranih zona za izradu mreže:", len(extents.all_plating_zones))
     print("ID zona oplate za izradu mreže:")
-    for key in extents.plating_zones:
-        print("Ključ:", key, ", ID zone oplate", extents.plating_zones[key].id)
+    for key in extents.all_plating_zones:
+        print("Ključ:", key, ", ID zone oplate", extents.all_plating_zones[key].id)
 
     print("Od tih upisanih zona, dijele se na različite tipove:")
 
     print("Zone oplate za izradu pune mreže:")
     for key in extents.full_plate_zones:
-        print("Ključ:", key, ", ID zone oplate", extents.plating_zones[key].id)
+        print("Ključ:", key, ", ID zone oplate", extents.all_plating_zones[key].id)
 
     print("Zone oplate za izradu polovične mreže, presječenih uzdužnom osi simetrije:")
     for key in extents.long_half_plate_zones:
-        print("Ključ:", key, ", ID zone oplate", extents.plating_zones[key].id)
+        print("Ključ:", key, ", ID zone oplate", extents.all_plating_zones[key].id)
 
     print("ID zona oplate za izradu polovične mreže, presječenih poprečnom osi simetrije:")
     for key in extents.tran_half_plate_zones:
-        print("Ključ:", key, ", ID zone oplate", extents.plating_zones[key].id)
+        print("Ključ:", key, ", ID zone oplate", extents.all_plating_zones[key].id)
 
     print("Zone oplate za izradu četvrtinske mreže:")
     for key in extents.quarter_plate_zone:
-        print("Ključ:", key, ", ID zone oplate", extents.plating_zones[key].id)
+        print("Ključ:", key, ", ID zone oplate", extents.all_plating_zones[key].id)
 
 
 def Test_PlatingZoneMesh(plate_id, split_along=AOS.NONE):
     plate = hc_variant.plating()[plate_id]
 
     extents.grillage_plate_extent()        # Izračun koje zone oplate se meshiraju
-    PlatingZoneMesh(test_mesh, plate, 1, 1, 1, split_along).generate_mesh()     # izrada mreže jedne zone oplate
-
-
-def Test_PlatingZoneMesh_element_property(plate_id, split_along=AOS.NONE):
-    plate = hc_variant.plating()[plate_id]
-    extents.grillage_plate_extent()        # Izračun koje zone oplate se meshiraju
-    test_mesh.identify_unique_property()
-    id_upp = PlatingZoneMesh(test_mesh, plate, 1, 1, 1, split_along).get_plate_element_property()
-    print("ID jedinstvenog unique_property u rječniku mesh_size.unique_properties odabrane zone oplate:", id_upp)
+    PlateMesh(test_mesh, plate, 1, 1, 1, split_along).generate_mesh(grillage_fem)     # izrada mreže jedne zone oplate
 
 
 def Test_plating_zones_ref_array():
@@ -334,8 +347,10 @@ def Test_Segment_element_generation(direction: BeamDirection, psm_id, segment_id
 
     start_node_id = 1
     start_element_id = 1
-    seg_mesh = SegmentV1(test_mesh, segment, start_node_id, start_element_id)
-    seg_mesh.generate_mesh()
+    seg_mesh = SegmentMeshV1(test_mesh, segment, start_node_id, start_element_id)
+    extents.generate_FEM_material(grillage_fem)
+    extents.generate_FEM_plate_property(grillage_fem)
+    seg_mesh.generate_mesh(grillage_fem)
 
 
 def Test_edge_segment_node_generation(direction: BeamDirection, psm_id, segment_id):
@@ -347,29 +362,55 @@ def Test_edge_segment_node_generation(direction: BeamDirection, psm_id, segment_
 
     start_node_id = 1
     start_element_id = 1
-    seg_mesh = SegmentV1(test_mesh, segment, start_node_id, start_element_id)
+    seg_mesh = SegmentMeshV1(test_mesh, segment, start_node_id, start_element_id)
     seg_mesh.get_plate_edge_nodes()
-    seg_mesh.generate_web_nodes()
-    last_node = seg_mesh.generate_flange_nodes(FlangeDirection.INWARD, start_node_id)
+    seg_mesh.generate_web_nodes(grillage_fem)
+    last_node = seg_mesh.generate_flange_nodes(grillage_fem, FlangeDirection.INWARD, start_node_id)
     print("ID koji se prenosi na idući segment: za čvor", last_node)
 
 
-def Test_get_web_element_property(direction: BeamDirection, psm_id, segment_id):
-    segment = None
+def Test_get_segment_element_property(direction: BeamDirection, psm_id, segment_id):
     if direction == BeamDirection.LONGITUDINAL:
         segment = hc_variant.longitudinal_members()[psm_id].segments[segment_id - 1]
-    elif direction == BeamDirection.TRANSVERSE:
+    else:
         segment = hc_variant.transverse_members()[psm_id].segments[segment_id - 1]
-    test_mesh.identify_unique_property()
+    extents.generate_FEM_material(grillage_fem)
+    extents.generate_FEM_plate_property(grillage_fem)
 
     start_node_id = 1
     start_element_id = 1
-    seg_mesh = SegmentV1(test_mesh, segment, start_node_id, start_element_id)
-    id_upp = seg_mesh.get_web_element_property()
-    prop = test_mesh.unique_properties[id_upp]
-    print("Odabrani segment ID", segment_id, ", nosaca", psm_id, direction, ":")
-    print("     ID jedinstvenog unique_property struka u rječniku mesh_size.unique_properties:", id_upp)
-    print("     Debljina materijala:", prop.tp, "mm, materijal:", prop.mat.name)
+    seg_mesh = SegmentMeshV1(test_mesh, segment, start_node_id, start_element_id)
+    web_fem_prop = seg_mesh.get_web_element_property_id(grillage_fem)
+    flange_fem_prop = seg_mesh.get_flange_element_property_id(grillage_fem)
+
+    print("  ", "Jaki", segment.primary_supp_mem.direction.name,
+          segment.beam_prop.beam_type.name, "nosač broj", segment.primary_supp_mem.id,
+          ", segment broj", segment.id)
+    print("     ID upisanog svojstva struka u rječniku GeoFEM properties:", web_fem_prop.id)
+    print("     Debljina materijala:", web_fem_prop.tp, "mm, materijal:", web_fem_prop.material.name)
+    print("     ID upisanog svojstva prirubnice u rječniku GeoFEM properties:", flange_fem_prop.id)
+    print("     Debljina materijala:", flange_fem_prop.tp, "mm, materijal:", flange_fem_prop.material.name)
+
+
+def Test_ALL_segment_element_property():
+    extents.generate_FEM_material(grillage_fem)
+    extents.generate_FEM_plate_property(grillage_fem)
+    for segment in extents.all_segments.values():
+        start_node_id = 1
+        start_element_id = 1
+
+        seg_mesh = SegmentMeshV1(test_mesh, segment, start_node_id, start_element_id)
+        web_fem_prop = seg_mesh.get_web_element_property_id(grillage_fem)
+        flange_fem_prop = seg_mesh.get_flange_element_property_id(grillage_fem)
+
+        print("  ", "Jaki", segment.primary_supp_mem.direction.name,
+              segment.beam_prop.beam_type.name, "nosač broj", segment.primary_supp_mem.id,
+              ", segment broj", segment.id)
+        print("     ID BeamProperty u modelu:", segment.beam_prop.id)
+        print("     ID upisanog svojstva struka u rječniku GeoFEM properties:", web_fem_prop.id)
+        print("         Debljina materijala:", web_fem_prop.tp, "mm, materijal:", web_fem_prop.material.name)
+        print("     ID upisanog svojstva prirubnice u rječniku GeoFEM properties:", flange_fem_prop.id)
+        print("         Debljina materijala:", flange_fem_prop.tp, "mm, materijal:", flange_fem_prop.material.name, "\n")
 
 
 def Test_aos_stiffener(plate_id):
@@ -443,36 +484,17 @@ def Test_generate_inward_flange_nodes(direction: BeamDirection, psm_id, segment_
 
     start_node_id = 1
     start_element_id = 1
-    seg_mesh = SegmentV1(test_mesh, segment, start_node_id, start_element_id)
+    seg_mesh = SegmentMeshV1(test_mesh, segment, start_node_id, start_element_id)
     seg_mesh.get_plate_edge_nodes()
-    seg_mesh.generate_web_nodes()
-    seg_mesh.generate_flange_nodes(flange_dir, start_node_id)
+    seg_mesh.generate_web_nodes(grillage_fem)
+    seg_mesh.generate_flange_nodes(grillage_fem, flange_dir, start_node_id)
 
 
 def Test_PlatingZoneMesh_beam_elements(plate_id, split_along=AOS.NONE):
     plate = hc_variant.plating()[plate_id]
 
     extents.grillage_plate_extent()        # Izračun koje zone oplate se meshiraju
-    PlatingZoneMesh(test_mesh, plate, 1, 1, 1, split_along).generate_beam_elements()
-
-
-def Test_get_flange_element_property(direction: BeamDirection, psm_id, segment_id):
-    segment = None
-    if direction == BeamDirection.LONGITUDINAL:
-        segment = hc_variant.longitudinal_members()[psm_id].segments[segment_id - 1]
-    elif direction == BeamDirection.TRANSVERSE:
-        segment = hc_variant.transverse_members()[psm_id].segments[segment_id - 1]
-    test_mesh.identify_unique_property()
-
-    start_node_id = 1
-    start_element_id = 1
-    seg_mesh = SegmentV1(test_mesh, segment, start_node_id, start_element_id)
-    id_upp = seg_mesh.get_flange_element_property()
-
-    prop = test_mesh.unique_properties[id_upp]
-    print("Odabrani segment ID", segment_id, ", nosaca", psm_id, direction, ":")
-    print("     ID jedinstvenog unique_property prirubnice u rječniku mesh_size.unique_properties:", id_upp)
-    print("     Debljina materijala:", prop.tp, "mm, materijal:", prop.mat.name)
+    PlateMesh(test_mesh, plate, 1, 1, 1, split_along).generate_beam_elements(grillage_fem)
 
 
 def Test_flange_ref_array(direction: BeamDirection, psm_id, segment_id):
@@ -484,7 +506,7 @@ def Test_flange_ref_array(direction: BeamDirection, psm_id, segment_id):
 
     start_node_id = 1
     start_element_id = 1
-    seg_mesh = SegmentV1(test_mesh, segment, start_node_id, start_element_id)
+    seg_mesh = SegmentMeshV1(test_mesh, segment, start_node_id, start_element_id)
     seg_mesh.get_plate_edge_nodes()
     flange_start_node = 56
     ref_array = seg_mesh.ref_flange_node_ID_array(flange_start_node)
@@ -510,4 +532,108 @@ def Test_generate_element_row(direction: BeamDirection, psm_id, segment_id):
 
     start_node_id = 1
     start_element_id = 101
-    SegmentV2(test_mesh, segment, start_node_id, start_element_id).generate_element_row(1, start_element_id)
+    SegmentMeshV2(test_mesh, segment, start_node_id, start_element_id).generate_element_row(1, start_element_id)
+
+
+def Test_T_Profile_BeamProperty(hw, tw, bf, tf):
+    test_beam = gfe.T_Profile_BeamProperty()
+    test_beam.hw = hw
+    test_beam.tw = tw
+    test_beam.bf = bf
+    test_beam.tf = tf
+    print(" Visina struka,                          hw = ", test_beam.hw, "mm")
+    print(" Debljina struka,                        tw = ", test_beam.tw, "mm")
+    print(" Sirina prirubnice,                      bf = ", test_beam.bf, "mm")
+    print(" Debljina prirubnice,                    tf = ", test_beam.tf, "mm")
+    print(" Povrsina T profila,                      A = ", test_beam.area, "mm2")
+    print(" Polozaj neutralne linije,             Z_na = ", test_beam.z_na, "mm")
+    print(" Moment inercije (net),                  Iy = ", test_beam.Iy, "mm4")
+
+
+def Test_Hat_Profile_BeamProperty(h, t, bf, fi):
+    test_beam = gfe.Hat_Profile_BeamProperty()
+    test_beam.h = h
+    test_beam.t = t
+    test_beam.bf = bf
+    test_beam.fi = fi
+
+    print(" Visina profila,                                     h = ", test_beam.h, "mm")
+    print(" Debljina struka i prirubnice,                       t = ", test_beam.t, "mm")
+    print(" Sirina prirubnice,                                 bf = ", test_beam.bf, "mm")
+    print(" Kut nagiba struka profila,                         fi = ", test_beam.fi, "°")
+    print(" Povrsina Hat profila,                               A = ", test_beam.area, "mm2")
+    print(" Težište Hat profila od simetrale prirubnice,     z_NA = ", test_beam.z_na, "mm")
+    print(" Moment inercije (net),                             Iy = ", test_beam.Iy, "mm4")
+
+
+def Test_Bulb_Profile_BeamProperty(hw_ekv, tw_ekv, bf_ekv, tf_ekv):
+    test_beam = gfe.Bulb_Profile_BeamProperty()
+    test_beam.hw_ekv = hw_ekv
+    test_beam.tw_ekv = tw_ekv
+    test_beam.bf_ekv = bf_ekv
+    test_beam.tf_ekv = tf_ekv
+    print(" Visina struka,                          hw = ", test_beam.hw_ekv, "mm")
+    print(" Debljina struka,                        tw = ", test_beam.tw_ekv, "mm")
+    print(" Sirina prirubnice,                      bf = ", test_beam.bf_ekv, "mm")
+    print(" Debljina prirubnice,                    tf = ", test_beam.tf_ekv, "mm")
+    print(" Povrsina T profila,                      A = ", test_beam.area, "mm2")
+    print(" Polozaj neutralne linije,             Z_na = ", test_beam.z_na, "mm")
+    print(" Moment inercije (net),                  Iy = ", test_beam.Iy, "mm4")
+
+
+def Test_FB_Profile_BeamProperty(hw, tw):
+    test_beam = gfe.FB_Profile_BeamProperty()
+    test_beam.hw = hw
+    test_beam.tw = tw
+    print(" Visina struka,                          hw = ", test_beam.hw, "mm")
+    print(" Debljina struka,                        tw = ", test_beam.tw, "mm")
+    print(" Povrsina FB profila,                     A = ", test_beam.area, "mm2")
+    print(" Polozaj neutralne linije,             Z_na = ", test_beam.z_na, "mm")
+    print(" Moment inercije (net),                  Iy = ", test_beam.Iy, "mm4")
+
+
+def Test_GeoFEM_materials():
+    extents.generate_FEM_material(grillage_fem)
+    num = grillage_fem.num_materials
+    print("Lista upisanih materijala u GeoFEM materials:")
+    for material_id in range(1, num + 1):
+        mat = grillage_fem.getMaterial(material_id)
+        print(mat.id, mat.name, mat.E, mat.rho, mat.ReH, mat.ni)
+
+
+def Test_GeoFEM_plate_property():
+    extents.generate_FEM_material(grillage_fem)
+    extents.generate_FEM_plate_property(grillage_fem)
+    num = grillage_fem.num_properties
+    print("Lista upisanih plate property u GeoFEM properties:")
+    for prop_id in range(1, num + 1):
+        prop = grillage_fem.getProperty(prop_id)
+        print(prop.id, " tp =", prop.tp, prop.material.name)
+
+
+def Test_GeoFEM_T_L_beam_property():
+    extents.generate_FEM_material(grillage_fem)
+    extents.generate_FEM_beam_property(grillage_fem)
+    num = grillage_fem.num_properties
+    print("Ukupno upisanih:", num)
+    print("Lista upisanih beam property u GeoFEM properties:")
+    for prop_id in range(1, num + 1):
+        prop = grillage_fem.getProperty(prop_id)
+        print(prop.id, prop.material.name, prop.name, ", hw =", prop.hw, ", tw =", prop.tw,
+              ", bf =", prop.bf, ", tf =", prop.tf, ", Iy =", prop.Iy, ", A =", prop.area)
+
+
+def Test_GeoFEM_Bulb_beam_property():
+    extents.generate_FEM_material(grillage_fem)
+    extents.generate_FEM_beam_property(grillage_fem)
+    num = grillage_fem.num_properties
+    print("Ukupno upisanih property:", num)
+
+    for prop_id in range(1, num + 1):
+        prop = grillage_fem.getProperty(prop_id)
+        num_vals = prop.get_num_vals()
+        print(prop.id, prop.name, prop.material.name)
+        print("   ", "Iy =", prop.Iy, "mm4")
+        print("   ",  "A =", prop.area, "mm2")
+        for descriptor in range(0, num_vals):
+            print("   ", prop.get_desc_names()[descriptor], "=", prop.descriptors[descriptor])

@@ -758,6 +758,19 @@ def Test_get_intersect_flange_width(grillage, long_id, tran_id):
     print("Longitudinal bf net:", long, ", transverse bf net:", tran)
 
 
+def Test_segment_common_plates(grillage, direction: BeamDirection, id_nosaca, id_segmenta):
+    if direction is BeamDirection.LONGITUDINAL:
+        segment = grillage.longitudinal_members()[id_nosaca].segments[id_segmenta - 1]
+    else:
+        segment = grillage.transverse_members()[id_nosaca].segments[id_segmenta - 1]
+
+    lista_oplate = grillage.segment_common_plates(segment)
+
+    print("Segmentu pripadaju:")
+    for plate in lista_oplate:
+        print(" Zona oplate", plate.id)
+
+
 def PlotGrillageTopology(grillage):
     import matplotlib.pyplot as plt
 
@@ -818,7 +831,7 @@ def PlotGrillageTopology(grillage):
 
 # KoordinateCvorova()
 # SvojstvaTprofila(1089, 10, 545, 40, 0, 0)
-SvojstvaHPprofila(240, 12, 0, 0)
+# SvojstvaHPprofila(240, 12, 0, 0)
 # SvojstvaHatProfila(150, 10, 200, 50, 0, 0)
 # SvojstvaHatProfila(220, 10, 220, 80, 600, 10)
 # SvojstvaFBProfila(1000, 12, 0, 0)
@@ -863,7 +876,9 @@ SvojstvaHPprofila(240, 12, 0, 0)
 # Test_identify_number_of_intercostals(hc_variant)
 # Test_get_segments_at_intersection(hc_variant, 1, 2)
 # Test_get_intersect_flange_width(hc_variant, 2, 2)
+# Test_segment_common_plates(hc_variant, BeamDirection.LONGITUDINAL, 3, 2)
 # PlotGrillageTopology(hc_variant)
+
 
 end = timer()
 

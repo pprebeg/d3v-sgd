@@ -2058,6 +2058,17 @@ class Grillage:
         else:
             return common_segment[0]
 
+    def segment_common_plates(self, segment: Segment):
+        """
+        :param segment: Selected Segment.
+        :return: List of Plate objects defined by the Segment.
+        """
+        identified_plates = []
+        for plate in self.plating().values():
+            if segment in plate.plate_segments:
+                identified_plates.append(plate)
+        return identified_plates
+
     def get_adjacent_plates(self, test_plate: Plate):
         # Returns a list of Plate objects which have a common segment with test_plate
         adjacent_plate_list = []

@@ -234,6 +234,7 @@ class GeoGrillageFEM (GeoFEM):
         # Delete overlapped nodes
         for delete_node in delete_list:
             del self.nodes[delete_node.id]
+
         print("Node merge complete, deleted", len(delete_list), "nodes.")
         print("Total number of elements:", self.num_elements)
 
@@ -264,19 +265,46 @@ class GeoGrillageFEM (GeoFEM):
         """
 
     def check_element_overlap(self):
+        delete_list = []
         element_combos = itertools.combinations(self.elements.keys(), 2)
         for elements in element_combos:
             element_1_id, element_2_id = elements
             element_1 = self.elements[element_1_id]
             element_2 = self.elements[element_2_id]
-            # print(element_1.id, element_2.id)
+
             nodes1 = [node.id for node in element_1.nodes]
             nodes2 = [node.id for node in element_2.nodes]
-            set1 = set(nodes1)
-            set2 = set(nodes2)
-            if set1 == set2:
-                print(element_1.id, set1, element_2.id, set2)
-        print("Ukupno elemenata:", len(self.elements))
+
+            e1_type = element_1.get_type().name
+            e2_type = element_2.get_type().name
+            e1_prop_id = element_1.prop_id
+            e2_prop_id = element_2.prop_id
+
+            if set(nodes1) == set(nodes2):
+                print("Overlapped elements:", e1_type, element_1.id,
+                      e2_type, element_2.id,
+                      ", on nodes:", nodes1, nodes2)
+
+                tp_e1 = self.properties[e1_prop_id].tp
+                tp_e2 = self.properties[e2_prop_id].tp
+
+                if tp_e2 > tp_e1:
+                    # element_2 remains
+                    # delete element_1
+                    # delete_list.append(element_to_delete)
+                    pass
+                else:
+                    # element_1 remains
+                    # delete element_2
+                    # delete_list.append(element_to_delete)
+                    pass
+
+                print("   ", e1_type, element_1.id, ":", tp_e1, "mm, ",
+                      e2_type, element_2.id, ":", tp_e2, "mm")
+
+        return delete_list
 
     def merge_overlapped_elements(self):
+        # overlapped_elements = self.check_element_overlap()
+        # delete all in delete list...
         pass

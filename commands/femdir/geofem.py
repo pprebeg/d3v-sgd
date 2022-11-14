@@ -114,7 +114,7 @@ class GeoFEM(GeometryExtension):
         return self.nodetoelement.get(fh)
 
     def onSelected(self, si:SelectionInfo):
-        if si.geometry is self._allfegeo:
+        if si.geometry is self:
             sfh = si.getFace()
             el = self.get_element_for_face(sfh)
             if el != None:

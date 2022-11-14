@@ -140,12 +140,14 @@ class FEMCommand(Command):
             if si.isEmpty():
                 self.femmdl.unselect()
             else:
-                pos: QPoint = self._mainwin.pos()
-                pos.setX(pos.x() + self._mainwin.glWin.dragInfo.wStartPos.x() + 20)
-                pos.setY(pos.y() + self._mainwin.glWin.size().height() - self._mainwin.glWin.dragInfo.wStartPos.y())
+                self.femmdl.onSelected(si)
+                pos: QPoint = self.mainwin.pos()
+                pos.setX(pos.x() + self.mainwin.glWin.dragInfo.wStartPos.x() + 20)
+                pos.setY(pos.y() + self.mainwin.glWin.size().height() - self.mainwin.glWin.dragInfo.wStartPos.y())
                 msg = self.femmdl.selected_entitiy.get_info()
                 QApplication.instance().clipboard().setText(str(msg))
-                QToolTip.showText(pos, msg, msecShowTime=10)
+                #QToolTip.showText(pos, msg, msecShowTime=10000)
+                QToolTip.showText(pos, msg)
 
     def onOptimize(self):
         if isinstance(self.femmdl, GeoFEM):

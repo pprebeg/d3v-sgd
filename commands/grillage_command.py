@@ -21,6 +21,7 @@ from timeit import default_timer as timer
 
 from core import geometry_manager as manager
 import logging
+from tests.test_mesh import *
 
 def tmp_fun_gen_hc_var1():
     # Eksplicitno zadana topologija hc_var_1 za provjeru:  18.54m x 18.18m,  mreza nosaca 5 x 5
@@ -125,7 +126,7 @@ class SGDCommand(Command):
         actionGenerateFEM = self.menuAnalysis.addAction("&Generate FEM")
         actionGenerateFEM.triggered.connect(self.onGenerateFEM)
 
-        actionRunTest = self.menuAnalysis.addAction("&Execute Test")
+        actionRunTest = self.menuMain.addAction("&Execute Test")
         actionRunTest.triggered.connect(self.onActionRunTest)
 
         try:
@@ -138,8 +139,12 @@ class SGDCommand(Command):
         self.mainwin.update()
 
     def onActionRunTest(self):
-        from tests.test_mesh import *
         #paste code for test
+        grill_fem = test_mesh()
+        grill_fem.regenerate()
+        if grill_fem is not None:
+            manager.add_geometry([grill_fem])
+            manager.show_geometry([grill_fem])
         pass
     def onGenerateFEM(self):
         QApplication.changeOverrideCursor(QCursor(Qt.WaitCursor))

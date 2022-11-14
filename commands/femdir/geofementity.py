@@ -470,6 +470,11 @@ class T_Profile_BeamProperty (DescriptorBeamProperty):
         pp.append(np.array([self.bf / 2.0, hu]))
         return pp
 
+    def get_info(self)->str:
+        msg= super().get_info()
+        msg+='\n'+'još nešto'
+        return msg
+
 
 class Hat_Profile_BeamProperty (DescriptorBeamProperty):
     def __init__(self, values: List[float] = None, material: Material = None):
@@ -1390,7 +1395,7 @@ class BeamElement(Element):
                 colors = self.getColorForFaceVertexResult(fun_getcolor, minvalue, maxvalue)
                 for ivh in range(len(vhandle)):
                     mesh.set_color(vhandle[ivh], color[handleColorIndex[ivh]])
-class MaestroBeamElement(BeamElement):
+class BeamElementShipStructure(BeamElement):
     def __init__(self):
         super().__init__()
 

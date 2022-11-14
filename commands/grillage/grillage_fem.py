@@ -81,7 +81,7 @@ class GeoGrillageFEM (GeoFEM):
         :param nodeIds:
         :param vect_orient:
         """
-        elem = BeamElement()
+        elem = BeamElementShipStructure()
         dir_vector = BeamOrientationVector(vect_orient)
         elem.set_beam_orientation(dir_vector)
         self.add_element(elem, idProp, nodeIds)

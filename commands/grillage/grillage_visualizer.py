@@ -682,12 +682,16 @@ class GrillageGeometry(GrillageBaseGeometry):
 	def __init__(self, grillage: Grillage, name = '', mesh_resolution = 20000, plate_n_of_subdivision = 0):
 		self._grill = grillage
 		super().__init__(name,mesh_resolution,plate_n_of_subdivision)
+		self._test_empty_mesh = False
 
 	@property
 	def grillage(self):
 	    return self._grill
 
 	def _gen_mesh_or_subgeometry(self):
+		if self._test_empty_mesh:
+			self.mesh=om.TriMesh()
+			return
 		try:
 			self.mesh=om.TriMesh()
 			self.sub_geometry.clear()

@@ -4,38 +4,47 @@ Modul za testiranje diskretizacije učitanog modela
 from grillage.grillage_mesher import *
 from timeit import default_timer as timer
 import femdir.geofementity as gfe
+import os
 
-
+# Get the current working directory
+cwd = os.getcwd()
+dir_path = os.path.dirname(os.path.realpath(__file__))
+os.chdir(dir_path)
+# Print the current working directory
+cwd = os.getcwd()
+#print("Current working directory: {0}".format(cwd))
 start = timer()
 hc_var = 5
 filename = str("../grillage savefiles/hc_var_") + str(hc_var) + str("_savefile.gin")
 hc_variant = GrillageModelData(filename).read_file()        # Učitavanje topologije iz datoteke
 print("Generating FE mesh on grillage variant", hc_var)
 
-grillage_fem = GeoGrillageFEM("test_mesh")
 
-# extents = MeshExtent(hc_variant, AOS.NONE)                # Opseg izrade mreže uz ručni odabir simetrije
-extents = MeshExtent(hc_variant)                            # Opseg izrade mreže uz automatsko prepoznavanje simetrije
 
-test_mesh = ElementSizeV1(extents)         # Izračun dimenzija mreže za V1
-# test_mesh = ElementSizeV2(extents)       # Izračun dimenzija mreže za V2
 
-# Kontrola mreže
-test_mesh.min_num_ebs = 1                   # Postavljanje minimalnog broja elemenata između ukrepa
-test_mesh.min_num_eweb = 3                  # Postavljanje minimalnog broja elemenata duž visine struka
-test_mesh.num_eaf = 1                       # Postavljanje broja elemenata u smjeru širine prirubnice
-test_mesh.flange_aspect_ratio = 8           # Postavljanje aspektnog odnosa elemenata prirubnica jakih nosača i oplate uz struk jakih nosača
-test_mesh.plate_aspect_ratio = 4            # Postavljanje aspektnog odnosa elemenata oplate i strukova jakih nosača
-test_mesh.des_plate_aspect_ratio = 3        # Postavljanje poželjnog aspektnog odnosa elemenata oplate
 
 # Potrebno računati dimenzije mreže za sve testove osim generate_grillage_mesh_v1()
 # test_mesh.calculate_mesh_dimensions()       # Izračun svih dimenzija za odabranu mrežu
 
-gm = GrillageMesh(test_mesh)
-grillage_test_mesh = gm.generate_grillage_mesh_v1("test_mesh")
-grillage_test_mesh.merge_coincident_nodes()
-# grillage_test_mesh.full_model_node_overlap_check()
 
+
+def test_mesh():
+    # extents = MeshExtent(hc_variant, AOS.NONE)                # Opseg izrade mreže uz ručni odabir simetrije
+    extents = MeshExtent(hc_variant)  # Opseg izrade mreže uz automatsko prepoznavanje simetrije
+    test_mesh = ElementSizeV1(extents)  # Izračun dimenzija mreže za V1
+    # test_mesh = ElementSizeV2(extents)       # Izračun dimenzija mreže za V2
+    # Kontrola mreže
+    test_mesh.min_num_ebs = 1  # Postavljanje minimalnog broja elemenata između ukrepa
+    test_mesh.min_num_eweb = 3  # Postavljanje minimalnog broja elemenata duž visine struka
+    test_mesh.num_eaf = 1  # Postavljanje broja elemenata u smjeru širine prirubnice
+    test_mesh.flange_aspect_ratio = 8  # Postavljanje aspektnog odnosa elemenata prirubnica jakih nosača i oplate uz struk jakih nosača
+    test_mesh.plate_aspect_ratio = 4  # Postavljanje aspektnog odnosa elemenata oplate i strukova jakih nosača
+    test_mesh.des_plate_aspect_ratio = 3  # Postavljanje poželjnog aspektnog odnosa elemenata oplate
+    gm = GrillageMesh(test_mesh)
+    grillage_test_mesh = gm.generate_grillage_mesh_v1("test_mesh")
+    grillage_test_mesh.merge_coincident_nodes()
+    # grillage_test_mesh.full_model_node_overlap_check()
+    return grillage_test_mesh
 
 def Test_get_reduced_plate_dim(plate_id):
     plate = hc_variant.plating()[plate_id]

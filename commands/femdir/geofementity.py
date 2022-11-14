@@ -45,7 +45,8 @@ class Property ():
         self.name = name
     def get_info(self)->str:
         msg = self.__class__.__name__
-        msg+='\n'+self.name+'; id='+str(self.id)
+        msg +='\n'+self.name+'; id='+str(self.id)
+        msg += "\n" + str(self.descriptors)
         return msg
 
     # optimization property interface

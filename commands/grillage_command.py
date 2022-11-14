@@ -118,6 +118,8 @@ class SGDCommand(Command):
         self.menuMain.addMenu(self.menuModel)
         self.menuAnalysis = QMenu("&Analysis")
         self.menuMain.addMenu(self.menuAnalysis)
+        self.menuTests = QMenu("&Tests")
+        self.menuMain.addMenu(self.menuTests)
         mb.addMenu(self.menuMain)
 
         actionNewHatch = self.menuModel.addAction("&New Hatch Cover")
@@ -126,8 +128,17 @@ class SGDCommand(Command):
         actionGenerateFEM = self.menuAnalysis.addAction("&Generate FEM")
         actionGenerateFEM.triggered.connect(self.onGenerateFEM)
 
-        actionRunTest = self.menuMain.addAction("&Execute Test")
-        actionRunTest.triggered.connect(self.onActionRunTest)
+        actionRunTest = self.menuMain.addAction("&Generate Test Mesh")
+        actionRunTest.triggered.connect(self.onActionGenerateTestMesh)
+
+        actionRunTest = self.menuTests.addAction("&Show Mesh Dimensions")
+        actionRunTest.triggered.connect(self.onActionPrintMeshDimensions)
+
+        actionRunTest = self.menuTests.addAction("&Show T/L Beam Property")
+        actionRunTest.triggered.connect(self.onActionTestProperty)
+
+        actionRunTest = self.menuTests.addAction("&Current TEST")
+        actionRunTest.triggered.connect(self.onActionCurrentTest)
 
         try:
             manager.selected_geometry_changed.connect(self.onSelectedGeometryChanged)
@@ -138,32 +149,44 @@ class SGDCommand(Command):
             print('Unknown exception occurred during signals connection')
         self.mainwin.update()
 
-    def onActionRunTest(self):
-        #paste code for test
-        grill_fem = test_mesh()
+    def onActionGenerateTestMesh(self):
+        grill_fem = generate_test_mesh()
         grill_fem.regenerate()
         if grill_fem is not None:
             manager.add_geometry([grill_fem])
             manager.show_geometry([grill_fem])
         pass
+
+    def onActionPrintMeshDimensions(self):
+        Test_calculate_mesh_dimensions()
+
+    def onActionTestProperty(self):
+        grill_fem = generate_test_mesh()
+        Test_GeoFEM_T_L_beam_property(grill_fem)
+
+    def onActionCurrentTest(self):
+        Test_current()
+
     def onGenerateFEM(self):
         QApplication.changeOverrideCursor(QCursor(Qt.WaitCursor))
         tart = timer()
 
-        # extents = MeshExtent(self._grillgeo.grillage, AOS.NONE)                # Opseg izrade mreže uz ručni odabir simetrije
-        extents = MeshExtent(self._grillgeo.grillage)  # Opseg izrade mreže uz automatsko prepoznavanje simetrije
-        mesher = ElementSizeV1(extents)  # Izračun dimenzija mreže za V1
+        # mesh_extent = MeshExtent(self._grillgeo.grillage, AOS.NONE)    # Calculate mesh extents with Axis of Symmetry override
+        mesh_extent = MeshExtent(self._grillgeo.grillage)                # Calculate mesh extents with automatic Axis of Symmetry discovery
 
-        # Kontrola mreže
-        mesher.min_num_ebs = 1  # Postavljanje minimalnog broja elemenata između ukrepa
-        mesher.min_num_eweb = 3  # Postavljanje minimalnog broja elemenata duž visine struka
-        mesher.num_eaf = 1  # Postavljanje broja elemenata u smjeru širine prirubnice
-        mesher.flange_aspect_ratio = 8  # Postavljanje aspektnog odnosa elemenata prirubnica jakih nosača i oplate uz struk jakih nosača
-        mesher.plate_aspect_ratio = 4  # Postavljanje aspektnog odnosa elemenata oplate i strukova jakih nosača
-        mesher.des_plate_aspect_ratio = 3  # Postavljanje poželjnog aspektnog odnosa elemenata oplate
+        mesher = ElementSizeV1(mesh_extent)     # Calculate mesh dimensions for mesh variant V1
+        # mesher = ElementSizeV2(mesh_extent)    # Calculate mesh dimensions for mesh variant V2
 
-        gm = GrillageMesh(mesher)
-        grill_fem = gm.generate_grillage_mesh_v1('Mesh variant V1 test')
+        # Mesh Control
+        mesher.min_num_ebs = 1              # Minimum number of elements between stiffeners
+        mesher.min_num_eweb = 3             # Minimum number of elements along psm web height
+        mesher.num_eaf = 1                  # Number of elements across the psm flange
+        mesher.flange_aspect_ratio = 8      # Max flange aspect ratio
+        mesher.plate_aspect_ratio = 4       # Max plate aspect ratio
+        mesher.des_plate_aspect_ratio = 3   # Desired plate aspect ratio
+
+        grillage_mesh = GrillageMesh(mesher)
+        grill_fem = grillage_mesh.generate_grillage_mesh_v1('Mesh variant V1 test')
         grill_fem.merge_coincident_nodes()
 
         grill_fem.regenerate()
@@ -171,7 +194,6 @@ class SGDCommand(Command):
             manager.add_geometry([grill_fem])
             manager.show_geometry([grill_fem])
         QApplication.restoreOverrideCursor()
-
 
         pass
 

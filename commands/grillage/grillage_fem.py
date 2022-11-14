@@ -20,6 +20,7 @@ class GeoGrillageFEM (GeoFEM):
         """
         super().__init__(name)
         self.initial_node_overlaps = {}
+        self.flange_element_overlaps = {}
 
         self.plate_property_IDs = {}
         self.stiff_beam_prop_IDs = {}
@@ -47,6 +48,13 @@ class GeoGrillageFEM (GeoFEM):
         :return: Add edge nodes to FEM model overlaps dictionary.
         """
         self.initial_node_overlaps[node.id] = node
+
+    def add_element_to_element_overlaps(self, element):
+        """
+        :param element:
+        :return: Add flange elements to FEM model overlaps dictionary.
+        """
+        self.flange_element_overlaps[element.id] = element
 
     def add_element(self, elem: Element, idProp, nodeIds):
         """
@@ -164,10 +172,11 @@ class GeoGrillageFEM (GeoFEM):
         """
         print("Starting coincident node check...")
         overlap_array = []
-        for node in self.initial_node_overlaps.values():
+        # nodes_dict = self.nodes.values()                  # Značajno sporije!
+        nodes_dict = self.initial_node_overlaps.values()
+
+        for node in nodes_dict:
             duplicate_coords = False
-            if not overlap_array:
-                overlap_array.append([node.p, node])
             for row in overlap_array:
                 if np.allclose(node.p, row[0]):
                     row.append(node)
@@ -180,6 +189,7 @@ class GeoGrillageFEM (GeoFEM):
         coincident_nodes = []
         for row in overlap_array:
             if len(row[1:]) > 1:
+                # print("Coordinates:", row[0], "nodes:", [node.id for node in row[1:]])
                 overlap_counter += len(row[1:])
                 remaining_node = row[1]         # First node remains
                 to_delete_nodes = row[2:]       # Duplicate nodes
@@ -188,20 +198,107 @@ class GeoGrillageFEM (GeoFEM):
         print("Coincident node identification complete. "
               "Total coincident nodes:", overlap_counter,
               ", at", len(overlap_array), "unique coordinates.")
+        return coincident_nodes
 
+    def check_node_overlap_np(self):
+        """
+        :return: Identifies coincident nodes in initial_node_overlaps and
+            returns coincident_nodes array, where first element contains ID of
+            the node that will remain at the coordinates. The rest are IDs of
+            overlapped nodes that will be deleted. Uses NumPy functions to
+            identify node overlaps instead of for loops.
+        """
+        print("Starting coincident node check...")
+        # nodes_dict = self.nodes.values()                  # Nije puno sporije!
+        nodes_dict = self.initial_node_overlaps.values()
+
+        x_coords = [node.p[0] for node in nodes_dict]
+        y_coords = [node.p[1] for node in nodes_dict]
+        z_coords = [node.p[2] for node in nodes_dict]
+        id_list = [node.id for node in nodes_dict]
+
+        x_boolean_array = np.isclose(x_coords, np.vstack(x_coords))
+        y_boolean_array = np.isclose(y_coords, np.vstack(y_coords))
+        z_boolean_array = np.isclose(z_coords, np.vstack(z_coords))
+
+        np.fill_diagonal(x_boolean_array, False)
+        np.fill_diagonal(y_boolean_array, False)
+        np.fill_diagonal(z_boolean_array, False)
+
+        x_tri_array = np.tril(x_boolean_array)
+        y_tri_array = np.tril(y_boolean_array)
+        z_tri_array = np.tril(z_boolean_array)
+
+        xy_boolean_array = np.logical_and(x_tri_array, y_tri_array)
+        xz_boolean_array = np.logical_and(x_tri_array, z_tri_array)
+        boolean_array = np.logical_and(xy_boolean_array, xz_boolean_array)
+
+        find_where = np.where(boolean_array)    # Indexes of overlapped nodes
+        x_index, y_index = find_where
+        n_overlaps = len(x_index)
+
+        overlap_array = []
+        for index in range(0, n_overlaps):
+            node_1_id = id_list[int(x_index[index])]
+            node_2_id = id_list[int(y_index[index])]
+            node1 = self.nodes[node_1_id]
+            node2 = self.nodes[node_2_id]
+
+            duplicate_coords = False
+            for row in overlap_array:
+                if np.allclose(node1.p, row[0]):
+                    if node1 not in row[1:]:
+                        row.append(node1)
+                    if node2 not in row[1:]:
+                        row.append(node2)
+                    duplicate_coords = True
+                    break
+
+            if duplicate_coords is False:
+                overlap_array.append([node1.p, node1, node2])
+
+        overlap_counter = 0
+        coincident_nodes = []
+        for row in overlap_array:
+            if len(row[1:]) > 1:
+                # print("Coordinates:", row[0], "nodes:", [node.id for node in row[1:]])
+                overlap_counter += len(row[1:])
+                remaining_node = row[1]  # First node remains
+                to_delete_nodes = row[2:]  # Duplicate nodes
+                coincident_nodes.append([remaining_node, to_delete_nodes])
+
+        print("Coincident node identification complete. "
+              "Total coincident nodes:", overlap_counter,
+              ", at", len(overlap_array), "unique coordinates.")
         return coincident_nodes
 
     def full_model_node_overlap_check(self):
-        all_overlaps_dict = {}  # Pairs of overlapping nodes
-        all_nodes = self.nodes
         print("Starting full model coincident node check...")
+        nodes_dict = self.nodes.values()
 
-        node_combinations = itertools.combinations(all_nodes.keys(), 2)
-        for nodes in node_combinations:
-            node1_id, node2_id = nodes
-            if np.allclose(all_nodes[node1_id].p, all_nodes[node2_id].p):
-                all_overlaps_dict[node1_id] = all_nodes[node2_id]
-        n_overlaps = len(all_overlaps_dict)
+        x_coords = [node.p[0] for node in nodes_dict]
+        y_coords = [node.p[1] for node in nodes_dict]
+        z_coords = [node.p[2] for node in nodes_dict]
+
+        x_boolean_array = np.isclose(x_coords, np.vstack(x_coords))
+        y_boolean_array = np.isclose(y_coords, np.vstack(y_coords))
+        z_boolean_array = np.isclose(z_coords, np.vstack(z_coords))
+
+        np.fill_diagonal(x_boolean_array, False)
+        np.fill_diagonal(y_boolean_array, False)
+        np.fill_diagonal(z_boolean_array, False)
+
+        x_tri_array = np.tril(x_boolean_array)
+        y_tri_array = np.tril(y_boolean_array)
+        z_tri_array = np.tril(z_boolean_array)
+
+        xy_boolean_array = np.logical_and(x_tri_array, y_tri_array)
+        xz_boolean_array = np.logical_and(x_tri_array, z_tri_array)
+        boolean_array = np.logical_and(xy_boolean_array, xz_boolean_array)
+
+        find_where = np.where(boolean_array)    # Indexes of overlapped nodes
+        x_index, y_index = find_where
+        n_overlaps = len(x_index)
 
         if n_overlaps > 1:
             print("Full model coincident node identification complete. "
@@ -211,7 +308,7 @@ class GeoGrillageFEM (GeoFEM):
                   " No node overlaps found.")
 
     def merge_coincident_nodes(self):
-        coincident_nodes = self.check_node_overlap()
+        coincident_nodes = self.check_node_overlap_np()      # New NumPy check node overlap
         print("Starting coincident node merge...")
 
         merge_nodes = {}
@@ -236,75 +333,46 @@ class GeoGrillageFEM (GeoFEM):
             del self.nodes[delete_node.id]
 
         print("Node merge complete, deleted", len(delete_list), "nodes.")
-        print("Total number of elements:", self.num_elements)
+        print("Total number of nodes:", self.num_nodes)
+        print("Total number of elements before element merge:", self.num_elements)
 
         # for node in self.initial_node_overlaps.values():
         #     print(node.id)
 
-        # TEST PRETRAGE
-        """
-        for item in merge_nodes.items():
-            key, val = item
-            print("zamjena čvora", key.id, "sa", val.id)
-        for node in delete_list:
-            print("Brisanje čvora", node.id)
-        """
-        # TEST Pretraga za brisanje
-        """
-        for node in self.nodes.items():
-            n_id, n_object = node
-            if n_object in delete_list:
-                print("Brisanje cvora", n_object.id, n_id, self.nodes[n_id].id)
-        """
-        # TEST Nakon merge:
-        """
-        for element in self.elements.items():
-            el_id, el_object = element
-            element_type = el_object.get_type()
-            print(el_id, element_type.name, ", element nodes:", [node.id for node in el_object.nodes])
-        """
-
     def check_element_overlap(self):
-        delete_list = []
-        element_combos = itertools.combinations(self.elements.keys(), 2)
+        overlap_array = []
+        element_dict = self.flange_element_overlaps
+        element_combos = itertools.combinations(element_dict.keys(), 2)
         for elements in element_combos:
             element_1_id, element_2_id = elements
-            element_1 = self.elements[element_1_id]
-            element_2 = self.elements[element_2_id]
+            element_1 = element_dict[element_1_id]
+            element_2 = element_dict[element_2_id]
 
             nodes1 = [node.id for node in element_1.nodes]
             nodes2 = [node.id for node in element_2.nodes]
 
-            e1_type = element_1.get_type().name
-            e2_type = element_2.get_type().name
-            e1_prop_id = element_1.prop_id
-            e2_prop_id = element_2.prop_id
-
             if set(nodes1) == set(nodes2):
-                print("Overlapped elements:", e1_type, element_1.id,
-                      e2_type, element_2.id,
-                      ", on nodes:", nodes1, nodes2)
+                overlap_array.append(elements)
 
-                tp_e1 = self.properties[e1_prop_id].tp
-                tp_e2 = self.properties[e2_prop_id].tp
+        return overlap_array
 
-                if tp_e2 > tp_e1:
-                    # element_2 remains
-                    # delete element_1
-                    # delete_list.append(element_to_delete)
-                    pass
-                else:
-                    # element_1 remains
-                    # delete element_2
-                    # delete_list.append(element_to_delete)
-                    pass
+    def merge_coincident_elements(self):
+        overlapped_elements = self.check_element_overlap()
+        delete_list = []
+        for elements in overlapped_elements:
+            element_1_id, element_2_id = elements
+            element_1 = self.elements[element_1_id]
+            element_2 = self.elements[element_2_id]
+            tp_e1 = self.properties[element_1.prop_id].tp
+            tp_e2 = self.properties[element_2.prop_id].tp
 
-                print("   ", e1_type, element_1.id, ":", tp_e1, "mm, ",
-                      e2_type, element_2.id, ":", tp_e2, "mm")
+            if tp_e2 > tp_e1:
+                delete_list.append(element_1)
+            else:
+                delete_list.append(element_2)
 
-        return delete_list
+        # Delete overlapped elements
+        for delete_element in delete_list:
+            del self.elements[delete_element.id]
 
-    def merge_overlapped_elements(self):
-        # overlapped_elements = self.check_element_overlap()
-        # delete all in delete list...
-        pass
+        print("Total number of elements:", self.num_elements)

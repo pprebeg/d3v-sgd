@@ -13,47 +13,90 @@ os.chdir(dir_path)
 # Print the current working directory
 cwd = os.getcwd()
 #print("Current working directory: {0}".format(cwd))
-start = timer()
+
+
 hc_var = 5
 filename = str("../grillage savefiles/hc_var_") + str(hc_var) + str("_savefile.gin")
-hc_variant = GrillageModelData(filename).read_file()        # Učitavanje topologije iz datoteke
-print("Generating FE mesh on grillage variant", hc_var)
+hc_variant = GrillageModelData(filename).read_file()
+print("Testing FE mesh for grillage variant", hc_var)
+
+# extents = MeshExtent(hc_variant, AOS.NONE)    # Calculate mesh extents with Axis of Symmetry override
+extents = MeshExtent(hc_variant)                # Calculate mesh extents with automatic Axis of Symmetry discovery
+
+test_mesh_size = ElementSizeV1(extents)      # Calculate mesh dimensions for mesh variant V1
+# test_mesh = ElementSizeV2(extents)     # Calculate mesh dimensions for mesh variant V2
+
+# Mesh Control
+test_mesh_size.min_num_ebs = 1               # Minimum number of elements between stiffeners; default = 1
+test_mesh_size.min_num_eweb = 3              # Minimum number of elements along psm web height; default = 3
+test_mesh_size.num_eaf = 1                   # Number of elements across the psm flange; default = 1
+test_mesh_size.flange_aspect_ratio = 8       # Max flange aspect ratio; default = 8
+test_mesh_size.plate_aspect_ratio = 4        # Max plate aspect ratio; default = 4
+test_mesh_size.des_plate_aspect_ratio = 3    # Desired plate aspect ratio; default = 3
+gm_test = GrillageMesh(test_mesh_size)
+
+# grillage_test_mesh = gm_test.generate_grillage_mesh_v1("test_mesh")
 
 
-
-
-
-# Potrebno računati dimenzije mreže za sve testove osim generate_grillage_mesh_v1()
-# test_mesh.calculate_mesh_dimensions()       # Izračun svih dimenzija za odabranu mrežu
-
-
-
-def test_mesh():
-    # extents = MeshExtent(hc_variant, AOS.NONE)                # Opseg izrade mreže uz ručni odabir simetrije
-    extents = MeshExtent(hc_variant)  # Opseg izrade mreže uz automatsko prepoznavanje simetrije
-    test_mesh = ElementSizeV1(extents)  # Izračun dimenzija mreže za V1
-    # test_mesh = ElementSizeV2(extents)       # Izračun dimenzija mreže za V2
-    # Kontrola mreže
-    test_mesh.min_num_ebs = 1  # Postavljanje minimalnog broja elemenata između ukrepa
-    test_mesh.min_num_eweb = 3  # Postavljanje minimalnog broja elemenata duž visine struka
-    test_mesh.num_eaf = 1  # Postavljanje broja elemenata u smjeru širine prirubnice
-    test_mesh.flange_aspect_ratio = 8  # Postavljanje aspektnog odnosa elemenata prirubnica jakih nosača i oplate uz struk jakih nosača
-    test_mesh.plate_aspect_ratio = 4  # Postavljanje aspektnog odnosa elemenata oplate i strukova jakih nosača
-    test_mesh.des_plate_aspect_ratio = 3  # Postavljanje poželjnog aspektnog odnosa elemenata oplate
-    gm = GrillageMesh(test_mesh)
-    grillage_test_mesh = gm.generate_grillage_mesh_v1("test_mesh")
+def generate_test_mesh():
+    start = timer()
+    grillage_test_mesh = gm_test.generate_grillage_mesh_v1("test_mesh")
     grillage_test_mesh.merge_coincident_nodes()
+    grillage_test_mesh.merge_coincident_elements()
     # grillage_test_mesh.full_model_node_overlap_check()
+    end = timer()
+    print("Mesh generation time:", end - start, "s")
     return grillage_test_mesh
+
+
+def Test_calculate_mesh_dimensions():
+    test_mesh_size.calculate_mesh_dimensions()
+    for plate in test_mesh_size.mesh_extent.all_plating_zones.values():
+        dim_x = test_mesh_size.plate_edge_node_spacing_x(plate)
+        dim_y = test_mesh_size.plate_edge_node_spacing_y(plate)
+        print("Plating zone ID", plate.id, ":")
+        print(" Distance between edge nodes (dim_x):", dim_x)
+        print(" Distance between edge nodes (dim_y):", dim_y)
+
+
+def Test_GeoFEM_T_L_beam_property(grillage_test_mesh):
+    num = grillage_test_mesh.num_properties
+    print("Ukupno upisanih property:", num)
+
+    for prop_id in range(1, num + 1):
+        prop = grillage_test_mesh.getProperty(prop_id)
+        if not isinstance(prop, gfe.PlateProperty):
+            num_vals = prop.get_num_vals()
+            print(prop.id, prop.name, prop.material.name)
+            print("   ", "Iy =", prop.Iy, "mm4")
+            print("   ",  "A =", prop.area, "mm2")
+            for descriptor in range(0, num_vals):
+                print("   ", prop.get_desc_names()[descriptor], "=", prop.descriptors[descriptor])
+
+
+def Test_current():
+    start = timer()
+    grillage_test_mesh = gm_test.generate_grillage_mesh_v1("test_mesh")
+    grillage_test_mesh.merge_coincident_nodes()
+    # grillage_test_mesh.check_node_overlap_np()
+    # grillage_test_mesh.check_node_overlap()
+    # grillage_test_mesh.full_model_node_overlap_check()
+
+    # for node in grillage_test_mesh.nodes.values():
+    #     print(node.p)
+
+    end = timer()
+    print("Mesh generation time:", end - start, "s")
+
 
 def Test_get_reduced_plate_dim(plate_id):
     plate = hc_variant.plating()[plate_id]
-    reduced_dim = test_mesh.get_reduced_plate_dim(plate)
+    reduced_dim = test_mesh_size.get_reduced_plate_dim(plate)
     print("Reducirana dimenzija paralalna s ukrepama na zoni oplate", plate_id, "iznosi:", reduced_dim)
 
 
 def Test_find_closest_divisor(length, spacing):
-    div = test_mesh.find_closest_divisor(length, spacing)
+    div = test_mesh_size.find_closest_divisor(length, spacing)
     if div is None:
         print("Nije pronađen djelitelj!")
     else:
@@ -63,10 +106,10 @@ def Test_find_closest_divisor(length, spacing):
 
 def Test_element_size_para_to_stiffeners(plate_id):
     plate = hc_variant.plating()[plate_id]
-    okomita_dimenzija = test_mesh.element_size_perp_to_stiffeners(plate)
-    plate_dim = test_mesh.get_reduced_plate_dim(plate)
-    paralelna_dimenzija = test_mesh.element_size_para_to_stiffeners(plate, plate_dim)
-    n_elem = test_mesh.min_num_ebs
+    okomita_dimenzija = test_mesh_size.element_size_perp_to_stiffeners(plate)
+    plate_dim = test_mesh_size.get_reduced_plate_dim(plate)
+    paralelna_dimenzija = test_mesh_size.element_size_para_to_stiffeners(plate, plate_dim)
+    n_elem = test_mesh_size.min_num_ebs
     ar = MeshSize.element_aspect_ratio(okomita_dimenzija, paralelna_dimenzija)
     print("Dimenzije quad elementa oplate uz", n_elem, "element između ukrepa, okomito:", okomita_dimenzija,
           "mm, paralelno:", paralelna_dimenzija, "mm", ", aspektni odnos:", ar)
@@ -81,14 +124,14 @@ def Test_get_flange_el_length(direction: BeamDirection, psm_id, segment_id):
     elif direction == BeamDirection.TRANSVERSE:
         segment = hc_variant.transverse_members()[psm_id].segments[segment_id]
 
-    dim = test_mesh.get_flange_el_length(segment)
+    dim = test_mesh_size.get_flange_el_length(segment)
     print("Maksimalna dimenzija elementa prirubnice prema aspektnom odnosu:", dim, "mm")
 
 
 def Test_element_size_plating_zone(plate_id):
     plate = hc_variant.plating()[plate_id]
-    plate_dim = test_mesh.get_reduced_plate_dim(plate)
-    dims = test_mesh.element_size_plating_zone(plate, plate_dim)
+    plate_dim = test_mesh_size.get_reduced_plate_dim(plate)
+    dims = test_mesh_size.element_size_plating_zone(plate, plate_dim)
     print("Osnovne dimenzije elementa na zoni oplate", plate_id)
     dim_x = dims[0]
     dim_y = dims[1]
@@ -96,12 +139,12 @@ def Test_element_size_plating_zone(plate_id):
 
 
 def Test_element_aspect_ratio(dim_x, dim_y):
-    ar = test_mesh.element_aspect_ratio(dim_x, dim_y)
+    ar = test_mesh_size.element_aspect_ratio(dim_x, dim_y)
     print("Aspektni odnos =", ar)
 
 
 def Test_refine_plate_element(length, dim_limit):
-    dim = test_mesh.refine_plate_element(length, dim_limit)
+    dim = test_mesh_size.refine_plate_element(length, dim_limit)
     print("Duljinu", length, "je potrebno podijeliti na jednake dijelove, tako da dimenzija elementa ne prelazi", dim_limit,
           ". \n Odabrana je dimenzija", dim)
 
@@ -116,8 +159,8 @@ def Test_ALL_element_size_plating_zone():
     for stupac in range(0, n_y):
         for redak in range(0, n_x):
             plate = hc_variant.plating()[plate_id]
-            plate_dim = test_mesh.get_reduced_plate_dim(plate)
-            polje1[stupac, redak] = test_mesh.element_size_plating_zone(plate, plate_dim)[0]
+            plate_dim = test_mesh_size.get_reduced_plate_dim(plate)
+            polje1[stupac, redak] = test_mesh_size.element_size_plating_zone(plate, plate_dim)[0]
             plate_id += 1
     print("Sve x dimenzije elemenata: \n", polje1, "\n")
 
@@ -126,15 +169,15 @@ def Test_ALL_element_size_plating_zone():
     for stupac in range(0, n_y):
         for redak in range(0, n_x):
             plate = hc_variant.plating()[plate_id]
-            plate_dim = test_mesh.get_reduced_plate_dim(plate)
-            polje1[stupac, redak] = test_mesh.element_size_plating_zone(plate, plate_dim)[1]
+            plate_dim = test_mesh_size.get_reduced_plate_dim(plate)
+            polje1[stupac, redak] = test_mesh_size.element_size_plating_zone(plate, plate_dim)[1]
             plate_id += 1
     print("Sve y dimenzije elemenata: \n", polje1)
 
 
 def Test_element_size_mesh():
-    print("Konačno odabrane dimenzije mreže po x:", test_mesh.mesh_dim_x)
-    print("Konačno odabrane dimenzije mreže po y:", test_mesh.mesh_dim_y)
+    print("Konačno odabrane dimenzije mreže po x:", test_mesh_size.mesh_dim_x)
+    print("Konačno odabrane dimenzije mreže po y:", test_mesh_size.mesh_dim_y)
 
 
 def Test_get_flange_el_width(psm_id, segment_id):
@@ -144,62 +187,56 @@ def Test_get_flange_el_width(psm_id, segment_id):
           " ,BeamProperty ID:", segment.beam_prop.id,
           ", tip profila: ", segment.beam_prop.beam_type,
           ", tf =", segment.beam_prop.tf,
-          ", dimenzija elementa prirubnice po širini:", test_mesh.get_flange_el_width(segment), "mm")
+          ", dimenzija elementa prirubnice po širini:", test_mesh_size.get_flange_el_width(segment), "mm")
 
 
 def Test_all_plating_zones_mesh_dimensions():
     extents.grillage_mesh_extent()
-    test_mesh.calc_element_base_size_mesh()
+    test_mesh_size.calc_element_base_size_mesh()
     for plate in extents.all_plating_zones.values():
-        dim_x = test_mesh.get_base_dim_x(plate)
-        dim_y = test_mesh.get_base_dim_y(plate)
+        dim_x = test_mesh_size.get_base_dim_x(plate)
+        dim_y = test_mesh_size.get_base_dim_y(plate)
         print("Zona oplate ID:", plate.id, ",   dim_x =", "{:.2f}".format(dim_x), "mm", ",   dim_y =", "{:.2f}".format(dim_y), "mm")
 
 
 def Test_get_tr_dim_x(plate_id):
     # plate = mesh1.plating_zones[plate_id]
     plate = hc_variant.plating()[plate_id]
-    dims = test_mesh.get_tr_dim_x(plate)
+    dims = test_mesh_size.get_tr_dim_x(plate)
     print("Dimenzije x prijelaznih elemenata na zoni oplate", plate_id, ":", dims)
 
 
 def Test_get_tr_dim_y(plate_id):
     plate = hc_variant.plating()[plate_id]
-    dims = test_mesh.get_tr_dim_y(plate)
+    dims = test_mesh_size.get_tr_dim_y(plate)
     print("Dimenzije y prijelaznih elemenata na zoni oplate", plate_id, ":", dims)
 
 
 def Test_get_tr_element_num(plate_id):
     plate = hc_variant.plating()[plate_id]
-    poprecni_segment = test_mesh.get_long_tr_element_num(plate, plate.trans_seg1)
-    uzduzni_segment = test_mesh.get_long_tr_element_num(plate, plate.trans_seg2)
+    poprecni_segment = test_mesh_size.get_long_tr_element_num(plate, plate.trans_seg1)
+    uzduzni_segment = test_mesh_size.get_long_tr_element_num(plate, plate.trans_seg2)
     print("Broj prijelaznih elemenata na zoni oplate", plate_id, "uz elemente prirubnice uzdužnog segmenta duž osi y:", uzduzni_segment,
           ", uz elemente prirubnice poprečnog segmenta duž osi x:", poprecni_segment)
 
 
 def Test_get_element_number(plate_id):
     plate = hc_variant.plating()[plate_id]
-    n_elemenata = test_mesh.get_base_element_number(plate)
+    n_elemenata = test_mesh_size.get_base_element_number(plate)
     print("Broj elemenata osnovnih dimenzija:", plate_id, "po x:", n_elemenata[0], ", po y:", n_elemenata[1])
-
-
-def Test_get_mesh_dim(plate_id):
-    print("Dimenzije svih konačnih elemenata redom za zonu oplate", plate_id)
-    print("Dimenzije x:", test_mesh.plate_edge_node_x[plate_id])
-    print("Dimenzije y:", test_mesh.plate_edge_node_y[plate_id])
 
 
 def Test_get_all_mesh_dim():
     for plate in extents.all_plating_zones.values():
         print("Dimenzije svih konačnih elemenata redom za zonu oplate", plate.id)
-        print("Dimenzije x:", test_mesh.plate_edge_node_spacing_x(plate))
-        print("Dimenzije y:", test_mesh.plate_edge_node_spacing_y(plate))
+        print("Dimenzije x:", test_mesh_size.plate_edge_node_spacing_x(plate))
+        print("Dimenzije y:", test_mesh_size.plate_edge_node_spacing_y(plate))
         print("\n")
 
 
 def Test_get_web_el_height(psm_id, segment_id):
     segment = hc_variant.longitudinal_members()[psm_id].segments[segment_id - 1]
-    dim = test_mesh.get_web_el_height(segment)
+    dim = test_mesh_size.get_web_el_height(segment)
     print(dim)
 
 
@@ -212,26 +249,26 @@ def Test_get_min_flange_el_length():
     segment1 = Segment(1, beam_prop1, psm1, psm1, psm1)
     segment2 = Segment(2, beam_prop2, psm1, psm1, psm1)
 
-    min_dim = test_mesh.get_min_fl_el_len(segment1, segment2)
+    min_dim = test_mesh_size.get_min_fl_el_len(segment1, segment2)
     print("Minimalna vrijednost je", min_dim)
 
 
 def Test_get_min_flange_el_length_between_psm(member1_id, member2_id):
     member1 = hc_variant.longitudinal_members()[member1_id]
     member2 = hc_variant.longitudinal_members()[member2_id]
-    min_dim = test_mesh.get_min_fl_el_len_between_psm(member1, member2)
+    min_dim = test_mesh_size.get_min_fl_el_len_between_psm(member1, member2)
     print("Najmanja vrijednost maksimalne duljine prirubnice svih segmenata između jakih nosača:", min_dim)
 
 
 def Test_find_largest_divisor(length, max_val):
-    divisor = test_mesh.find_largest_divisor(length, max_val)
+    divisor = test_mesh_size.find_largest_divisor(length, max_val)
     print("Najveći djelitelj broja", length, ", koji rezultira dimenzijom manjom ili jednakom", max_val, "je", divisor,
           ", što daje vrijednost", length / divisor)
 
 
 def Test_transition_element_size_plating_zone(plate_id, segment_id):
     plate = hc_variant.plating()[plate_id]
-    transition_dims = test_mesh.tr_element_size_plating_zone(plate, segment_id)
+    transition_dims = test_mesh_size.tr_element_size_plating_zone(plate, segment_id)
     print("Dimenzije prijelaznog elemenata na zoni oplate", plate_id, "uz segment", segment_id, ":", transition_dims)
 
 
@@ -301,7 +338,7 @@ def Test_PlatingZoneMesh(plate_id, split_along=AOS.NONE):
     plate = hc_variant.plating()[plate_id]
 
     extents.grillage_plate_extent()        # Izračun koje zone oplate se meshiraju
-    PlateMesh(test_mesh, plate, 1, 1, 1, split_along).generate_mesh(grillage_fem)     # izrada mreže jedne zone oplate
+    PlateMesh(test_mesh_size, plate, 1, 1, 1, split_along).generate_mesh(grillage_test_mesh)     # izrada mreže jedne zone oplate
 
 
 def Test_plating_zones_ref_array():
@@ -317,34 +354,14 @@ def Test_get_plate_dim(plate_id):
     extents.grillage_plate_extent()
     plate = hc_variant.plating()[plate_id]
     # full_dim = plate.plate_dim_parallel_to_stiffeners() * 1000
-    full_dim = test_mesh.get_reduced_plate_dim(plate)
+    full_dim = test_mesh_size.get_reduced_plate_dim(plate)
     print("Puna dimenzija:", full_dim)
     print(extents.get_plate_dim(plate, full_dim))
 
 
 def Test_calc_element_base_size():
     print("Osnovne dimenzije mreže dim_x i dim_y za sve stupce i retke zona oplate koji se meshiraju:")
-    print(test_mesh.calc_element_base_size())
-
-
-def Test_calculate_mesh_dimensions():
-    x_dimenzije = test_mesh.plate_edge_node_x
-    y_dimenzije = test_mesh.plate_edge_node_y
-
-    print("Razmaci između čvorova (dimenzije elemenata) duž x osi:")
-    for i in x_dimenzije.keys():
-        print("  Zona oplate", i, ":", x_dimenzije[i])
-
-    print("Razmaci između čvorova (dimenzije elemenata) duž y osi:")
-    for i in y_dimenzije.keys():
-        print("  Zona oplate", i, ":", y_dimenzije[i])
-
-
-def Test_saved_plate_edge_node_dims():
-    for plate_id in test_mesh.plate_edge_node_x.keys():
-        print("Zona oplate:", plate_id, ", upisane x dimenzije:", test_mesh.plate_edge_node_x[plate_id])
-    for plate_id in test_mesh.plate_edge_node_y.keys():
-        print("Zona oplate:", plate_id, ", upisane y dimenzije:", test_mesh.plate_edge_node_y[plate_id])
+    print(test_mesh_size.calc_element_base_size())
 
 
 def Test_Segment_element_generation(direction: BeamDirection, psm_id, segment_id):
@@ -356,10 +373,10 @@ def Test_Segment_element_generation(direction: BeamDirection, psm_id, segment_id
 
     start_node_id = 1
     start_element_id = 1
-    seg_mesh = SegmentMeshV1(test_mesh, segment, start_node_id, start_element_id)
-    extents.generate_FEM_material(grillage_fem)
-    extents.generate_FEM_plate_property(grillage_fem)
-    seg_mesh.generate_mesh(grillage_fem)
+    seg_mesh = SegmentMeshV1(test_mesh_size, segment, start_node_id, start_element_id)
+    extents.generate_FEM_material(grillage_test_mesh)
+    extents.generate_FEM_plate_property(grillage_test_mesh)
+    seg_mesh.generate_mesh(grillage_test_mesh)
 
 
 def Test_edge_segment_node_generation(direction: BeamDirection, psm_id, segment_id):
@@ -371,10 +388,10 @@ def Test_edge_segment_node_generation(direction: BeamDirection, psm_id, segment_
 
     start_node_id = 1
     start_element_id = 1
-    seg_mesh = SegmentMeshV1(test_mesh, segment, start_node_id, start_element_id)
+    seg_mesh = SegmentMeshV1(test_mesh_size, segment, start_node_id, start_element_id)
     seg_mesh.get_plate_edge_nodes()
-    seg_mesh.generate_web_nodes(grillage_fem)
-    last_node = seg_mesh.generate_flange_nodes(grillage_fem, FlangeDirection.INWARD, start_node_id)
+    seg_mesh.generate_web_nodes(grillage_test_mesh)
+    last_node = seg_mesh.generate_flange_nodes(grillage_test_mesh, FlangeDirection.INWARD, start_node_id)
     print("ID koji se prenosi na idući segment: za čvor", last_node)
 
 
@@ -383,14 +400,14 @@ def Test_get_segment_element_property(direction: BeamDirection, psm_id, segment_
         segment = hc_variant.longitudinal_members()[psm_id].segments[segment_id - 1]
     else:
         segment = hc_variant.transverse_members()[psm_id].segments[segment_id - 1]
-    extents.generate_FEM_material(grillage_fem)
-    extents.generate_FEM_plate_property(grillage_fem)
+    extents.generate_FEM_material(grillage_test_mesh)
+    extents.generate_FEM_plate_property(grillage_test_mesh)
 
     start_node_id = 1
     start_element_id = 1
-    seg_mesh = SegmentMeshV1(test_mesh, segment, start_node_id, start_element_id)
-    web_fem_prop = seg_mesh.get_web_element_property_id(grillage_fem)
-    flange_fem_prop = seg_mesh.get_flange_element_property_id(grillage_fem)
+    seg_mesh = SegmentMeshV1(test_mesh_size, segment, start_node_id, start_element_id)
+    web_fem_prop = seg_mesh.get_web_element_property_id(grillage_test_mesh)
+    flange_fem_prop = seg_mesh.get_flange_element_property_id(grillage_test_mesh)
 
     print("  ", "Jaki", segment.primary_supp_mem.direction.name,
           segment.beam_prop.beam_type.name, "nosač broj", segment.primary_supp_mem.id,
@@ -402,15 +419,15 @@ def Test_get_segment_element_property(direction: BeamDirection, psm_id, segment_
 
 
 def Test_ALL_segment_element_property():
-    extents.generate_FEM_material(grillage_fem)
-    extents.generate_FEM_plate_property(grillage_fem)
+    extents.generate_FEM_material(grillage_test_mesh)
+    extents.generate_FEM_plate_property(grillage_test_mesh)
     for segment in extents.all_segments.values():
         start_node_id = 1
         start_element_id = 1
 
-        seg_mesh = SegmentMeshV1(test_mesh, segment, start_node_id, start_element_id)
-        web_fem_prop = seg_mesh.get_web_element_property_id(grillage_fem)
-        flange_fem_prop = seg_mesh.get_flange_element_property_id(grillage_fem)
+        seg_mesh = SegmentMeshV1(test_mesh_size, segment, start_node_id, start_element_id)
+        web_fem_prop = seg_mesh.get_web_element_property_id(grillage_test_mesh)
+        flange_fem_prop = seg_mesh.get_flange_element_property_id(grillage_test_mesh)
 
         print("  ", "Jaki", segment.primary_supp_mem.direction.name,
               segment.beam_prop.beam_type.name, "nosač broj", segment.primary_supp_mem.id,
@@ -478,8 +495,8 @@ def Test_identify_split_element_zones():
 
 def Test_get_split_elements_number(plate_id):
     plate = hc_variant.plating()[plate_id]
-    ldim = test_mesh.get_long_split_element_num(plate)
-    tdim = test_mesh.get_tran_split_element_num(plate)
+    ldim = test_mesh_size.get_long_split_element_num(plate)
+    tdim = test_mesh_size.get_tran_split_element_num(plate)
     print("Uzdužna os simeterije prolazi između ukrepa, siječe broj elemenata na pola i stavlja element dimenzije", ldim)
     print("Poprečna os simeterije prolazi između ukrepa, siječe broj elemenata na pola i ostavlja element dimenzije", tdim)
 
@@ -493,17 +510,17 @@ def Test_generate_inward_flange_nodes(direction: BeamDirection, psm_id, segment_
 
     start_node_id = 1
     start_element_id = 1
-    seg_mesh = SegmentMeshV1(test_mesh, segment, start_node_id, start_element_id)
+    seg_mesh = SegmentMeshV1(test_mesh_size, segment, start_node_id, start_element_id)
     seg_mesh.get_plate_edge_nodes()
-    seg_mesh.generate_web_nodes(grillage_fem)
-    seg_mesh.generate_flange_nodes(grillage_fem, flange_dir, start_node_id)
+    seg_mesh.generate_web_nodes(grillage_test_mesh)
+    seg_mesh.generate_flange_nodes(grillage_test_mesh, flange_dir, start_node_id)
 
 
 def Test_PlatingZoneMesh_beam_elements(plate_id, split_along=AOS.NONE):
     plate = hc_variant.plating()[plate_id]
 
     extents.grillage_plate_extent()        # Izračun koje zone oplate se meshiraju
-    PlateMesh(test_mesh, plate, 1, 1, 1, split_along).generate_beam_elements(grillage_fem)
+    PlateMesh(test_mesh_size, plate, 1, 1, 1, split_along).generate_beam_elements(grillage_test_mesh)
 
 
 def Test_flange_ref_array(direction: BeamDirection, psm_id, segment_id):
@@ -515,7 +532,7 @@ def Test_flange_ref_array(direction: BeamDirection, psm_id, segment_id):
 
     start_node_id = 1
     start_element_id = 1
-    seg_mesh = SegmentMeshV1(test_mesh, segment, start_node_id, start_element_id)
+    seg_mesh = SegmentMeshV1(test_mesh_size, segment, start_node_id, start_element_id)
     seg_mesh.get_plate_edge_nodes()
     flange_start_node = 56
     ref_array = seg_mesh.ref_flange_node_ID_array(flange_start_node)
@@ -528,7 +545,7 @@ def Test_get_opposite_flange_width(direction: BeamDirection, psm_id, segment_id)
         segment = hc_variant.longitudinal_members()[psm_id].segments[segment_id - 1]
     elif direction == BeamDirection.TRANSVERSE:
         segment = hc_variant.transverse_members()[psm_id].segments[segment_id - 1]
-    bf1, bf2 = test_mesh.get_opposite_flange_width(segment)
+    bf1, bf2 = test_mesh_size.get_opposite_flange_width(segment)
     print(bf1, bf2)
 
 
@@ -541,7 +558,7 @@ def Test_generate_element_row(direction: BeamDirection, psm_id, segment_id):
 
     start_node_id = 1
     start_element_id = 101
-    SegmentMeshV2(test_mesh, segment, start_node_id, start_element_id).generate_element_row(1, start_element_id)
+    SegmentMeshV2(test_mesh_size, segment, start_node_id, start_element_id).generate_element_row(1, start_element_id)
 
 
 def Test_T_Profile_BeamProperty(hw, tw, bf, tf):
@@ -602,47 +619,36 @@ def Test_FB_Profile_BeamProperty(hw, tw):
 
 
 def Test_GeoFEM_materials():
-    extents.generate_FEM_material(grillage_fem)
-    num = grillage_fem.num_materials
+    extents.generate_FEM_material(grillage_test_mesh)
+    num = grillage_test_mesh.num_materials
     print("Lista upisanih materijala u GeoFEM materials:")
     for material_id in range(1, num + 1):
-        mat = grillage_fem.getMaterial(material_id)
+        mat = grillage_test_mesh.getMaterial(material_id)
         print(mat.id, mat.name, mat.E, mat.rho, mat.ReH, mat.ni)
 
 
 def Test_GeoFEM_plate_property():
-    extents.generate_FEM_material(grillage_fem)
-    extents.generate_FEM_plate_property(grillage_fem)
-    num = grillage_fem.num_properties
+    extents.generate_FEM_material(grillage_test_mesh)
+    extents.generate_FEM_plate_property(grillage_test_mesh)
+    num = grillage_test_mesh.num_properties
     print("Lista upisanih plate property u GeoFEM properties:")
     for prop_id in range(1, num + 1):
-        prop = grillage_fem.getProperty(prop_id)
+        prop = grillage_test_mesh.getProperty(prop_id)
         print(prop.id, " tp =", prop.tp, prop.material.name)
 
 
-def Test_GeoFEM_T_L_beam_property():
-    extents.generate_FEM_material(grillage_fem)
-    extents.generate_FEM_beam_property(grillage_fem)
-    num = grillage_fem.num_properties
-    print("Ukupno upisanih:", num)
-    print("Lista upisanih beam property u GeoFEM properties:")
-    for prop_id in range(1, num + 1):
-        prop = grillage_fem.getProperty(prop_id)
-        print(prop.id, prop.material.name, prop.name, ", hw =", prop.hw, ", tw =", prop.tw,
-              ", bf =", prop.bf, ", tf =", prop.tf, ", Iy =", prop.Iy, ", A =", prop.area)
-
-
 def Test_GeoFEM_Bulb_beam_property():
-    extents.generate_FEM_material(grillage_fem)
-    extents.generate_FEM_beam_property(grillage_fem)
-    num = grillage_fem.num_properties
+    extents.generate_FEM_material(grillage_test_mesh)
+    extents.generate_FEM_beam_property(grillage_test_mesh)
+    num = grillage_test_mesh.num_properties
     print("Ukupno upisanih property:", num)
 
     for prop_id in range(1, num + 1):
-        prop = grillage_fem.getProperty(prop_id)
+        prop = grillage_test_mesh.getProperty(prop_id)
         num_vals = prop.get_num_vals()
         print(prop.id, prop.name, prop.material.name)
         print("   ", "Iy =", prop.Iy, "mm4")
         print("   ",  "A =", prop.area, "mm2")
         for descriptor in range(0, num_vals):
             print("   ", prop.get_desc_names()[descriptor], "=", prop.descriptors[descriptor])
+

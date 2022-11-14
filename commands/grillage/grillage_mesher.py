@@ -3026,7 +3026,8 @@ class SegmentMeshV1(SegmentMesh):
                 id_el_nodes[1] = flange_id_array[row, column + 1]
                 id_el_nodes[2] = flange_id_array[row + 1, column + 1]
                 id_el_nodes[3] = flange_id_array[row + 1, column]
-                fem.add_quad_element(fem_prop_id, id_el_nodes)
+                elem = fem.add_quad_element(fem_prop_id, id_el_nodes)
+                fem.add_element_to_element_overlaps(elem)
                 element_id += 1
 
         return element_id

@@ -409,7 +409,8 @@ class T_Profile_BeamProperty (DescriptorBeamProperty):
         aw = self.aw
         af = self.af
         area = self.area
-        return ((af * (hw + tf * 0.5)) + (aw * (hw * 0.5))) / area
+        z_na = ((af * (hw + tf * 0.5)) + (aw * (hw * 0.5))) / area
+        return z_na
 
     @property
     def y_na(self):
@@ -423,7 +424,6 @@ class T_Profile_BeamProperty (DescriptorBeamProperty):
     def af(self):
         return self.bf * self.tf
 
-    # OOFEM cross section characteristics
     @property
     def area(self):
         return self.aw + self.af
@@ -459,8 +459,6 @@ class T_Profile_BeamProperty (DescriptorBeamProperty):
     def shear_area_z(self):
         return 0.0
 
-    # end of OOFEM cross section characteristics
-
     def get_yz_point_pairs_for_plane_visualization(self) -> List[np.ndarray]:
         pp = []
         hl = - self.z_na
@@ -475,6 +473,106 @@ class T_Profile_BeamProperty (DescriptorBeamProperty):
         msg= super().get_info()
         msg+='\n'+'još nešto'
         return msg
+
+
+class Half_T_Profile_BeamProperty (T_Profile_BeamProperty):
+    def __init__(self, values: List[float] = None, material: Material = None):
+        super().__init__(values, material)
+
+    @property
+    def area(self):
+        return (self.aw + self.af) / 2
+
+    @property
+    def z_na(self):
+        hw = self.hw
+        tf = self.tf
+        aw = self.aw / 2
+        af = self.af / 2
+        area = self.area
+        z_na = ((af * (hw + tf * 0.5)) + (aw * (hw * 0.5))) / area
+        return z_na
+
+    @property
+    def Iy(self):
+        hw = self.hw
+        tf = self.tf
+        aw = self.aw / 2
+        af = self.af / 2
+        zna = self.z_na
+        iy = (af * ((tf ** 2) / 12 + (tf * 0.5 + hw - zna) ** 2))
+        iy += aw * ((hw ** 2) / 12 + (hw * 0.5 - zna) ** 2)
+        return iy
+
+    def get_yz_point_pairs_for_plane_visualization(self) -> List[np.ndarray]:
+        pp = []
+        hl = - self.z_na
+        hu = hl + self.hw
+        pp.append(np.array([0, hl]))
+        pp.append(np.array([0, hu]))
+        pp.append(np.array([- self.bf / 2, hu]))
+        pp.append(np.array([0, hu]))
+        return pp
+
+
+class L_Profile_BeamProperty (T_Profile_BeamProperty):
+    def __init__(self, values: List[float] = None, material: Material = None):
+        super().__init__(values, material)
+
+    def get_yz_point_pairs_for_plane_visualization(self) -> List[np.ndarray]:
+        pp = []
+        hl = - self.z_na
+        hu = hl + self.hw
+        pp.append(np.array([0, hl]))
+        pp.append(np.array([0, hu]))
+        pp.append(np.array([- self.bf, hu]))
+        pp.append(np.array([0, hu]))
+        return pp
+
+    def get_info(self)->str:
+        msg= super().get_info()
+        # msg+='\n'+'još nešto'
+        return msg
+
+
+class Half_L_Profile_BeamProperty (L_Profile_BeamProperty):
+    def __init__(self, values: List[float] = None, material: Material = None):
+        super().__init__(values, material)
+
+    @property
+    def area(self):
+        return (self.aw + self.af) / 2
+
+    @property
+    def z_na(self):
+        hw = self.hw
+        tf = self.tf
+        aw = self.aw / 2
+        af = self.af / 2
+        area = self.area
+        z_na = ((af * (hw + tf * 0.5)) + (aw * (hw * 0.5))) / area
+        return z_na
+
+    @property
+    def Iy(self):
+        hw = self.hw
+        tf = self.tf
+        aw = self.aw / 2
+        af = self.af / 2
+        zna = self.z_na
+        iy = (af * ((tf ** 2) / 12 + (tf * 0.5 + hw - zna) ** 2))
+        iy += aw * ((hw ** 2) / 12 + (hw * 0.5 - zna) ** 2)
+        return iy
+
+    def get_yz_point_pairs_for_plane_visualization(self) -> List[np.ndarray]:
+        pp = []
+        hl = - self.z_na
+        hu = hl + self.hw
+        pp.append(np.array([0, hl]))
+        pp.append(np.array([0, hu]))
+        pp.append(np.array([- self.bf / 2, hu]))
+        pp.append(np.array([0, hu]))
+        return pp
 
 
 class Hat_Profile_BeamProperty (DescriptorBeamProperty):
@@ -533,6 +631,16 @@ class Hat_Profile_BeamProperty (DescriptorBeamProperty):
         return np.sin(np.radians(fi))
 
     @property
+    def hat_s1(self):
+        h = self.h
+        t = self.t
+        bf = self.bf
+        fi = self.fi
+        tan_fi = self.tan_fi
+        s1 = bf + ((2 * h + t) / tan_fi) - (t * np.tan(np.radians(fi / 2)))
+        return s1
+
+    @property
     def area(self):
         h = self.h
         t = self.t
@@ -550,7 +658,7 @@ class Hat_Profile_BeamProperty (DescriptorBeamProperty):
         sin_fi = self.sin_fi
         area = self.area
         z_na = ((h * t / sin_fi) * (h + t) + t ** 3 /
-                (6 * tan_fi) + (h + t) / 2) / area
+                (6 * tan_fi)) / area
         return z_na
 
     @property
@@ -591,6 +699,80 @@ class Hat_Profile_BeamProperty (DescriptorBeamProperty):
     @property
     def shear_area_z(self):
         return 0.0
+
+    def get_yz_point_pairs_for_plane_visualization(self) -> List[np.ndarray]:
+        # hl is set 5mm below plating to not show web lines on the other side
+        pp = []
+        hl = - self.z_na + 5
+        hu = hl + self.h
+        s1 = self.hat_s1
+        bf = self.bf
+        pp.append(np.array([- s1 / 2, hl]))
+        pp.append(np.array([- bf / 2, hu]))
+        pp.append(np.array([- bf / 2, hu]))
+        pp.append(np.array([bf / 2, hu]))
+        pp.append(np.array([bf / 2, hu]))
+        pp.append(np.array([s1 / 2, hl]))
+        return pp
+
+    def get_info(self) -> str:
+        msg= super().get_info()
+        # msg+='\n'+'još nešto'
+        return msg
+
+
+class Half_Hat_Profile_BeamProperty (Hat_Profile_BeamProperty):
+    def __init__(self, values: List[float] = None, material: Material = None):
+        super().__init__(values, material)
+
+    @property
+    def area(self):
+        h = self.h
+        t = self.t
+        bf = self.bf
+        tan_fi = self.tan_fi
+        sin_fi = self.sin_fi
+        area = ((2 * h * t) / sin_fi) + (t ** 2 / tan_fi) + (bf * t)
+        return area / 2
+
+    @property
+    def z_na(self):
+        h = self.h
+        t = self.t
+        tan_fi = self.tan_fi
+        sin_fi = self.sin_fi
+        area = self.area
+        z_na = ((h * t / sin_fi) * (h + t) + t ** 3 /
+                (6 * tan_fi)) / area
+        return z_na / 2
+
+    @property
+    def Iy(self):
+        h = self.h
+        t = self.t
+        bf = self.bf
+        tan_fi = self.tan_fi
+        sin_fi = self.sin_fi
+        zna = self.z_na
+        Iy = t * h ** 3 / (12 * sin_fi)
+        Iy += (((t + h) / 2 - zna) ** 2) * (h * t / sin_fi)
+        Iy += t ** 4 / (36 * tan_fi)
+        Iy += ((zna - t / 6) ** 2) * (t ** 2 / (2 * tan_fi))
+        Iy += ((bf / 2) * t ** 3 / 12) + zna ** 2 * (bf / 2) * t
+        return Iy
+
+    def get_yz_point_pairs_for_plane_visualization(self) -> List[np.ndarray]:
+        # hl is set 5mm below plating to not show web lines on the other side
+        pp = []
+        hl = - self.z_na + 5
+        hu = hl + self.h
+        s1 = self.hat_s1
+        bf = self.bf
+        pp.append(np.array([- s1 / 2, hl]))
+        pp.append(np.array([- bf / 2, hu]))
+        pp.append(np.array([- bf / 2, hu]))
+        pp.append(np.array([0, hu]))
+        return pp
 
 
 class Bulb_Profile_BeamProperty (DescriptorBeamProperty):
@@ -645,7 +827,8 @@ class Bulb_Profile_BeamProperty (DescriptorBeamProperty):
         aw = self.aw
         af = self.af
         area = self.area
-        return ((af * (hw + tf * 0.5)) + (aw * (hw * 0.5))) / area
+        z_na = ((af * (hw + tf * 0.5)) + (aw * (hw * 0.5))) / area
+        return z_na
 
     @property
     def y_na(self):
@@ -694,6 +877,56 @@ class Bulb_Profile_BeamProperty (DescriptorBeamProperty):
     def shear_area_z(self):
         return 0.0
 
+    def get_yz_point_pairs_for_plane_visualization(self) -> List[np.ndarray]:
+        pp = []
+        hl = - self.z_na
+        hu = hl + self.hw_ekv
+        pp.append(np.array([0, hl]))
+        pp.append(np.array([0, hu]))
+        pp.append(np.array([- self.bf_ekv, hu]))
+        pp.append(np.array([0, hu]))
+        return pp
+
+
+class Half_Bulb_Profile_BeamProperty (Bulb_Profile_BeamProperty):
+    def __init__(self, values: List[float] = None, material: Material = None):
+        super().__init__(values, material)
+
+    @property
+    def area(self):
+        return (self.aw + self.af) / 2
+
+    @property
+    def z_na(self):
+        hw = self.hw_ekv
+        tf = self.tf_ekv
+        aw = self.aw / 2
+        af = self.af / 2
+        area = self.area
+        z_na = ((af * (hw + tf * 0.5)) + (aw * (hw * 0.5))) / area
+        return z_na
+
+    @property
+    def Iy(self):
+        hw = self.hw_ekv
+        tf = self.tf_ekv
+        aw = self.aw / 2
+        af = self.af / 2
+        zna = self.z_na
+        iy = (af * ((tf ** 2) / 12 + (tf * 0.5 + hw - zna) ** 2))
+        iy += aw * ((hw ** 2) / 12 + (hw * 0.5 - zna) ** 2)
+        return iy
+
+    def get_yz_point_pairs_for_plane_visualization(self) -> List[np.ndarray]:
+        pp = []
+        hl = - self.z_na
+        hu = hl + self.hw_ekv
+        pp.append(np.array([0, hl]))
+        pp.append(np.array([0, hu]))
+        pp.append(np.array([- self.bf_ekv / 2, hu]))
+        pp.append(np.array([0, hu]))
+        return pp
+
 
 class FB_Profile_BeamProperty (DescriptorBeamProperty):
     def __init__(self, values: List[float] = None, material: Material = None):
@@ -741,8 +974,6 @@ class FB_Profile_BeamProperty (DescriptorBeamProperty):
     def Iy(self):
         hw = self.hw
         tw = self.tw
-        area = self.area
-        zna = self.z_na
         return (tw * hw ** 3) / 12
 
     @property
@@ -764,6 +995,29 @@ class FB_Profile_BeamProperty (DescriptorBeamProperty):
     @property
     def shear_area_z(self):
         return 0.0
+
+    def get_yz_point_pairs_for_plane_visualization(self) -> List[np.ndarray]:
+        pp = []
+        hl = - self.z_na
+        hu = hl + self.hw
+        pp.append(np.array([0, hl]))
+        pp.append(np.array([0, hu]))
+        return pp
+
+
+class Half_FB_Profile_BeamProperty (FB_Profile_BeamProperty):
+    def __init__(self, values: List[float] = None, material: Material = None):
+        super().__init__(values, material)
+
+    @property
+    def area(self):
+        return self.hw * self.tw / 2
+
+    @property
+    def Iy(self):
+        hw = self.hw
+        tw = self.tw / 2
+        return (tw * hw ** 3) / 12
 
 
 class T_ProfileAttachPlate_BeamProperty (T_Profile_BeamProperty):
@@ -844,6 +1098,7 @@ class T_ProfileAttachPlate_BeamProperty (T_Profile_BeamProperty):
         pp.append(np.array([-self.bf / 2.0, hu]))
         pp.append(np.array([self.bf / 2.0, hu]))
         return pp
+
 
 class StifnessBeamProperty (BeamProperty):
     def __init__(self,material:Material = None):

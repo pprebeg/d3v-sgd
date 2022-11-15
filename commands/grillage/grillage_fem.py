@@ -1,5 +1,6 @@
 import itertools
 from femdir.geofem import *
+from timeit import default_timer as timer
 
 
 class GeoGrillageFEM (GeoFEM):
@@ -13,6 +14,8 @@ class GeoGrillageFEM (GeoFEM):
 
         plate_property_IDs - Model Plate properties into GeoFEM PlateProperty
         stiff_beam_prop_IDs - Model stiffener BeamProperty into GeoFEM Beam property
+        half_stiff_beam_prop_IDs - Model stiffener BeamProperty with half original
+            stiffeness for beams on Axis Of Symmetry into GeoFEM Beam property.
         web_prop_IDs - Model BeamProperty into GeoFEM PlateProperty
         flange_prop_IDs - Model BeamProperty into GeoFEM PlateProperty
         half_web_property_IDs - Model BeamProperty into GeoFEM PlateProperty,
@@ -24,6 +27,7 @@ class GeoGrillageFEM (GeoFEM):
 
         self.plate_property_IDs = {}
         self.stiff_beam_prop_IDs = {}
+        self.half_stiff_beam_prop_IDs = {}
         self.web_property_IDs = {}
         self.flange_property_IDs = {}
         self.half_web_property_IDs = {}
@@ -135,8 +139,46 @@ class GeoGrillageFEM (GeoFEM):
         prop.material = mat
         self.add_property(prop)
 
+    def add_half_T_beam_property(self, name, hw, tw, bf, tf, mat):
+        prop = Half_T_Profile_BeamProperty()
+        prop.init(id, name)
+        prop.hw = hw
+        prop.tw = tw
+        prop.bf = bf
+        prop.tf = tf
+        prop.material = mat
+        self.add_property(prop)
+
+    def add_L_beam_property(self, name, hw, tw, bf, tf, mat):
+        prop = L_Profile_BeamProperty()
+        prop.init(id, name)
+        prop.hw = hw
+        prop.tw = tw
+        prop.bf = bf
+        prop.tf = tf
+        prop.material = mat
+        self.add_property(prop)
+
+    def add_half_L_beam_property(self, name, hw, tw, bf, tf, mat):
+        prop = Half_L_Profile_BeamProperty()
+        prop.init(id, name)
+        prop.hw = hw
+        prop.tw = tw
+        prop.bf = bf
+        prop.tf = tf
+        prop.material = mat
+        self.add_property(prop)
+
     def add_FB_beam_property(self, name, hw, tw, mat):
         prop = FB_Profile_BeamProperty()
+        prop.init(id, name)
+        prop.hw = hw
+        prop.tw = tw
+        prop.material = mat
+        self.add_property(prop)
+
+    def add_half_FB_beam_property(self, name, hw, tw, mat):
+        prop = Half_FB_Profile_BeamProperty()
         prop.init(id, name)
         prop.hw = hw
         prop.tw = tw
@@ -153,8 +195,28 @@ class GeoGrillageFEM (GeoFEM):
         prop.material = mat
         self.add_property(prop)
 
+    def add_half_Hat_beam_property(self, name, h, t, bf, fi, mat):
+        prop = Half_Hat_Profile_BeamProperty()
+        prop.init(id, name)
+        prop.h = h
+        prop.t = t
+        prop.bf = bf
+        prop.fi = fi
+        prop.material = mat
+        self.add_property(prop)
+
     def add_Bulb_beam_property(self, name, hw_ekv, tw_ekv, bf_ekv, tf_ekv, mat):
         prop = Bulb_Profile_BeamProperty()
+        prop.init(id, name)
+        prop.hw_ekv = hw_ekv
+        prop.tw_ekv = tw_ekv
+        prop.bf_ekv = bf_ekv
+        prop.tf_ekv = tf_ekv
+        prop.material = mat
+        self.add_property(prop)
+
+    def add_half_Bulb_beam_property(self, name, hw_ekv, tw_ekv, bf_ekv, tf_ekv, mat):
+        prop = Half_Bulb_Profile_BeamProperty()
         prop.init(id, name)
         prop.hw_ekv = hw_ekv
         prop.tw_ekv = tw_ekv
@@ -211,31 +273,19 @@ class GeoGrillageFEM (GeoFEM):
         print("Starting coincident node check...")
         # nodes_dict = self.nodes.values()                  # Nije puno sporije!
         nodes_dict = self.initial_node_overlaps.values()
-
-        x_coords = [node.p[0] for node in nodes_dict]
-        y_coords = [node.p[1] for node in nodes_dict]
-        z_coords = [node.p[2] for node in nodes_dict]
+        coords = [node.p for node in nodes_dict]
         id_list = [node.id for node in nodes_dict]
 
-        x_boolean_array = np.isclose(x_coords, np.vstack(x_coords))
-        y_boolean_array = np.isclose(y_coords, np.vstack(y_coords))
-        z_boolean_array = np.isclose(z_coords, np.vstack(z_coords))
-
-        np.fill_diagonal(x_boolean_array, False)
-        np.fill_diagonal(y_boolean_array, False)
-        np.fill_diagonal(z_boolean_array, False)
-
-        x_tri_array = np.tril(x_boolean_array)
-        y_tri_array = np.tril(y_boolean_array)
-        z_tri_array = np.tril(z_boolean_array)
-
-        xy_boolean_array = np.logical_and(x_tri_array, y_tri_array)
-        xz_boolean_array = np.logical_and(x_tri_array, z_tri_array)
-        boolean_array = np.logical_and(xy_boolean_array, xz_boolean_array)
-
-        find_where = np.where(boolean_array)    # Indexes of overlapped nodes
-        x_index, y_index = find_where
+        coords_1 = np.expand_dims(coords, 0)
+        coords_2 = np.expand_dims(coords, 1)
+        boolean_array = np.isclose(coords_1, coords_2).all(-1)
+        boolean_array = np.tril(boolean_array)
+        np.fill_diagonal(boolean_array, False)
+        coincident_pairs = np.where(boolean_array)
+        x_index, y_index = coincident_pairs
         n_overlaps = len(x_index)
+
+        start = timer()
 
         overlap_array = []
         for index in range(0, n_overlaps):
@@ -256,6 +306,9 @@ class GeoGrillageFEM (GeoFEM):
 
             if duplicate_coords is False:
                 overlap_array.append([node1.p, node1, node2])
+
+        end = timer()
+        print("Sort coincident nodes time:", end - start, "s")
 
         overlap_counter = 0
         coincident_nodes = []
@@ -300,6 +353,25 @@ class GeoGrillageFEM (GeoFEM):
         x_index, y_index = find_where
         n_overlaps = len(x_index)
 
+        unique_list = []
+        # n_stack = np.stack((x_index, y_index), axis=1)  # Sortirani parovi preklopljenih čvorova
+        # print(n_stack)
+
+        # vals, counts = np.unique(n_stack, return_counts=True)
+        # print(vals)
+        # print(counts)
+
+        # vals, index, counts = np.unique(n_stack, return_index=True, return_counts=True)
+        # print(vals)
+        # print(index)
+        # print(counts)
+
+        # inters = np.intersect1d(x_index, y_index)   # Svi čvorovi koji se preklapaju
+        # print(inters)
+
+        # masked_arr = np.ma.masked_where(counts <= 1, counts)    # čvorovi koji se pojavljuju samo jednom
+        # print(masked_arr)
+
         if n_overlaps > 1:
             print("Full model coincident node identification complete. "
                   "Node overlaps detected. Total overlaps:", n_overlaps)
@@ -309,7 +381,6 @@ class GeoGrillageFEM (GeoFEM):
 
     def merge_coincident_nodes(self):
         coincident_nodes = self.check_node_overlap_np()      # New NumPy check node overlap
-        print("Starting coincident node merge...")
 
         merge_nodes = {}
         delete_list = []
@@ -376,3 +447,23 @@ class GeoGrillageFEM (GeoFEM):
             del self.elements[delete_element.id]
 
         print("Total number of elements:", self.num_elements)
+
+    def identify_plating_nodes(self):
+        """
+        :return: Dictionary of all plating nodes for pressure load case.
+        """
+        plating_nodes = {}
+        nodes_dict = self.nodes.values()
+        z_coords = [node.p[2] for node in nodes_dict]
+        id_list = [node.id for node in nodes_dict]
+
+        hw = np.max(z_coords)
+        boolean_array = np.isclose(z_coords, hw)
+        node_index = np.where(boolean_array)
+        node_index = np.concatenate(node_index)
+
+        for index in range(0, len(node_index)):
+            node_id = id_list[node_index[index]]
+            node = self.nodes[node_id]
+            plating_nodes[node.id] = node
+        return plating_nodes

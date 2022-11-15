@@ -33,7 +33,11 @@ hc_var_5.add_corrosion_addition(tc)
 initial_longitudinal_beam = TBeamProperty(1, 1089, 10, 230, 16, ST24)       # inicijalni longitudinal T beam prop
 initial_transverse_beam = TBeamProperty(2, 1089, 10, 545, 40, ST24)         # inicijalni transverse T beam prop
 initial_edge_beam = LBeamProperty(3, 1089, 10, 150, 16, ST24)               # inicijalni rubni L beam prop
-initial_stiffener = TBeamProperty(4, 200, 5, 50, 5, ST24)               # inicijalna ukrepa
+initial_stiffener = HatBeamProperty(4, 220, 6, 220, 80, AH36)               # inicijalna ukrepa
+# initial_stiffener = BulbBeamProperty(4, 240, 10, AH36)                    # inicijalna ukrepa Bulb
+# initial_stiffener = TBeamProperty(4, 250, 8, 90, 12, ST24)                # inicijalna ukrepa T
+# initial_stiffener = LBeamProperty(4, 250, 8, 90, 12, ST24)                # inicijalna ukrepa L
+# initial_stiffener = FBBeamProperty(4, 250, 8, ST24)                       # inicijalna ukrepa FB
 
 hc_var_5.add_beam_prop(initial_longitudinal_beam)
 hc_var_5.add_beam_prop(initial_transverse_beam)

@@ -24,12 +24,11 @@ import logging
 from tests.test_mesh import *
 
 def tmp_fun_gen_hc_var1():
-    # Eksplicitno zadana topologija hc_var_1 za provjeru:  18.54m x 18.18m,  mreza nosaca 5 x 5
+    # New hatch cover (L_overall [m], B_overall [m], N_longitudinal, N_transverse)
     hc_var_1 = Grillage(18.54, 18.18, 5, 5)
 
-    # Lista materijala
-    ST24 = MaterialProperty(1, 210000, 0.3, 7850, 235,
-                            "ST24")  # PITANJE: Treba li ID biti dodjeljen automatski ili ga je ok ovako rucno zadavati?
+    # Materials list
+    ST24 = MaterialProperty(1, 210000, 0.3, 7850, 235, "ST24")
     AH32 = MaterialProperty(2, 210000, 0.3, 7850, 315, "AH32")
     AH36 = MaterialProperty(3, 210000, 0.3, 7850, 355, "AH36")
 
@@ -37,70 +36,80 @@ def tmp_fun_gen_hc_var1():
     hc_var_1.add_material(AH32)
     hc_var_1.add_material(AH36)
 
-    # Korozijski dodatak
     tc = CorrosionAddition(1, 2)
     hc_var_1.add_corrosion_addition(tc)
 
-    # hc_var_1.add_corrosion_addition(1, 2)     # ALTERNATIVNO ZADAVANJE I SPREMANJE
-
-    # Beam property
-    initial_longitudinal_beam = TBeamProperty(1, 1089, 10, 230, 16, ST24)  # inicijalni longitudinal T beam prop
-    initial_transverse_beam = TBeamProperty(2, 1089, 10, 545, 40, ST24)  # inicijalni transverse T beam prop
-    initial_edge_beam = LBeamProperty(3, 1089, 10, 150, 16, ST24)  # inicijalni rubni L beam prop
-    # initial_edge_beam = FBBeamProperty(3, 1089, 10, ST24)               # inicijalni rubni FB beam prop
-    initial_stiffener = HatBeamProperty(4, 220, 6, 220, 80, AH36)  # inicijalna ukrepa
+    # Beam Properties
+    initial_longitudinal_beam = TBeamProperty(1, 1089, 10, 230, 16, ST24)
+    initial_transverse_beam = TBeamProperty(2, 1089, 10, 545, 40, ST24)
+    initial_edge_beam = LBeamProperty(3, 1089, 10, 150, 16, ST24)
+    initial_stiffener = HatBeamProperty(4, 150, 10, 200, 50, AH36)
     center_girder = TBeamProperty(5, 1089, 10, 560, 40, AH32)
+    FB_beam = FBBeamProperty(6, 1089, 10, ST24)
+    # initial_stiffener = BulbBeamProperty(4, 240, 10, AH36)
+    # initial_stiffener = TBeamProperty(4, 250, 8, 90, 12, ST24)
+    # initial_stiffener = FBBeamProperty(4, 250, 8, ST24)
 
-    hc_var_1.add_beam_prop(
-        initial_longitudinal_beam)  # PITANJE: Može li se ovo dodavanje preko add_property bolje izvesti?
+    hc_var_1.add_beam_prop(initial_longitudinal_beam)
     hc_var_1.add_beam_prop(initial_transverse_beam)
     hc_var_1.add_beam_prop(initial_edge_beam)
     hc_var_1.add_beam_prop(initial_stiffener)
     hc_var_1.add_beam_prop(center_girder)
+    hc_var_1.add_beam_prop(FB_beam)
 
     # Plate property
-    plateprop1 = PlateProperty(1, 10, ST24)  # inicijalni plate property za cijeli poklopac
-    plateprop2 = PlateProperty(2, 10, AH32)
-    plateprop3 = PlateProperty(3, 9, ST24)
-    plateprop4 = PlateProperty(4, 9, ST24)
+    plateprop1 = PlateProperty(1, 10, ST24)   # Initial plate property
     hc_var_1.add_plate_prop(plateprop1)
-    hc_var_1.add_plate_prop(plateprop2)  # Dodatni plate property za testiranje identifikacije jednakih svojstava
-    hc_var_1.add_plate_prop(plateprop3)
-    hc_var_1.add_plate_prop(plateprop4)
 
     # Stiffener layouts
-    stifflayout1 = StiffenerLayout(1, initial_stiffener, "spacing", 0.873)
-    stifflayout2 = StiffenerLayout(2, initial_stiffener, "spacing", 0.935)
-    hc_var_1.add_stiffener_layout(stifflayout1)  # dodavanje stiffener layouta u dictionary
+    stifflayout1 = StiffenerLayout(1, initial_stiffener, DefinitionType.SPACING, 0.873)
+    stifflayout2 = StiffenerLayout(2, initial_stiffener, DefinitionType.SPACING, 0.935)
+    hc_var_1.add_stiffener_layout(stifflayout1)
     hc_var_1.add_stiffener_layout(stifflayout2)
 
-    stiff_dir = BeamDirection.TRANSVERSE  # inicijalna orijentacija ukrepa na svim zonama oplate
+    stiff_dir = BeamDirection.TRANSVERSE  # Initial beam orientation
 
-    # Generacija topologije
-    hc_var_1.generate_prim_supp_members()  # Generacija svih jakih nosaca
-    hc_var_1.generate_segments(initial_longitudinal_beam, initial_transverse_beam,
-                               initial_edge_beam)  # Generacija svih segmenata
-    hc_var_1.generate_plating(plateprop1, stifflayout1, stiff_dir)  # Generacija oplate
+    # Grillage generation
+    hc_var_1.generate_prim_supp_members()
+    hc_var_1.generate_segments(initial_longitudinal_beam, initial_transverse_beam, initial_edge_beam)
+    hc_var_1.generate_plating(plateprop1, stifflayout1, stiff_dir)
+    hc_var_1.generate_elementary_plate_panels()
 
-    # Pridruzivanje simetricnih elemenata
+    # Group setting of intercostal stiffeners
+    # hc_var_1.plating()[6].set_intercostal_stiffeners(4, FB_beam)
+    # hc_var_1.plating()[7].set_intercostal_stiffeners(4, FB_beam)
+    # hc_var_1.plating()[10].set_intercostal_stiffeners(4, FB_beam)
+    # hc_var_1.plating()[11].set_intercostal_stiffeners(4, FB_beam)
+
+    # Individual placement of intercostal stiffeners
+    # hc_var_1.plating()[1].elementary_plate_panels[1].intercostal_stiffener_num = 1
+    # hc_var_1.plating()[1].elementary_plate_panels[1].beam_prop = FB_beam
+
+    # Intercostal stiffener deletion from plating zone 6
+    # hc_var_1.plating()[6].regenerate_elementary_plate_panel()
+
     hc_var_1.assign_symmetric_members()
     hc_var_1.assign_symmetric_plating()
     hc_var_1.assign_symmetric_segments()
 
-    # Izmjena polozaja jakih nosaca
-    Grillage.set_all_longitudinal_PSM(hc_var_1, 4.5, 4.59, 4.59)
-    Grillage.set_all_transverse_PSM(hc_var_1, 4.325, 4.935, 4.935)
+    # Set all Primary Supporting Member spacing, [m]
+    hc_var_1.set_all_longitudinal_PSM(4.5, 4.59, 4.59)
+    hc_var_1.set_all_transverse_PSM(4.325, 4.935, 4.935)
 
-    # Izmjene plating property - postavljanje drugačijih svojstava svim poljima oplate između poprečnih nosača koji definiraju polja oplate 1 i 4
-    Grillage.set_plating_prop_transversals(hc_var_1, 1, "stiff_layout", stifflayout2)
-    Grillage.set_plating_prop_transversals(hc_var_1, 4, "stiff_layout", stifflayout2)
+    # Set different stiffener layout for selected plate and all other plating
+    # zones between Primary Supporting Members defined by that selected plate
+    hc_var_1.set_plating_prop_transversals(1, "stiff_layout", stifflayout2)
+    hc_var_1.set_plating_prop_transversals(4, "stiff_layout", stifflayout2)
 
-    # Grillage.set_plating_prop_symmetric(hc_var_1, 6, "stiff_dir", BeamOrientation.LONGITUDINAL)
-    # hc_var_1.plating()[5].stiff_layout = stifflayout1   # Unos drugacijeg layouta da hc_check javi gresku
+    # Simultaneous change of all symmetric plating properties, possible selection
+    # hc_var_1.set_plating_prop_symmetric(1, "stiff_dir", BeamDirection.LONGITUDINAL)
 
-    # Izmjena svojstava nosaca
-    Grillage.set_tran_member_beam_property(hc_var_1, 3, center_girder)
+    # Set same Beam Property for the entire transverse Primary Supporting Member
+    # hc_var_1.set_tran_member_beam_property(1, FB_beam)
+    hc_var_1.set_tran_member_beam_property(3, center_girder)
+
     return hc_var_1
+
 class SGDCommand(Command):
     def __init__(self):
         super().__init__()
@@ -131,14 +140,23 @@ class SGDCommand(Command):
         actionRunTest = self.menuMain.addAction("&Generate Test Mesh")
         actionRunTest.triggered.connect(self.onActionGenerateTestMesh)
 
-        actionRunTest = self.menuTests.addAction("&Show Mesh Dimensions")
-        actionRunTest.triggered.connect(self.onActionPrintMeshDimensions)
+        actionRunTest = self.menuTests.addAction("&Calculate Mesh Dimensions")
+        actionRunTest.triggered.connect(self.onActionCalculate_mesh_dimensions)
 
-        actionRunTest = self.menuTests.addAction("&Show T/L Beam Property")
+        actionRunTest = self.menuTests.addAction("&Show Beam Property")
         actionRunTest.triggered.connect(self.onActionTestProperty)
+
+        actionRunTest = self.menuTests.addAction("&Full Model Overlap Check")
+        actionRunTest.triggered.connect(self.onActionFullOverlapCheck)
 
         actionRunTest = self.menuTests.addAction("&Current TEST")
         actionRunTest.triggered.connect(self.onActionCurrentTest)
+
+        actionRunTest = self.menuTests.addAction("&Test Mesh V2 base size")
+        actionRunTest.triggered.connect(self.onActionTestV2basesize)
+
+        actionRunTest = self.menuTests.addAction("&Test Mesh V2 transition mesh")
+        actionRunTest.triggered.connect(self.onActionTestV2transition)
 
         try:
             manager.selected_geometry_changed.connect(self.onSelectedGeometryChanged)
@@ -157,8 +175,11 @@ class SGDCommand(Command):
             manager.show_geometry([grill_fem])
         pass
 
-    def onActionPrintMeshDimensions(self):
+    def onActionCalculate_mesh_dimensions(self):
         Test_calculate_mesh_dimensions()
+
+    def onActionFullOverlapCheck(self):
+        TestFullModelOverlap()
 
     def onActionTestProperty(self):
         grill_fem = generate_test_mesh()
@@ -166,6 +187,12 @@ class SGDCommand(Command):
 
     def onActionCurrentTest(self):
         Test_current()
+
+    def onActionTestV2basesize(self):
+        Test_MeshVariant_V2_basesize()
+
+    def onActionTestV2transition(self):
+        Test_MeshVariant_V2_transition()
 
     def onGenerateFEM(self):
         QApplication.changeOverrideCursor(QCursor(Qt.WaitCursor))

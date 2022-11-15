@@ -1053,6 +1053,72 @@ class MeshExtent:
             fem.add_T_beam_property(name_str, hw, tw, bf, tf, mat)
             fem.stiff_beam_prop_IDs[prop.id] = gfe_prop_id
 
+    def add_unique_half_T_beam_prop(self, prop: TBeamProperty, fem: GeoGrillageFEM):
+        """
+        Method adds stiffener layout beam element property.
+        Checks for duplicate BeamProperty ID in stiff_beam_prop_IDs.
+        If no duplicate exists, a new GeoFEM Beam property is created.
+        :param prop: Grillage model TBeamProperty object.
+        :param fem:
+        """
+        corr_add = self._grillage.corrosion_addition()[1]
+        gfe_prop_id = fem.id_prop_count
+        if prop.id not in fem.half_stiff_beam_prop_IDs.keys():
+            name_str = "T_" + str(prop.hw) + "x" + str(prop.tw)
+            name_str += "/" + str(prop.bf) + "x" + str(prop.tf)
+            hw = prop.hw_net(corr_add, 0.0)
+            tw = prop.tw_net(corr_add)
+            bf = prop.bf_net(corr_add)
+            tf = prop.tf_net(corr_add)
+            mat_id = prop.mat.id
+            mat = fem.getMaterial(mat_id)
+            fem.add_half_T_beam_property(name_str, hw, tw, bf, tf, mat)
+            fem.half_stiff_beam_prop_IDs[prop.id] = gfe_prop_id
+
+    def add_unique_L_beam_prop(self, prop: LBeamProperty, fem: GeoGrillageFEM):
+        """
+        Method adds stiffener layout beam element property.
+        Checks for duplicate BeamProperty ID in stiff_beam_prop_IDs.
+        If no duplicate exists, a new GeoFEM Beam property is created.
+        :param prop: Grillage model LBeamProperty object.
+        :param fem:
+        """
+        corr_add = self._grillage.corrosion_addition()[1]
+        gfe_prop_id = fem.id_prop_count
+        if prop.id not in fem.stiff_beam_prop_IDs.keys():
+            name_str = "L_" + str(prop.hw) + "x" + str(prop.tw)
+            name_str += "/" + str(prop.bf) + "x" + str(prop.tf)
+            hw = prop.hw_net(corr_add, 0.0)
+            tw = prop.tw_net(corr_add)
+            bf = prop.bf_net(corr_add)
+            tf = prop.tf_net(corr_add)
+            mat_id = prop.mat.id
+            mat = fem.getMaterial(mat_id)
+            fem.add_L_beam_property(name_str, hw, tw, bf, tf, mat)
+            fem.stiff_beam_prop_IDs[prop.id] = gfe_prop_id
+
+    def add_unique_half_L_beam_prop(self, prop: LBeamProperty, fem: GeoGrillageFEM):
+        """
+        Method adds stiffener layout beam element property.
+        Checks for duplicate BeamProperty ID in stiff_beam_prop_IDs.
+        If no duplicate exists, a new GeoFEM Beam property is created.
+        :param prop: Grillage model LBeamProperty object.
+        :param fem:
+        """
+        corr_add = self._grillage.corrosion_addition()[1]
+        gfe_prop_id = fem.id_prop_count
+        if prop.id not in fem.half_stiff_beam_prop_IDs.keys():
+            name_str = "L_" + str(prop.hw) + "x" + str(prop.tw)
+            name_str += "/" + str(prop.bf) + "x" + str(prop.tf)
+            hw = prop.hw_net(corr_add, 0.0)
+            tw = prop.tw_net(corr_add)
+            bf = prop.bf_net(corr_add)
+            tf = prop.tf_net(corr_add)
+            mat_id = prop.mat.id
+            mat = fem.getMaterial(mat_id)
+            fem.add_half_L_beam_property(name_str, hw, tw, bf, tf, mat)
+            fem.half_stiff_beam_prop_IDs[prop.id] = gfe_prop_id
+
     def add_unique_FB_beam_prop(self, prop: FBBeamProperty, fem: GeoGrillageFEM):
         """
         Method adds stiffener layout beam element property.
@@ -1071,6 +1137,25 @@ class MeshExtent:
             mat = fem.getMaterial(mat_id)
             fem.add_FB_beam_property(name_str, hw, tw, mat)
             fem.stiff_beam_prop_IDs[prop.id] = gfe_prop_id
+
+    def add_unique_half_FB_beam_prop(self, prop: FBBeamProperty, fem: GeoGrillageFEM):
+        """
+        Method adds stiffener layout beam element property.
+        Checks for duplicate BeamProperty ID in stiff_beam_prop_IDs.
+        If no duplicate exists, a new GeoFEM Beam property is created.
+        :param prop: Grillage model FBBeamProperty object.
+        :param fem:
+        """
+        corr_add = self._grillage.corrosion_addition()[1]
+        gfe_prop_id = fem.id_prop_count
+        if prop.id not in fem.half_stiff_beam_prop_IDs.keys():
+            name_str = "FB_" + str(prop.hw) + "x" + str(prop.tw)
+            hw = prop.hw_net(corr_add, 0.0)
+            tw = prop.tw_net(corr_add)
+            mat_id = prop.mat.id
+            mat = fem.getMaterial(mat_id)
+            fem.add_half_FB_beam_property(name_str, hw, tw, mat)
+            fem.half_stiff_beam_prop_IDs[prop.id] = gfe_prop_id
 
     def add_unique_Bulb_beam_prop(self, prop: BulbBeamProperty, fem: GeoGrillageFEM):
         """
@@ -1093,6 +1178,27 @@ class MeshExtent:
             fem.add_Bulb_beam_property(name_str, hw, tw, bf, tf, mat)
             fem.stiff_beam_prop_IDs[prop.id] = gfe_prop_id
 
+    def add_unique_half_Bulb_beam_prop(self, prop: BulbBeamProperty, fem: GeoGrillageFEM):
+        """
+        Method adds stiffener layout beam element property.
+        Checks for duplicate BeamProperty ID in stiff_beam_prop_IDs.
+        If no duplicate exists, a new GeoFEM Beam property is created.
+        :param prop: Grillage model BulbBeamProperty object.
+        :param fem:
+        """
+        corr_add = self._grillage.corrosion_addition()[1]
+        gfe_prop_id = fem.id_prop_count
+        if prop.id not in fem.half_stiff_beam_prop_IDs.keys():
+            name_str = "HP_" + str(prop.hw_HP) + "x" + str(prop.tw_HP)
+            hw = prop.hw_ekv_net(corr_add)
+            tw = prop.tw_ekv_net(corr_add)
+            bf = prop.bf_ekv_net(corr_add)
+            tf = prop.tf_ekv_net(corr_add)
+            mat_id = prop.mat.id
+            mat = fem.getMaterial(mat_id)
+            fem.add_half_Bulb_beam_property(name_str, hw, tw, bf, tf, mat)
+            fem.half_stiff_beam_prop_IDs[prop.id] = gfe_prop_id
+
     def add_unique_Hat_beam_prop(self, prop: HatBeamProperty, fem: GeoGrillageFEM):
         """
         Method adds stiffener layout beam element property.
@@ -1114,6 +1220,29 @@ class MeshExtent:
             mat = fem.getMaterial(mat_id)
             fem.add_Hat_beam_property(name_str, h, t, bf, fi, mat)
             fem.stiff_beam_prop_IDs[prop.id] = gfe_prop_id
+
+    def add_unique_half_Hat_beam_prop(self, prop: HatBeamProperty,
+                                      fem: GeoGrillageFEM):
+        """
+        Method adds stiffener layout beam element property.
+        Checks for duplicate BeamProperty ID in stiff_beam_prop_IDs.
+        If no duplicate exists, a new GeoFEM Beam property is created.
+        :param prop: Grillage model HatBeamProperty object.
+        :param fem:
+        """
+        corr_add = self._grillage.corrosion_addition()[1]
+        gfe_prop_id = fem.id_prop_count
+        if prop.id not in fem.half_stiff_beam_prop_IDs.keys():
+            name_str = "Hat_" + str(prop.h) + "x" + str(prop.t)
+            name_str += "x" + str(prop.bf) + "x" + str(prop.fi) + "°"
+            h = prop.h_net(corr_add)
+            t = prop.t_net(corr_add)
+            bf = prop.bf_net(corr_add)
+            fi = prop.fi
+            mat_id = prop.mat.id
+            mat = fem.getMaterial(mat_id)
+            fem.add_half_Hat_beam_property(name_str, h, t, bf, fi, mat)
+            fem.half_stiff_beam_prop_IDs[prop.id] = gfe_prop_id
 
     def generate_FEM_material(self, fem: GeoGrillageFEM):
         """
@@ -1144,6 +1273,8 @@ class MeshExtent:
     def generate_FEM_beam_property(self, fem: GeoGrillageFEM):
         """
         :return: Generates GeoFEM beam property from grillage BeamProperty.
+            Does not recognize stiffeners on Axis Of Symmetry. Stiffener on
+            AOS identification is done at the moment of beam element generation.
         """
         for plate in self.all_plating_zones.values():
             stiff_prop = plate.stiff_layout.beam_prop
@@ -1152,7 +1283,7 @@ class MeshExtent:
                 self.add_unique_T_beam_prop(stiff_prop, fem)
 
             elif stiff_prop.beam_type is BeamType.L:
-                self.add_unique_T_beam_prop(stiff_prop, fem)
+                self.add_unique_L_beam_prop(stiff_prop, fem)
 
             elif stiff_prop.beam_type is BeamType.FB:
                 self.add_unique_FB_beam_prop(stiff_prop, fem)
@@ -1162,6 +1293,25 @@ class MeshExtent:
 
             elif stiff_prop.beam_type is BeamType.Hat:
                 self.add_unique_Hat_beam_prop(stiff_prop, fem)
+
+    def generate_half_FEM_beam_property(self, fem: GeoGrillageFEM):
+        for plate in self.all_plating_zones.values():
+            stiff_prop = plate.stiff_layout.beam_prop
+            if self.aos_on_stiffener(plate):
+                if stiff_prop.beam_type is BeamType.T:
+                    self.add_unique_half_T_beam_prop(stiff_prop, fem)
+
+                elif stiff_prop.beam_type is BeamType.L:
+                    self.add_unique_half_L_beam_prop(stiff_prop, fem)
+
+                elif stiff_prop.beam_type is BeamType.FB:
+                    self.add_unique_half_FB_beam_prop(stiff_prop, fem)
+
+                elif stiff_prop.beam_type is BeamType.Bulb:
+                    self.add_unique_half_Bulb_beam_prop(stiff_prop, fem)
+
+                elif stiff_prop.beam_type is BeamType.Hat:
+                    self.add_unique_half_Hat_beam_prop(stiff_prop, fem)
 
     def grillage_mesh_extent(self):
         """
@@ -1202,8 +1352,6 @@ class MeshSize:
             plating zones on the grillage model
         mesh_dim_y - Final base mesh y dimensions (dim_y) for each row of
             plating zones on the grillage model
-        transition_dim_x - 2D array of transition element x dimensions
-        transition_dim_y - 2D array of transition element y dimensions
 
         :param mesh_extent: FE mesh extents for the selected grillage model
             and Axis of Symmetry.
@@ -1222,8 +1370,7 @@ class MeshSize:
 
         self._mesh_dim_x = {}
         self._mesh_dim_y = {}
-        self._transition_dim_x = []
-        self._transition_dim_y = []
+
 
         self.start_nodes = {}       # Dict of starting node ID for all meshed plating zones
 
@@ -1290,22 +1437,6 @@ class MeshSize:
     @mesh_dim_y.setter
     def mesh_dim_y(self, value):
         self._mesh_dim_y = value
-
-    @property
-    def transition_dim_x(self):
-        return self._transition_dim_x
-
-    @transition_dim_x.setter
-    def transition_dim_x(self, value):
-        self._transition_dim_x = value
-
-    @property
-    def transition_dim_y(self):
-        return self._transition_dim_y
-
-    @transition_dim_y.setter
-    def transition_dim_y(self, value):
-        self._transition_dim_y = value
 
     @des_plate_aspect_ratio.setter
     def des_plate_aspect_ratio(self, value):
@@ -1896,7 +2027,6 @@ class MeshSize:
         self.save_node_spacing(x_spacing, base_mesh_element_num, base_dim_x)
         self.save_node_spacing(x_spacing, split_element_number, base_dim_x / 2)
         # self.save_node_spacing(x_spacing, tr_el_num_seg_2, tr_element_dim_x2)
-
         return x_spacing
 
     # Modificirati - zajednička metoda za varijante mreže bez preslikavanja **********
@@ -1970,7 +2100,6 @@ class MeshSize:
 
         self._mesh_extent.grillage_mesh_extent()    # Calculate mesh limits
         self.calc_element_base_size_mesh()          # Calculate base mesh size
-        self.calc_element_transition_size_mesh()    # Calculate transition mesh
         self.calc_plate_start_node_ids()
 
 
@@ -2033,72 +2162,180 @@ class ElementSizeV1(MeshSize):
 
         return mesh_dim_x, mesh_dim_y
 
-    def tr_element_size_plating_zone(self, plate: Plate, segment_id):
+    def transition_dim_x(self, plate: Plate):
         """
         Method for local consideration of transition mesh dimensions dim_tr_x
-        and dim_tr_y, for each plating zone individually.
-        Specific to meshing variant V1
+        for each plating zone individually. Specific to meshing variant V1
 
-        If stiffener direction is longitudinal, transition elements next to
-        transverse segments do not exist. If stiffener direction is transverse,
-        transition elements next to longitudinal segments do not exist.
+        If stiffener direction is transverse, there are transition elements
+        next to transverse segments.
 
         :param plate: Selected plating zone.
-        :param segment_id: 1 selects first logitudinal segment,
-            2 selects second longitudinal segment
+
+        n_elem - Number of elements with dimension dim_x that fit inside
+            the remaining distance
+        """
+        dim_tr_x1 = 0
+        dim_tr_x2 = 0
+        dim_x = self.get_base_dim_x(plate)
+        dim_y = self.get_base_dim_y(plate)
+        stiff_offset = plate.get_equal_stiffener_offset() * 1000
+        n_eaf = self.num_eaf
+        if plate.stiff_dir == BeamDirection.TRANSVERSE:
+            flange_width1 = self.get_flange_el_width(plate.trans_seg1) * n_eaf
+            flange_width2 = self.get_flange_el_width(plate.trans_seg2) * n_eaf
+            remaining_dist1 = stiff_offset - flange_width1
+            remaining_dist2 = stiff_offset - flange_width2
+
+            if remaining_dist1 < 0 or remaining_dist2 < 0:
+                raise NegativeRemainingDistance(plate.id)
+
+            n_elem1 = np.floor(remaining_dist1 / dim_x)
+            n_elem2 = np.floor(remaining_dist2 / dim_x)
+
+            if n_elem1 == 0:
+                dim_tr_x1 = stiff_offset - flange_width1
+            else:
+                dim_tr_x1 = stiff_offset - n_elem1 * dim_x - flange_width1
+
+            if n_elem2 == 0:
+                dim_tr_x2 = stiff_offset - flange_width2
+
+            else:
+                dim_tr_x2 = stiff_offset - n_elem2 * dim_x - flange_width2
+
+            if dim_tr_x1 != 0:
+                ar = self.element_aspect_ratio(dim_tr_x1, dim_y)
+                if ar > self._plate_aspect_ratio and remaining_dist1 > dim_x:
+                    dim_tr_x1 += dim_x
+
+            if dim_tr_x2 != 0:
+                ar = self.element_aspect_ratio(dim_tr_x2, dim_y)
+                if ar > self._plate_aspect_ratio and remaining_dist2 > dim_x:
+                    dim_tr_x2 += dim_x
+
+        return dim_tr_x1, dim_tr_x2
+
+    def transition_dim_y(self, plate: Plate):
+        """
+        Method for local consideration of transition mesh dimensions dim_tr_y
+        for each plating zone individually. Specific to meshing variant V1.
+
+        If stiffener direction is longitudinal, there are transition elements
+        next to longitudinal segments.
+
+        :param plate: Selected plating zone.
 
         n_elem - Number of elements with dimension dim_y that fit inside
             the remaining distance
         """
+        dim_tr_y1 = 0
+        dim_tr_y2 = 0
         dim_x = self.get_base_dim_x(plate)
         dim_y = self.get_base_dim_y(plate)
         stiff_offset = plate.get_equal_stiffener_offset() * 1000
-
+        n_eaf = self.num_eaf
         if plate.stiff_dir == BeamDirection.LONGITUDINAL:
-            plate_segments = {1: plate.long_seg1, 2: plate.long_seg2}
-            fl_el_width = self.get_flange_el_width(plate_segments[segment_id])
-            flange_width = fl_el_width * self.num_eaf
-            remaining_dist = stiff_offset - flange_width
-            n_elem = np.floor(remaining_dist / dim_y)
+            flange_width1 = self.get_flange_el_width(plate.long_seg1) * n_eaf
+            flange_width2 = self.get_flange_el_width(plate.long_seg2) * n_eaf
+            remaining_dist1 = stiff_offset - flange_width1
+            remaining_dist2 = stiff_offset - flange_width2
 
-            if n_elem == 0:
-                dim_tr_y = stiff_offset - flange_width
-            else:
-                dim_tr_y = stiff_offset - n_elem * dim_y - flange_width
-
-            if remaining_dist < 0:
+            if remaining_dist1 < 0 or remaining_dist2 < 0:
                 raise NegativeRemainingDistance(plate.id)
 
-            if dim_tr_y != 0:
-                ar = self.element_aspect_ratio(dim_tr_y, dim_x)
-                if ar > self._plate_aspect_ratio and remaining_dist > dim_y:
-                    dim_tr_y += dim_y
-                    return 0, dim_tr_y
-                else:
-                    return 0, dim_tr_y
+            n_elem1 = np.floor(remaining_dist1 / dim_y)
+            n_elem2 = np.floor(remaining_dist2 / dim_y)
 
-        else:
-            plate_segments = {1: plate.trans_seg1, 2: plate.trans_seg2}
-            fl_el_width = self.get_flange_el_width(plate_segments[segment_id])
-            flange_width = fl_el_width * self.num_eaf
-            remaining_dist = stiff_offset - flange_width
-            n_elem = np.floor(remaining_dist / dim_x)
-
-            if n_elem == 0:
-                dim_tr_x = stiff_offset - flange_width
+            if n_elem1 == 0:
+                dim_tr_y1 = stiff_offset - flange_width1
             else:
-                dim_tr_x = stiff_offset - n_elem * dim_x - flange_width
+                dim_tr_y1 = stiff_offset - n_elem1 * dim_y - flange_width1
 
-            if remaining_dist < 0:
-                raise NegativeRemainingDistance(plate.id)
+            if n_elem2 == 0:
+                dim_tr_y2 = stiff_offset - flange_width2
 
-            if dim_tr_x != 0:
-                ar = self.element_aspect_ratio(dim_tr_x, dim_y)
-                if ar > self._plate_aspect_ratio and remaining_dist > dim_x:
-                    dim_tr_x += dim_x
-                    return dim_tr_x, 0
-                else:
-                    return dim_tr_x, 0
+            else:
+                dim_tr_y2 = stiff_offset - n_elem2 * dim_y - flange_width2
+
+            if dim_tr_y1 != 0:
+                ar = self.element_aspect_ratio(dim_tr_y1, dim_x)
+                if ar > self._plate_aspect_ratio and remaining_dist1 > dim_y:
+                    dim_tr_y1 += dim_y
+
+            if dim_tr_y2 != 0:
+                ar = self.element_aspect_ratio(dim_tr_y2, dim_x)
+                if ar > self._plate_aspect_ratio and remaining_dist2 > dim_y:
+                    dim_tr_y2 += dim_y
+
+        return dim_tr_y1, dim_tr_y2
+
+    # def tr_element_size_plating_zone(self, plate: Plate, segment_id):
+    #     """
+    #     Method for local consideration of transition mesh dimensions dim_tr_x
+    #     and dim_tr_y, for each plating zone individually.
+    #     Specific to meshing variant V1
+    #
+    #     If stiffener direction is longitudinal, transition elements next to
+    #     transverse segments do not exist. If stiffener direction is transverse,
+    #     transition elements next to longitudinal segments do not exist.
+    #
+    #     :param plate: Selected plating zone.
+    #     :param segment_id: 1 selects first logitudinal segment,
+    #         2 selects second longitudinal segment
+    #
+    #     n_elem - Number of elements with dimension dim_y that fit inside
+    #         the remaining distance
+    #     """
+    #     dim_x = self.get_base_dim_x(plate)
+    #     dim_y = self.get_base_dim_y(plate)
+    #     stiff_offset = plate.get_equal_stiffener_offset() * 1000
+    #
+    #     if plate.stiff_dir == BeamDirection.LONGITUDINAL:
+    #         plate_segments = {1: plate.long_seg1, 2: plate.long_seg2}
+    #         fl_el_width = self.get_flange_el_width(plate_segments[segment_id])
+    #         flange_width = fl_el_width * self.num_eaf
+    #         remaining_dist = stiff_offset - flange_width
+    #         n_elem = np.floor(remaining_dist / dim_y)
+    #
+    #         if n_elem == 0:
+    #             dim_tr_y = stiff_offset - flange_width
+    #         else:
+    #             dim_tr_y = stiff_offset - n_elem * dim_y - flange_width
+    #
+    #         if remaining_dist < 0:
+    #             raise NegativeRemainingDistance(plate.id)
+    #
+    #         if dim_tr_y != 0:
+    #             ar = self.element_aspect_ratio(dim_tr_y, dim_x)
+    #             if ar > self._plate_aspect_ratio and remaining_dist > dim_y:
+    #                 dim_tr_y += dim_y
+    #                 return 0, dim_tr_y
+    #             else:
+    #                 return 0, dim_tr_y
+    #
+    #     else:
+    #         plate_segments = {1: plate.trans_seg1, 2: plate.trans_seg2}
+    #         fl_el_width = self.get_flange_el_width(plate_segments[segment_id])
+    #         flange_width = fl_el_width * self.num_eaf
+    #         remaining_dist = stiff_offset - flange_width
+    #         n_elem = np.floor(remaining_dist / dim_x)
+    #
+    #         if n_elem == 0:
+    #             dim_tr_x = stiff_offset - flange_width
+    #         else:
+    #             dim_tr_x = stiff_offset - n_elem * dim_x - flange_width
+    #
+    #         if remaining_dist < 0:
+    #             raise NegativeRemainingDistance(plate.id)
+    #
+    #         if dim_tr_x != 0:
+    #             ar = self.element_aspect_ratio(dim_tr_x, dim_y)
+    #             if ar > self._plate_aspect_ratio and remaining_dist > dim_x:
+    #                 dim_tr_x += dim_x
+    #                 return dim_tr_x, 0
+    #             else:
+    #                 return dim_tr_x, 0
 
     # Testirati mogu li ove metode za prijelazne elemente opločenja biti zajedničke *******
     def assign_transition_dim_x(self):
@@ -2121,9 +2358,9 @@ class ElementSizeV1(MeshSize):
                              plate_id in plating_zone_IDs]
 
             for plate in plating_zones:
-                tr_dim_x1 = self.tr_element_size_plating_zone(plate, 1)[0]
-                tr_dim_x2 = self.tr_element_size_plating_zone(plate, 2)[0]
-
+                # tr_dim_x1 = self.tr_element_size_plating_zone(plate, 1)[0]
+                # tr_dim_x2 = self.tr_element_size_plating_zone(plate, 2)[0]
+                tr_dim_x1, tr_dim_x2 = self.transition_dim_x(plate)
                 if plate.stiff_dir == BeamDirection.TRANSVERSE:
                     tr_el_dim_x[0, column - 1] = tr_dim_x1
                     tr_el_dim_x[1, column - 1] = tr_dim_x2
@@ -2132,7 +2369,6 @@ class ElementSizeV1(MeshSize):
                     tr_el_dim_x[0, column - 1] = tr_dim_x1
                     tr_el_dim_x[1, column - 1] = tr_dim_x2
 
-        # self.transition_dim_x = tr_el_dim_x
         return tr_el_dim_x
 
     def assign_transition_dim_y(self):
@@ -2155,9 +2391,9 @@ class ElementSizeV1(MeshSize):
                              plate_id in plating_zone_IDs]
 
             for plate in plating_zones:
-                tr_dim_y1 = self.tr_element_size_plating_zone(plate, 1)[1]
-                tr_dim_y2 = self.tr_element_size_plating_zone(plate, 2)[1]
-
+                # tr_dim_y1 = self.tr_element_size_plating_zone(plate, 1)[1]
+                # tr_dim_y2 = self.tr_element_size_plating_zone(plate, 2)[1]
+                tr_dim_y1, tr_dim_y2 = self.transition_dim_y(plate)
                 if plate.stiff_dir == BeamDirection.LONGITUDINAL:
                     tr_el_dim_y[0, row - 1] = tr_dim_y1
                     tr_el_dim_y[1, row - 1] = tr_dim_y2
@@ -2166,19 +2402,7 @@ class ElementSizeV1(MeshSize):
                     tr_el_dim_y[0, row - 1] = tr_dim_y1
                     tr_el_dim_y[1, row - 1] = tr_dim_y2
 
-        # self.transition_dim_y = tr_el_dim_y
         return tr_el_dim_y
-
-    def calc_element_transition_size_mesh(self):
-        """
-        Method for global consideration of transition element mesh dimensions
-        specific to mesh variant V1
-
-        :return: Saves calculated transition element dimension to
-        transition_dim_x, transition_dim_y.
-        """
-        self.assign_transition_dim_x()
-        self.assign_transition_dim_y()
 
     def get_tr_dim_x(self, plate: Plate):
         """
@@ -2420,9 +2644,6 @@ class ElementSizeV2(MeshSize):
         """
         super().__init__(mesh_extent)
 
-    def calc_element_transition_size_mesh(self):
-        pass
-
 
 class PlateMesh:
     def __init__(self, mesh_size: MeshSize, plate: Plate, split_along=AOS.NONE):
@@ -2470,6 +2691,15 @@ class PlateMesh:
         """
         beam_prop_id = self._plate.stiff_layout.beam_prop.id
         fem_prop_id = fem.stiff_beam_prop_IDs[beam_prop_id]
+        return fem_prop_id
+
+    def get_half_stiffener_beam_property(self, fem: GeoGrillageFEM):
+        """
+        :return: Beam element GeoFEM property ID used for stiffeners located on
+            Axis Of Symmetry.
+        """
+        beam_prop_id = self._plate.stiff_layout.beam_prop.id
+        fem_prop_id = fem.half_stiff_beam_prop_IDs[beam_prop_id]
         return fem_prop_id
 
     @staticmethod
@@ -2566,10 +2796,12 @@ class PlateMesh:
             the reference node ID array. Returns a list of row or column
             indexes in the reference node ID array for beam element generation.
         """
+        stiff_num = self._plate.get_stiffener_number()
         stiff_spacing = self._plate.get_stiffener_spacing() * 1000
         stiff_offset = self._plate.get_equal_stiffener_offset() * 1000
         id_list = []
         dist = 0
+        stiff_counter = 0
         spacing = stiff_spacing
         if self._plate.stiff_dir == BeamDirection.TRANSVERSE:
             edge_nodes = self._edge_nodes_x.items()
@@ -2581,9 +2813,14 @@ class PlateMesh:
             dist += val
             if np.isclose(dist, stiff_offset):
                 id_list.append(key)
+                stiff_counter += 1
             if np.isclose(dist, stiff_offset + spacing):
+                if stiff_counter == stiff_num:
+                    break
                 spacing += stiff_spacing
                 id_list.append(key)
+                stiff_counter += 1
+
         return id_list
 
     def generate_beam_elements(self, fem: GeoGrillageFEM):
@@ -2598,26 +2835,33 @@ class PlateMesh:
         node_id_array = self.reference_node_ID_array(start_id, row_limit, column_limit)
         stiff_dir = self._plate.stiff_dir
         prop_id = self.get_stiffener_beam_property(fem)
+        aos_on_stiff = self._mesh_size.mesh_extent.aos_on_stiffener(self._plate)
 
         stiff_id = 1
         node_id_index_list = self.identify_beam_nodes()
         id_el_nodes = [None] * 2
-        stiff_dir_vector = np.array([0, 0, -1])
+        dir_vector = np.array([0, 0, -1])
+
         if stiff_dir == BeamDirection.LONGITUDINAL:
             for index in node_id_index_list:
+                if index == len(node_id_index_list) + 1 and aos_on_stiff:
+                    prop_id = self.get_half_stiffener_beam_property(fem)
                 stiff_id += 1
+
                 for i in range(0, column_limit - 1):
                     id_el_nodes[0] = node_id_array[index, i]
                     id_el_nodes[1] = node_id_array[index, i + 1]
-                    fem.add_beam_element(prop_id, id_el_nodes, stiff_dir_vector)
-
+                    fem.add_beam_element(prop_id, id_el_nodes, dir_vector)
         else:
             for index in node_id_index_list:
+                if index == len(node_id_index_list) + 1 and aos_on_stiff:
+                    prop_id = self.get_half_stiffener_beam_property(fem)
                 stiff_id += 1
+
                 for i in range(0, row_limit - 1):
                     id_el_nodes[0] = node_id_array[i, index]
                     id_el_nodes[1] = node_id_array[i + 1, index]
-                    fem.add_beam_element(prop_id, id_el_nodes, stiff_dir_vector)
+                    fem.add_beam_element(prop_id, id_el_nodes, dir_vector)
 
     def generate_mesh(self, fem: GeoGrillageFEM):
         """
@@ -3230,6 +3474,7 @@ class GrillageMesh:
         self._mesh_extent.generate_FEM_material(fem)
         self._mesh_extent.generate_FEM_plate_property(fem)
         self._mesh_extent.generate_FEM_beam_property(fem)
+        self._mesh_extent.generate_half_FEM_beam_property(fem)
 
     def generate_plate_mesh(self, fem: GeoGrillageFEM):
         for plate in self._mesh_extent.full_plate_zones.values():

@@ -24,7 +24,7 @@ print("Testing FE mesh for grillage variant", hc_var)
 extents = MeshExtent(hc_variant)                # Calculate mesh extents with automatic Axis of Symmetry discovery
 
 test_mesh_size = ElementSizeV1(extents)      # Calculate mesh dimensions for mesh variant V1
-# test_mesh = ElementSizeV2(extents)     # Calculate mesh dimensions for mesh variant V2
+# test_mesh_size = ElementSizeV2(extents)     # Calculate mesh dimensions for mesh variant V2
 
 # Mesh Control
 test_mesh_size.min_num_ebs = 1               # Minimum number of elements between stiffeners; default = 1
@@ -43,9 +43,10 @@ def generate_test_mesh():
     grillage_test_mesh = gm_test.generate_grillage_mesh_v1("test_mesh")
     grillage_test_mesh.merge_coincident_nodes()
     grillage_test_mesh.merge_coincident_elements()
-    # grillage_test_mesh.full_model_node_overlap_check()
     end = timer()
     print("Mesh generation time:", end - start, "s")
+    # grillage_test_mesh.full_model_node_overlap_check()
+
     return grillage_test_mesh
 
 
@@ -55,8 +56,8 @@ def Test_calculate_mesh_dimensions():
         dim_x = test_mesh_size.plate_edge_node_spacing_x(plate)
         dim_y = test_mesh_size.plate_edge_node_spacing_y(plate)
         print("Plating zone ID", plate.id, ":")
-        print(" Distance between edge nodes (dim_x):", dim_x)
-        print(" Distance between edge nodes (dim_y):", dim_y)
+        print(" Distance between plating edge nodes (dim_x):", dim_x)
+        print(" Distance between plating edge nodes (dim_y):", dim_y)
 
 
 def Test_GeoFEM_T_L_beam_property(grillage_test_mesh):
@@ -70,6 +71,8 @@ def Test_GeoFEM_T_L_beam_property(grillage_test_mesh):
             print(prop.id, prop.name, prop.material.name)
             print("   ", "Iy =", prop.Iy, "mm4")
             print("   ",  "A =", prop.area, "mm2")
+            print("   ",  "z_na =", prop.z_na, "mm2")
+
             for descriptor in range(0, num_vals):
                 print("   ", prop.get_desc_names()[descriptor], "=", prop.descriptors[descriptor])
 
@@ -78,6 +81,7 @@ def Test_current():
     start = timer()
     grillage_test_mesh = gm_test.generate_grillage_mesh_v1("test_mesh")
     grillage_test_mesh.merge_coincident_nodes()
+    grillage_test_mesh.identify_plating_nodes()
     # grillage_test_mesh.check_node_overlap_np()
     # grillage_test_mesh.check_node_overlap()
     # grillage_test_mesh.full_model_node_overlap_check()
@@ -87,6 +91,42 @@ def Test_current():
 
     end = timer()
     print("Mesh generation time:", end - start, "s")
+
+
+def Test_MeshVariant_V2_basesize():
+    test_mesh_size.mesh_extent.grillage_mesh_extent()
+    test_mesh_size.calc_element_base_size_mesh()
+
+    for plate in extents.all_plating_zones.values():
+        dim_x = test_mesh_size.get_base_dim_x(plate)
+        dim_y = test_mesh_size.get_base_dim_y(plate)
+        print("Zona oplate ID:", plate.id, ",   dim_x =", "{:.2f}".format(dim_x), "mm", ",   dim_y =", "{:.2f}".format(dim_y), "mm")
+
+
+def Test_MeshVariant_V2_transition():
+    test_mesh_size.mesh_extent.grillage_mesh_extent()
+    test_mesh_size.calc_element_base_size_mesh()
+
+    for plate in extents.all_plating_zones.values():
+        for segment_id in range(1, 3):
+            transition_dims = test_mesh_size.tr_element_size_plating_zone(plate, segment_id)
+            print("Dimenzije prijelaznog elemenata na zoni oplate", plate.id, "uz segment", segment_id, ":", transition_dims)
+        print("NOVO:")
+        dimx1, dimx2 = test_mesh_size.transition_dim_x(plate)
+        dimy1, dimy2 = test_mesh_size.transition_dim_y(plate)
+        print("   ", dimx1, dimx2, dimy1, dimy2)
+
+    #     spacing_x = plate_edge_node_spacing_x()
+    #     dim_y = test_mesh_size.get_base_dim_y(plate)
+    #     print("Zona oplate ID:", plate.id, ",   dim_x =", "{:.2f}".format(dim_x), "mm", ",   dim_y =", "{:.2f}".format(dim_y), "mm")
+
+
+def TestFullModelOverlap():
+    start = timer()
+    grillage_test_mesh = gm_test.generate_grillage_mesh_v1("test_mesh")
+    grillage_test_mesh.full_model_node_overlap_check()
+    end = timer()
+    print("Full model overlap check time:", end - start, "s")
 
 
 def Test_get_reduced_plate_dim(plate_id):

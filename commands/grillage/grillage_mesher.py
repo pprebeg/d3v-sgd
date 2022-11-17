@@ -4148,7 +4148,7 @@ class GrillageMesh:
         fem = GeoGrillageFEM(name)
         self._mesh_size.calculate_mesh_dimensions()
         self.generate_FEM_property(fem)
-        #self.generate_plate_mesh(fem)
+        self.generate_plate_mesh(fem)
         self.generate_psm_mesh_V2(fem)
         print("Mesh generation complete.")
         return fem

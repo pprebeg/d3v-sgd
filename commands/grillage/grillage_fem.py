@@ -86,6 +86,16 @@ class GeoGrillageFEM (GeoFEM):
         self.add_element(elem, idProp, nodeIds)
         return elem
 
+    def add_tria_element(self, idProp, nodeIds):
+        """
+        Add generated triangle element to FEM model.
+        :param idProp:
+        :param nodeIds:
+        """
+        elem = TriaElement()
+        self.add_element(elem, idProp, nodeIds)
+        return elem
+
     def add_beam_element(self, idProp, nodeIds, vect_orient):
         """
         Add generated beam elemenet to FEM model.
@@ -271,8 +281,8 @@ class GeoGrillageFEM (GeoFEM):
             identify node overlaps instead of for loops.
         """
         print("Starting coincident node check...")
-        # nodes_dict = self.nodes.values()                  # Nije puno sporije!
-        nodes_dict = self.initial_node_overlaps.values()
+        nodes_dict = self.nodes.values()                  # Nije puno sporije!
+        # nodes_dict = self.initial_node_overlaps.values()
         coords = [node.p for node in nodes_dict]
         id_list = [node.id for node in nodes_dict]
 
@@ -412,7 +422,8 @@ class GeoGrillageFEM (GeoFEM):
 
     def check_element_overlap(self):
         overlap_array = []
-        element_dict = self.flange_element_overlaps
+        # element_dict = self.flange_element_overlaps
+        element_dict = self.elements
         element_combos = itertools.combinations(element_dict.keys(), 2)
         for elements in element_combos:
             element_1_id, element_2_id = elements

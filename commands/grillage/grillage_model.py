@@ -2129,35 +2129,86 @@ class Grillage:
 
         return identified_segments_set
 
-    def get_segments_at_intersection(self, member1: PrimarySuppMem,
-                                     member2: PrimarySuppMem):
+    def get_long_segments_at_intersection(self, member1: PrimarySuppMem,
+                                          member2: PrimarySuppMem):
         """
         :param member1: First primary supporting member.
         :param member2: Second primary supporting member.
-        :return: List of longitudinal and transverse segments connected at the
-            intersection of two given primary supporting members. One of the
-            primary supporting members has to be longitudinal and the other
-            transverse.
+        :return: List of longitudinal segments connected at the intersection of
+            two given primary supporting members.
         """
         node1, node2 = member1.end_nodes
         node3, node4 = member2.end_nodes
         intersection = self.get_intersection(node1, node2, node3, node4)
         long_segments = []
-        tran_segments = []
-
         for member in self.longitudinal_members().values():
             for segment in member.segments:
                 end1, end2 = self.get_segment_nodes(segment)
                 if np.allclose(intersection, end1) or np.allclose(intersection, end2):
                     long_segments.append(segment)
+        return long_segments
 
+    def get_tran_segments_at_intersection(self, member1: PrimarySuppMem,
+                                          member2: PrimarySuppMem):
+        """
+        :param member1: First primary supporting member.
+        :param member2: Second primary supporting member.
+        :return: List of transverse segments connected at the intersection of
+            two given primary supporting members.
+        """
+        node1, node2 = member1.end_nodes
+        node3, node4 = member2.end_nodes
+        intersection = self.get_intersection(node1, node2, node3, node4)
+        tran_segments = []
         for member in self.transverse_members().values():
             for segment in member.segments:
                 end1, end2 = self.get_segment_nodes(segment)
                 if np.allclose(intersection, end1) or np.allclose(intersection, end2):
                     tran_segments.append(segment)
+        return tran_segments
 
-        return long_segments, tran_segments
+    def central_segment(self, segment: Segment):
+        """
+        :param segment: Selected segment.
+        :return: Checks if the selected segment is in the middle of the grillage
+            model for case of even number od primary supporting members in the
+            perpendicular direction to the selected segment.
+        """
+        psm = segment.primary_supp_mem
+        psm_dir = psm.direction
+
+        middle_long_segment_ID = np.ceil((self.N_transverse - 1) / 2)
+        middle_tran_segment_ID = np.ceil((self.N_longitudinal - 1) / 2)
+        if psm_dir is BeamDirection.LONGITUDINAL and\
+                np.mod(self.N_transverse, 2) == 0 and\
+                segment.id == middle_long_segment_ID:
+            return True
+
+        elif psm_dir is BeamDirection.TRANSVERSE and\
+                np.mod(self.N_longitudinal, 2) == 0 and\
+                segment.id == middle_tran_segment_ID:
+            return True
+        else:
+            return False
+
+    def get_perpendicular_segments(self, segment: Segment):
+        """
+        :param segment: Selected segment.
+        :return: Lists of segments perpendicular to the selected segment and
+            connected to it at both ends. Returns lists of segments at both ends.
+            Segments at end_1 are closer to the global coordinate system origin.
+        """
+        psm = segment.primary_supp_mem
+        cross1 = segment.cross_member1
+        cross2 = segment.cross_member2
+
+        if psm.direction == BeamDirection.LONGITUDINAL:
+            end_1 = self.get_tran_segments_at_intersection(psm, cross1)
+            end_2 = self.get_tran_segments_at_intersection(psm, cross2)
+        else:
+            end_1 = self.get_long_segments_at_intersection(psm, cross1)
+            end_2 = self.get_long_segments_at_intersection(psm, cross2)
+        return end_1, end_2
 
     def get_long_intersect_flange_width(self, member1: PrimarySuppMem, member2: PrimarySuppMem):
         """
@@ -2166,7 +2217,7 @@ class Grillage:
         :return: Method returns maximum net flange width of longitudinal segments
             connected at intersection of two primary supporting members.
         """
-        long_segments = self.get_segments_at_intersection(member1, member2)[0]
+        long_segments = self.get_long_segments_at_intersection(member1, member2)
         bf1 = long_segments[0].beam_prop.bf_net(self.corrosion_addition()[1])
         bf2 = 0
         if len(long_segments) > 1:
@@ -2180,7 +2231,7 @@ class Grillage:
         :return: Method returns maximum net flange width of transverse segments
             connected at intersection of two primary supporting members.
         """
-        tran_segments = self.get_segments_at_intersection(member1, member2)[1]
+        tran_segments = self.get_tran_segments_at_intersection(member1, member2)
         bf1 = tran_segments[0].beam_prop.bf_net(self.corrosion_addition()[1])
         bf2 = 0
         if len(tran_segments) > 1:

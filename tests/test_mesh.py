@@ -23,8 +23,8 @@ print("Testing FE mesh for grillage variant", hc_var)
 # extents = MeshExtent(hc_variant, AOS.NONE)    # Calculate mesh extents with Axis of Symmetry override
 extents = MeshExtent(hc_variant)                # Calculate mesh extents with automatic Axis of Symmetry discovery
 
-test_mesh_size = ElementSizeV1(extents)      # Calculate mesh dimensions for mesh variant V1
-# test_mesh_size = ElementSizeV2(extents)     # Calculate mesh dimensions for mesh variant V2
+# test_mesh_size = ElementSizeV1(extents)      # Calculate mesh dimensions for mesh variant V1
+test_mesh_size = ElementSizeV2(extents)     # Calculate mesh dimensions for mesh variant V2
 
 # Mesh Control
 test_mesh_size.min_num_ebs = 1               # Minimum number of elements between stiffeners; default = 1
@@ -38,15 +38,48 @@ gm_test = GrillageMesh(test_mesh_size)
 # grillage_test_mesh = gm_test.generate_grillage_mesh_v1("test_mesh")
 
 
-def generate_test_mesh():
+def generate_test_mesh_v1():
     start = timer()
-    grillage_test_mesh = gm_test.generate_grillage_mesh_v1("test_mesh")
+    mesh_v1 = ElementSizeV1(extents)  # Calculate mesh dimensions for mesh variant V2
+
+    # Mesh Control
+    mesh_v1.min_num_ebs = 1  # Minimum number of elements between stiffeners; default = 1
+    mesh_v1.min_num_eweb = 3  # Minimum number of elements along psm web height; default = 3
+    mesh_v1.num_eaf = 1  # Number of elements across the psm flange; default = 1
+    mesh_v1.flange_aspect_ratio = 8  # Max flange aspect ratio; default = 8
+    mesh_v1.plate_aspect_ratio = 4  # Max plate aspect ratio; default = 4
+    mesh_v1.des_plate_aspect_ratio = 3  # Desired plate aspect ratio; default = 3
+    test_mesh_v1 = GrillageMesh(mesh_v1)
+
+    grillage_test_mesh = test_mesh_v1.generate_grillage_mesh_v1("test_mesh_v1")
     grillage_test_mesh.merge_coincident_nodes()
     grillage_test_mesh.merge_coincident_elements()
     end = timer()
     print("Mesh generation time:", end - start, "s")
     # grillage_test_mesh.full_model_node_overlap_check()
+    return grillage_test_mesh
 
+
+def generate_test_mesh_v2():
+    start = timer()
+    mesh_v2 = ElementSizeV2(extents)  # Calculate mesh dimensions for mesh variant V2
+
+    # Mesh Control
+    mesh_v2.min_num_ebs = 1  # Minimum number of elements between stiffeners; default = 1
+    mesh_v2.min_num_eweb = 3  # Minimum number of elements along psm web height; default = 3
+    mesh_v2.num_eaf = 1  # Number of elements across the psm flange; default = 1
+    mesh_v2.flange_aspect_ratio = 8  # Max flange aspect ratio; default = 8
+    mesh_v2.plate_aspect_ratio = 4  # Max plate aspect ratio; default = 4
+    mesh_v2.des_plate_aspect_ratio = 3  # Desired plate aspect ratio; default = 3
+    test_mesh_v2 = GrillageMesh(mesh_v2)
+
+    grillage_test_mesh = test_mesh_v2.generate_grillage_mesh_v2("test_mesh_v2")
+
+    grillage_test_mesh.merge_coincident_nodes()
+    grillage_test_mesh.merge_coincident_elements()
+    end = timer()
+    print("Mesh generation time:", end - start, "s")
+    # grillage_test_mesh.full_model_node_overlap_check()
     return grillage_test_mesh
 
 
@@ -107,19 +140,80 @@ def Test_MeshVariant_V2_transition():
     test_mesh_size.mesh_extent.grillage_mesh_extent()
     test_mesh_size.calc_element_base_size_mesh()
 
+    """
+    # TRANSITION DIM X,X; Y,Y
     for plate in extents.all_plating_zones.values():
-        for segment_id in range(1, 3):
-            transition_dims = test_mesh_size.tr_element_size_plating_zone(plate, segment_id)
-            print("Dimenzije prijelaznog elemenata na zoni oplate", plate.id, "uz segment", segment_id, ":", transition_dims)
-        print("NOVO:")
         dimx1, dimx2 = test_mesh_size.transition_dim_x(plate)
         dimy1, dimy2 = test_mesh_size.transition_dim_y(plate)
-        print("   ", dimx1, dimx2, dimy1, dimy2)
+        print("Dimenzije prijelaznog elemenata na zoni oplate", plate.id, "X:", dimx1, dimx2, ", Y:", dimy1, dimy2)
+    """
+    for plate in extents.all_plating_zones.values():
+        tr_dim_x = test_mesh_size.get_tr_dim_x(plate)
+        tr_dim_y = test_mesh_size.get_tr_dim_y(plate)
+        print("Dimenzije globalno usklađenog prijelaznog elemenata na zoni oplate", plate.id, "\n",
+              "X:", tr_dim_x, "\n", "Y:", tr_dim_y)
 
-    #     spacing_x = plate_edge_node_spacing_x()
-    #     dim_y = test_mesh_size.get_base_dim_y(plate)
-    #     print("Zona oplate ID:", plate.id, ",   dim_x =", "{:.2f}".format(dim_x), "mm", ",   dim_y =", "{:.2f}".format(dim_y), "mm")
+    # TRANSITION FLANGE ELEMENT DIMENSIONS
+    for segment in test_mesh_size.mesh_extent.all_segments.values():
+        fl_tr_1, fl_tr_2 = test_mesh_size.flange_transition_dim(segment)
+        num_end1, num_end2 = test_mesh_size.opposite_flange_element_num(segment)
+        psm_id = segment.primary_supp_mem.id
+        direct = segment.primary_supp_mem.direction.name
+        psm_type = segment.beam_prop.beam_type.name
+        print("Jaki", direct, psm_type, "nosač broj", psm_id, ", segmenta broj", segment.id,
+              " , dimenzije prijelaznih elemenata prirubnice:", fl_tr_1, fl_tr_2,
+              ", broj elemenata prirubnice:", num_end1, num_end2)
 
+
+    # OPPOSITE FLANGE WIDTH
+    print("\n", "OPPOSITE FLANGE WIDTH")
+    for segment in test_mesh_size.mesh_extent.all_segments.values():
+        bf_max1, bf_max2 = test_mesh_size.opposite_flange_width(segment)
+        psm_id = segment.primary_supp_mem.id
+        direct = segment.primary_supp_mem.direction.name
+        psm_type = segment.beam_prop.beam_type.name
+        is_central = hc_variant.central_segment(segment)
+        print("Jaki", direct, psm_type, "nosač broj", psm_id, ", segmenta broj", segment.id,
+              " , dimenzije:", bf_max1, bf_max2, ", na sredini:", is_central)
+
+def Test_MeshVariant_V2_element_number():
+    test_mesh_size.mesh_extent.grillage_mesh_extent()
+    test_mesh_size.calc_element_base_size_mesh()
+    """
+    print("**** BROJ ELEMENATA NA OPLATI ****")
+    for plate in extents.all_plating_zones.values():
+        n_x, n_y = test_mesh_size.get_base_element_number(plate)
+
+        print("Zona oplate:", plate.id, "Broj elemenata osnovnih dimenzija po x:", n_x, ", po y:", n_y)
+
+        ldim = test_mesh_size.get_long_split_element_num(plate)
+        tdim = test_mesh_size.get_tran_split_element_num(plate)
+        print(" Uzdužna os simeterije prolazi između ukrepa, siječe broj elemenata na pola", ldim)
+        print(" Poprečna os simeterije prolazi između ukrepa, siječe broj elemenata na pola", tdim)
+    """
+
+    print("\n", "**** BROJ ELEMENATA NA PRIRUBNICI ****")
+    for segment in test_mesh_size.mesh_extent.all_segments.values():
+        psm_id = segment.primary_supp_mem.id
+        direct = segment.primary_supp_mem.direction.name
+        psm_type = segment.beam_prop.beam_type.name
+        base_dim_num = test_mesh_size.flange_base_element_num(segment)
+        flange_tr_num = test_mesh_size.get_flange_transition_num(segment)
+        print("Jaki", direct, psm_type, "nosač broj", psm_id, ", segmenta broj", segment.id,
+              " , broj elemenata osnovne mreže prirubnice:", base_dim_num,
+              ", broj prijelaznih elemenata:", flange_tr_num)
+
+
+def Test_MeshVariant_V2_flange_edge_nodes():
+    test_mesh_size.mesh_extent.grillage_mesh_extent()
+    test_mesh_size.calc_element_base_size_mesh()
+    for segment in test_mesh_size.mesh_extent.all_segments.values():
+        psm_id = segment.primary_supp_mem.id
+        direct = segment.primary_supp_mem.direction.name
+        psm_type = segment.beam_prop.beam_type.name
+        dims = test_mesh_size.flange_edge_node_spacing(segment)
+        print("Jaki", direct, psm_type, "nosač broj", psm_id, ", segmenta broj", segment.id,
+              " , dimenzije mreže prirubnice:", dims)
 
 def TestFullModelOverlap():
     start = timer()
@@ -598,7 +692,7 @@ def Test_generate_element_row(direction: BeamDirection, psm_id, segment_id):
 
     start_node_id = 1
     start_element_id = 101
-    SegmentMeshV2(test_mesh_size, segment, start_node_id, start_element_id).generate_element_row(1, start_element_id)
+    SegmentMeshV2(test_mesh_size, segment, start_node_id, start_element_id).tr_web_element_row(start_element_id)
 
 
 def Test_T_Profile_BeamProperty(hw, tw, bf, tf):

@@ -137,8 +137,11 @@ class SGDCommand(Command):
         actionGenerateFEM = self.menuAnalysis.addAction("&Generate FEM")
         actionGenerateFEM.triggered.connect(self.onGenerateFEM)
 
-        actionRunTest = self.menuMain.addAction("&Generate Test Mesh")
-        actionRunTest.triggered.connect(self.onActionGenerateTestMesh)
+        actionRunTest = self.menuMain.addAction("&Generate Test Mesh V1")
+        actionRunTest.triggered.connect(self.onActionGenerateTestMeshV1)
+
+        actionRunTest = self.menuMain.addAction("&Generate Test Mesh V2")
+        actionRunTest.triggered.connect(self.onActionGenerateTestMeshV2)
 
         actionRunTest = self.menuTests.addAction("&Calculate Mesh Dimensions")
         actionRunTest.triggered.connect(self.onActionCalculate_mesh_dimensions)
@@ -158,6 +161,12 @@ class SGDCommand(Command):
         actionRunTest = self.menuTests.addAction("&Test Mesh V2 transition mesh")
         actionRunTest.triggered.connect(self.onActionTestV2transition)
 
+        actionRunTest = self.menuTests.addAction("&Test Mesh V2 element numbers")
+        actionRunTest.triggered.connect(self.onActionTestV2elementNumber)
+
+        actionRunTest = self.menuTests.addAction("&Test Mesh V2 flange edge nodes")
+        actionRunTest.triggered.connect(self.onActionTestV2FlangeEdgeNodes)
+
         try:
             manager.selected_geometry_changed.connect(self.onSelectedGeometryChanged)
             manager.geometry_created.connect(self.onGeometryCreated)
@@ -167,32 +176,41 @@ class SGDCommand(Command):
             print('Unknown exception occurred during signals connection')
         self.mainwin.update()
 
-    def onActionGenerateTestMesh(self):
-        grill_fem = generate_test_mesh()
+    def onActionGenerateTestMeshV1(self):
+        grill_fem = generate_test_mesh_v1()
         grill_fem.regenerate()
         if grill_fem is not None:
             manager.add_geometry([grill_fem])
             manager.show_geometry([grill_fem])
         pass
 
+    def onActionGenerateTestMeshV2(self):
+        grill_fem = generate_test_mesh_v2()
+        grill_fem.regenerate()
+        if grill_fem is not None:
+            manager.add_geometry([grill_fem])
+            manager.show_geometry([grill_fem])
+        pass
+
+    # ******* RUN TESTS **********
     def onActionCalculate_mesh_dimensions(self):
         Test_calculate_mesh_dimensions()
-
     def onActionFullOverlapCheck(self):
         TestFullModelOverlap()
-
     def onActionTestProperty(self):
-        grill_fem = generate_test_mesh()
+        grill_fem = generate_test_mesh_v1()
         Test_GeoFEM_T_L_beam_property(grill_fem)
-
     def onActionCurrentTest(self):
         Test_current()
-
     def onActionTestV2basesize(self):
         Test_MeshVariant_V2_basesize()
-
     def onActionTestV2transition(self):
         Test_MeshVariant_V2_transition()
+    def onActionTestV2elementNumber(self):
+        Test_MeshVariant_V2_element_number()
+    def onActionTestV2FlangeEdgeNodes(self):
+        Test_MeshVariant_V2_flange_edge_nodes()
+
 
     def onGenerateFEM(self):
         QApplication.changeOverrideCursor(QCursor(Qt.WaitCursor))

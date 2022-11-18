@@ -20,8 +20,8 @@ filename = str("../grillage savefiles/hc_var_") + str(hc_var) + str("_savefile.g
 hc_variant = GrillageModelData(filename).read_file()
 print("Testing FE mesh for grillage variant", hc_var)
 
-# extents = MeshExtent(hc_variant, AOS.NONE)    # Calculate mesh extents with Axis of Symmetry override
-extents = MeshExtent(hc_variant)                # Calculate mesh extents with automatic Axis of Symmetry discovery
+extents = MeshExtent(hc_variant, AOS.NONE)    # Calculate mesh extents with Axis of Symmetry override
+# extents = MeshExtent(hc_variant)                # Calculate mesh extents with automatic Axis of Symmetry discovery
 
 # test_mesh_size = ElementSizeV1(extents)      # Calculate mesh dimensions for mesh variant V1
 test_mesh_size = ElementSizeV2(extents)     # Calculate mesh dimensions for mesh variant V2
@@ -46,7 +46,7 @@ def generate_test_mesh_v1():
     mesh_v1.min_num_ebs = 1  # Minimum number of elements between stiffeners; default = 1
     mesh_v1.min_num_eweb = 3  # Minimum number of elements along psm web height; default = 3
     mesh_v1.num_eaf = 1  # Number of elements across the psm flange; default = 1
-    mesh_v1.flange_aspect_ratio = 8  # Max flange aspect ratio; default = 8
+    mesh_v1.flange_aspect_ratio = 7  # Max flange aspect ratio; default = 8
     mesh_v1.plate_aspect_ratio = 4  # Max plate aspect ratio; default = 4
     mesh_v1.des_plate_aspect_ratio = 3  # Desired plate aspect ratio; default = 3
     test_mesh_v1 = GrillageMesh(mesh_v1)
@@ -70,7 +70,7 @@ def generate_test_mesh_v2():
     mesh_v2.num_eaf = 1  # Number of elements across the psm flange; default = 1
     mesh_v2.flange_aspect_ratio = 8  # Max flange aspect ratio; default = 8
     mesh_v2.plate_aspect_ratio = 4  # Max plate aspect ratio; default = 4
-    mesh_v2.des_plate_aspect_ratio = 3  # Desired plate aspect ratio; default = 3
+    mesh_v2.des_plate_aspect_ratio = 1  # Desired plate aspect ratio; default = 3
     test_mesh_v2 = GrillageMesh(mesh_v2)
 
     grillage_test_mesh = test_mesh_v2.generate_grillage_mesh_v2("test_mesh_v2")
@@ -183,7 +183,7 @@ def Test_MeshVariant_V2_transition():
 def Test_MeshVariant_V2_element_number():
     test_mesh_size.mesh_extent.grillage_mesh_extent()
     test_mesh_size.calc_element_base_size_mesh()
-    """
+
     print("**** BROJ ELEMENATA NA OPLATI ****")
     for plate in extents.all_plating_zones.values():
         n_x, n_y = test_mesh_size.get_base_element_number(plate)
@@ -194,7 +194,7 @@ def Test_MeshVariant_V2_element_number():
         tdim = test_mesh_size.get_tran_split_element_num(plate)
         print(" Uzdužna os simeterije prolazi između ukrepa, siječe broj elemenata na pola", ldim)
         print(" Poprečna os simeterije prolazi između ukrepa, siječe broj elemenata na pola", tdim)
-    """
+
 
     print("\n", "**** BROJ ELEMENATA NA PRIRUBNICI ****")
     counter = 1

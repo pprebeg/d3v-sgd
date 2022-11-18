@@ -521,7 +521,7 @@ class FBBeamProperty(TBeamProperty):
         self._hw = float(hw)  # Flat Bar height
         self._tw = float(tw)  # Flat Bar thickness
         self._bf = float(bf)  # Second plate attached plating width, default bf=0.0 as ordinary FB stiffner
-        self._tf = float(tf)  # Se  cond plate attached plating thickness, default tf=0.0 as ordinary FB stiffner
+        self._tf = float(tf)  # Second plate attached plating thickness, default tf=0.0 as ordinary FB stiffner
         self._mat = mat       # Material
 
     def get_Iw(self, corr_add: CorrosionAddition):  # Sectorial moment of inertia in [cm6]
@@ -2210,6 +2210,36 @@ class Grillage:
             end_2 = self.get_long_segments_at_intersection(psm, cross2)
         return end_1, end_2
 
+    @staticmethod
+    def get_parallel_segments(segment: Segment):
+        """
+        :param segment: Selected segment.
+        :return: Segments parallel to the selected segment and connected to it
+            at both ends. Returns segments at both ends.
+            Segment at end_1 is closer to the global coordinate system origin.
+        """
+        psm = segment.primary_supp_mem
+        n_seg = len(psm.segments)           # Number of segments on the PSM
+        seg_list_id = segment.id - 1        # Segment ID in the segments list
+
+        if segment.id == 1 and n_seg > 1:
+            end_1 = None
+            end_2 = psm.segments[seg_list_id + 1]
+
+        elif segment.id == n_seg and n_seg > 1:
+            end_1 = psm.segments[seg_list_id - 1]
+            end_2 = None
+
+        elif segment.id == 1 and n_seg == 1:
+            end_1 = None
+            end_2 = None
+
+        else:
+            end_1 = psm.segments[seg_list_id - 1]
+            end_2 = psm.segments[seg_list_id + 1]
+
+        return end_1, end_2
+
     def get_long_intersect_flange_width(self, member1: PrimarySuppMem, member2: PrimarySuppMem):
         """
         :param member1: First primary supporting member.
@@ -2494,18 +2524,32 @@ class Grillage:
             symmetric_segment_2.beam_prop = beam_property
             symmetric_segment_3.beam_prop = beam_property
 
+    def set_tran_symm_segment_beam_property(self, prim_supp_member_id: int, segment_id: int, beam_property: BeamProperty):
         """
-        segment = self._longitudinal_memb[prim_supp_member_id].segments[segment_id - 1]
-        symmetric_member = self._longitudinal_memb[prim_supp_member_id].symmetric_member
-        symmetric_segment_1 = segment.symmetric_segment
-        symmetric_segment_2 = symmetric_member.segments[segment_id - 1]
-        symmetric_segment_3 = symmetric_segment_2.symmetric_segment
+        :param prim_supp_member_id: ID of a Primary Supporting Member the Segment belongs to.
+        :param segment_id: ID of the Segment to have beam property changed. Segments of all Primary Supporting Members are
+                enumerated starting from 1, in the direction of the global x (longitudinal) or y (transverse) axis.
+        :param beam_property: Beam property to be assigned to the selected segment and its symmetric segmenets.
+        :return: Changes all symmetric Segment beam properties belonging to the selected (prim_supp_member_id) and symmetric
+                Primary Supporting Member.
+        """
+        segment = self._transverse_memb[prim_supp_member_id].segments[segment_id - 1]
+        symmetric_member = self._transverse_memb[prim_supp_member_id].symmetric_member
 
-        segment.beam_prop = beam_property
-        symmetric_segment_1.beam_prop = beam_property
-        symmetric_segment_2.beam_prop = beam_property
-        symmetric_segment_3.beam_prop = beam_property
-        """
+        if symmetric_member is None:
+            symmetric_segment_1 = segment.symmetric_segment
+            segment.beam_prop = beam_property
+            symmetric_segment_1.beam_prop = beam_property
+
+        else:
+            symmetric_segment_1 = segment.symmetric_segment
+            symmetric_segment_2 = symmetric_member.segments[segment_id - 1]
+            symmetric_segment_3 = symmetric_segment_2.symmetric_segment
+
+            segment.beam_prop = beam_property
+            symmetric_segment_1.beam_prop = beam_property
+            symmetric_segment_2.beam_prop = beam_property
+            symmetric_segment_3.beam_prop = beam_property
 
     def set_long_member_beam_property(self, prim_supp_member_id: int, beam_property: BeamProperty):
         """

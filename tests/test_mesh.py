@@ -147,13 +147,15 @@ def Test_MeshVariant_V2_transition():
         dimy1, dimy2 = test_mesh_size.transition_dim_y(plate)
         print("Dimenzije prijelaznog elemenata na zoni oplate", plate.id, "X:", dimx1, dimx2, ", Y:", dimy1, dimy2)
     """
+    """
     for plate in extents.all_plating_zones.values():
         tr_dim_x = test_mesh_size.get_tr_dim_x(plate)
         tr_dim_y = test_mesh_size.get_tr_dim_y(plate)
         print("Dimenzije globalno usklađenog prijelaznog elemenata na zoni oplate", plate.id, "\n",
               "X:", tr_dim_x, "\n", "Y:", tr_dim_y)
-
+    """
     # TRANSITION FLANGE ELEMENT DIMENSIONS
+
     for segment in test_mesh_size.mesh_extent.all_segments.values():
         fl_tr_1, fl_tr_2 = test_mesh_size.flange_transition_dim(segment)
         num_end1, num_end2 = test_mesh_size.opposite_flange_element_num(segment)
@@ -166,6 +168,7 @@ def Test_MeshVariant_V2_transition():
 
 
     # OPPOSITE FLANGE WIDTH
+    """
     print("\n", "OPPOSITE FLANGE WIDTH")
     for segment in test_mesh_size.mesh_extent.all_segments.values():
         bf_max1, bf_max2 = test_mesh_size.opposite_flange_width(segment)
@@ -175,6 +178,7 @@ def Test_MeshVariant_V2_transition():
         is_central = hc_variant.central_segment(segment)
         print("Jaki", direct, psm_type, "nosač broj", psm_id, ", segmenta broj", segment.id,
               " , dimenzije:", bf_max1, bf_max2, ", na sredini:", is_central)
+    """
 
 def Test_MeshVariant_V2_element_number():
     test_mesh_size.mesh_extent.grillage_mesh_extent()
@@ -193,15 +197,19 @@ def Test_MeshVariant_V2_element_number():
     """
 
     print("\n", "**** BROJ ELEMENATA NA PRIRUBNICI ****")
+    counter = 1
     for segment in test_mesh_size.mesh_extent.all_segments.values():
         psm_id = segment.primary_supp_mem.id
         direct = segment.primary_supp_mem.direction.name
         psm_type = segment.beam_prop.beam_type.name
         base_dim_num = test_mesh_size.flange_base_element_num(segment)
         flange_tr_num = test_mesh_size.get_flange_transition_num(segment)
-        print("Jaki", direct, psm_type, "nosač broj", psm_id, ", segmenta broj", segment.id,
-              " , broj elemenata osnovne mreže prirubnice:", base_dim_num,
-              ", broj prijelaznih elemenata:", flange_tr_num)
+        tri1, tri2 = test_mesh_size.opposite_flange_element_num(segment)
+        print(counter, ".   Jaki", direct, psm_type, "nosač broj", psm_id, ", segment broj", segment.id,
+              " , osnovne mreže :", base_dim_num,
+              ", prijelaznih elemenata:", flange_tr_num,
+              ", trokuta:", tri1, tri2)
+        counter += 1
 
 
 def Test_MeshVariant_V2_flange_edge_nodes():

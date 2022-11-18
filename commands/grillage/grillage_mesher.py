@@ -1623,6 +1623,60 @@ class MeshSize:
         elif segment.beam_prop.beam_type == BeamType.FB:
             return 0
 
+    def get_end1_max_flange_width(self, segment: Segment):
+        beam_type = segment.beam_prop.beam_type
+        corr_add = self._grillage.corrosion_addition()[1]
+        eaf = self.num_eaf
+        if beam_type is BeamType.T:
+            self_bf_net = segment.beam_prop.bf_net(corr_add) / (eaf + 1)
+        elif beam_type is BeamType.L:
+            self_bf_net = segment.beam_prop.bf_net(corr_add) / eaf
+        else:
+            self_bf_net = 0
+
+        seg_end1 = self._grillage.get_parallel_segments(segment)[0]
+
+        if seg_end1:
+            end1_type = seg_end1.beam_prop.beam_type
+            if end1_type is BeamType.T:
+                end1_bf_net = seg_end1.beam_prop.bf_net(corr_add) / (eaf + 1)
+            elif end1_type is BeamType.L:
+                end1_bf_net = seg_end1.beam_prop.bf_net(corr_add) / eaf
+            else:
+                end1_bf_net = 0
+        else:
+            end1_bf_net = 0
+
+        bf_net = np.amax([self_bf_net, end1_bf_net])
+        return bf_net
+
+    def get_end2_max_flange_width(self, segment: Segment):
+        beam_type = segment.beam_prop.beam_type
+        corr_add = self._grillage.corrosion_addition()[1]
+        eaf = self.num_eaf
+        if beam_type is BeamType.T:
+            self_bf_net = segment.beam_prop.bf_net(corr_add) / (eaf + 1)
+        elif beam_type is BeamType.L:
+            self_bf_net = segment.beam_prop.bf_net(corr_add) / eaf
+        else:
+            self_bf_net = 0
+
+        seg_end2 = self._grillage.get_parallel_segments(segment)[1]
+
+        if seg_end2:
+            end2_type = seg_end2.beam_prop.beam_type
+            if end2_type is BeamType.T:
+                end2_bf_net = seg_end2.beam_prop.bf_net(corr_add) / (eaf + 1)
+            elif end2_type is BeamType.L:
+                end2_bf_net = seg_end2.beam_prop.bf_net(corr_add) / eaf
+            else:
+                end2_bf_net = 0
+        else:
+            end2_bf_net = 0
+
+        bf_net = np.amax([self_bf_net, end2_bf_net])
+        return bf_net
+
     def get_flange_el_length(self, segment: Segment):
         """
         :param segment: Segment of a primary supporting member.
@@ -2277,29 +2331,27 @@ class MeshSize:
 
         # End 1
         if flange_dir1 is FlangeDirection.INWARD \
-                and len(l_beam_at_end1) == 2\
+                and any(l_beam_at_end1) and not t_beam_at_end1 \
                 and segment_at_end1.primary_supp_mem.rel_dist > 0.5\
                 and not central_segment:
             bf_max1 = 0
 
         if flange_dir1 is FlangeDirection.OUTWARD \
-                and len(l_beam_at_end1) == 1\
-                and (segment_at_end1.primary_supp_mem.rel_dist == 0
-                     or segment_at_end1.primary_supp_mem.rel_dist == 1)\
+                and any(l_beam_at_end1) and not t_beam_at_end1 \
+                and segment_at_end1.primary_supp_mem.rel_dist < 0.5 \
                 and not central_segment:
             bf_max1 = 0
 
         # End 2
         if flange_dir2 is FlangeDirection.INWARD \
-                and len(l_beam_at_end2) == 2\
+                and any(l_beam_at_end2) and not t_beam_at_end2 \
                 and segment_at_end2.primary_supp_mem.rel_dist < 0.5 \
                 and not central_segment:
             bf_max2 = 0
 
         if flange_dir2 is FlangeDirection.OUTWARD \
-                and len(l_beam_at_end2) == 1\
-                and (segment_at_end2.primary_supp_mem.rel_dist == 0
-                     or segment_at_end2.primary_supp_mem.rel_dist == 1)\
+                and any(l_beam_at_end2) and not t_beam_at_end2 \
+                and segment_at_end2.primary_supp_mem.rel_dist > 0.5 \
                 and not central_segment:
             bf_max2 = 0
 
@@ -2332,49 +2384,50 @@ class MeshSize:
         fl_el_width_1, fl_el_width_2 = self.opposite_flange_width(segment)
         plate_list = self._grillage.segment_common_plates(segment)
         plate = plate_list[0]
-        n_dim_x, n_dim_y = self.get_base_element_number(plate)
 
         if direction == BeamDirection.LONGITUDINAL:
             base_dim = self.get_base_dim_x(plate)
             perp_base_dim = self.get_base_dim_y(plate)
-            tr_el_dim_1, tr_el_dim_2 = self.get_tr_dim_x(plate)
-            n_base = n_dim_x
+            plate_tr_dim_1, plate_tr_dim_2 = self.get_tr_dim_x(plate)
         else:
             base_dim = self.get_base_dim_y(plate)
             perp_base_dim = self.get_base_dim_x(plate)
-            tr_el_dim_1, tr_el_dim_2 = self.get_tr_dim_y(plate)
-            n_base = n_dim_y
+            plate_tr_dim_1, plate_tr_dim_2 = self.get_tr_dim_y(plate)
 
-        if tr_el_dim_1 != 0:
-            remaining_dist1 = tr_el_dim_1 - fl_el_width_1
+        if plate_tr_dim_1 != 0:
+            remaining_dist1 = plate_tr_dim_1 - fl_el_width_1
         else:
             remaining_dist1 = base_dim - fl_el_width_1
 
-        if tr_el_dim_2 != 0:
-            remaining_dist2 = tr_el_dim_2 - fl_el_width_2
+        if plate_tr_dim_2 != 0:
+            remaining_dist2 = plate_tr_dim_2 - fl_el_width_2
         else:
             remaining_dist2 = base_dim - fl_el_width_2
 
         n_elem1 = np.floor(remaining_dist1 / base_dim)
         n_elem2 = np.floor(remaining_dist2 / base_dim)
 
-        if n_elem1 == 0 and tr_el_dim_1 != 0:
-            fl_tr_1 = tr_el_dim_1 - fl_el_width_1
-        elif n_elem1 == 0 and tr_el_dim_1 == 0:
-            fl_tr_1 = base_dim - fl_el_width_1
-        elif n_elem1 != 0 and tr_el_dim_1 != 0:
-            fl_tr_1 = tr_el_dim_1 - n_elem1 * n_base - fl_el_width_1
+        if n_elem1 == 0:
+            if plate_tr_dim_1 == 0:
+                fl_tr_1 = base_dim - fl_el_width_1
+            else:
+                fl_tr_1 = plate_tr_dim_1 - fl_el_width_1
         else:
-            fl_tr_1 = n_elem1 * n_base - fl_el_width_1
+            if plate_tr_dim_1 != 0:
+                fl_tr_1 = plate_tr_dim_1 - n_elem1 * base_dim - fl_el_width_1
+            else:
+                fl_tr_1 = n_elem1 * base_dim - fl_el_width_1
 
-        if n_elem2 == 0 and tr_el_dim_2 != 0:
-            fl_tr_2 = tr_el_dim_2 - fl_el_width_2
-        elif n_elem2 == 0 and tr_el_dim_2 == 0:
-            fl_tr_2 = base_dim - fl_el_width_2
-        elif n_elem2 != 0 and tr_el_dim_2 != 0:
-            fl_tr_2 = tr_el_dim_2 - n_elem2 * n_base - fl_el_width_2
+        if n_elem2 == 0:
+            if plate_tr_dim_2 == 0:
+                fl_tr_2 = base_dim - fl_el_width_2
+            else:
+                fl_tr_2 = plate_tr_dim_2 - fl_el_width_2
         else:
-            fl_tr_2 = n_elem2 * n_base - fl_el_width_2
+            if plate_tr_dim_1 != 0:
+                fl_tr_2 = plate_tr_dim_2 - n_elem2 * base_dim - fl_el_width_2
+            else:
+                fl_tr_2 = n_elem2 * base_dim - fl_el_width_2
 
         if fl_tr_1 != 0:
             ar = self.element_aspect_ratio(fl_tr_1, perp_base_dim)
@@ -2384,7 +2437,7 @@ class MeshSize:
         if fl_tr_2 != 0:
             ar = self.element_aspect_ratio(fl_tr_2, perp_base_dim)
             if ar > self._flange_aspect_ratio and remaining_dist2 > base_dim:
-                fl_tr_1 += base_dim
+                fl_tr_2 += base_dim
 
         return fl_tr_1, fl_tr_2
 
@@ -2407,15 +2460,17 @@ class MeshSize:
 
         if direction == BeamDirection.LONGITUDINAL:
             base_dim = self.get_base_dim_x(plate)
+            split_num = self.get_tran_split_element_num(plate)
         else:
             base_dim = self.get_base_dim_y(plate)
+            split_num = self.get_long_split_element_num(plate)
 
         if segment in self.mesh_extent.half_segments.values():
             segment_len = segment_len / 2
             fl_tr_2 = 0
             fl_el_width_2 = 0
 
-        base_range = segment_len - fl_el_width_1 - fl_tr_1 - fl_tr_2 - fl_el_width_2
+        base_range = segment_len - fl_el_width_1 - fl_tr_1 - fl_tr_2 - fl_el_width_2 - split_num * base_dim * 0.5
         base_dim_num = np.round(base_range / base_dim)
         return base_dim_num
 
@@ -2841,9 +2896,9 @@ class ElementSizeV2(MeshSize):
         else:
             base_dim = self.get_base_dim_y(plate)
 
-        psm_id = segment.primary_supp_mem.id
-        direct = segment.primary_supp_mem.direction.name
-        psm_type = segment.beam_prop.beam_type.name
+        # psm_id = segment.primary_supp_mem.id
+        # direct = segment.primary_supp_mem.direction.name
+        # psm_type = segment.beam_prop.beam_type.name
         # print("Jaki", direct, psm_type, "nosač broj", psm_id, ", segmenta broj", segment.id,
         #       base_dim, base_el_num, ", flange tr numbers", tr_dim_1, tr_dim_2)
 
@@ -3061,24 +3116,24 @@ class PlateMesh:
         dir_vector = np.array([0, 0, -1])
 
         if stiff_dir == BeamDirection.LONGITUDINAL:
-            for index in node_id_index_list:
-                if index == len(node_id_index_list) + 1 and aos_on_stiff:
+            for index in range(0, len(node_id_index_list)):
+                if index == len(node_id_index_list) - 1 and aos_on_stiff:
                     prop_id = self.get_half_stiffener_beam_property(fem)
                 stiff_id += 1
 
                 for i in range(0, column_limit - 1):
-                    id_el_nodes[0] = node_id_array[index, i]
-                    id_el_nodes[1] = node_id_array[index, i + 1]
+                    id_el_nodes[0] = node_id_array[node_id_index_list[index], i]
+                    id_el_nodes[1] = node_id_array[node_id_index_list[index], i + 1]
                     fem.add_beam_element(prop_id, id_el_nodes, dir_vector)
         else:
-            for index in node_id_index_list:
-                if index == len(node_id_index_list) + 1 and aos_on_stiff:
+            for index in range(0, len(node_id_index_list)):
+                if index == len(node_id_index_list) - 1 and aos_on_stiff:
                     prop_id = self.get_half_stiffener_beam_property(fem)
                 stiff_id += 1
 
                 for i in range(0, row_limit - 1):
-                    id_el_nodes[0] = node_id_array[i, index]
-                    id_el_nodes[1] = node_id_array[i + 1, index]
+                    id_el_nodes[0] = node_id_array[i, node_id_index_list[index]]
+                    id_el_nodes[1] = node_id_array[i + 1, node_id_index_list[index]]
                     fem.add_beam_element(prop_id, id_el_nodes, dir_vector)
 
     def generate_mesh(self, fem: GeoGrillageFEM):
@@ -3606,7 +3661,6 @@ class SegmentMeshV2(SegmentMesh):
 
         if segment in self._mesh_size.mesh_extent.half_segments.values():
             n_tri2 = 0
-
         return n_tri1, n_tri2
 
     def generate_web_nodes(self, fem: GeoGrillageFEM):
@@ -3631,7 +3685,6 @@ class SegmentMeshV2(SegmentMesh):
         p_column_limit = int(len(plate_edge_nodes) + 1)   # Plate col limit
         f_column_limit = int(len(flange_edge_nodes) + 1)  # Flange col limit
         dim_z = self._mesh_size.get_web_el_height(self._segment)
-        eaf = self._mesh_size.num_eaf
         node_id = self._start_node_id
         ref_node1 = Segment.get_segment_node1(self._segment)
         ref_node2 = Segment.get_segment_node2(self._segment)
@@ -3640,7 +3693,6 @@ class SegmentMeshV2(SegmentMesh):
         perpendicular_vector = np.array((0, 0, -1))
         long_spacing_vector = np.zeros(3)
 
-        # print("ROW OD 0 DO p_row_limit", p_row_limit)
         for row in range(0, p_row_limit):
             vertical_spacing_vector = perpendicular_vector * dim_z * row
             long_dim_index = 1
@@ -3657,24 +3709,14 @@ class SegmentMeshV2(SegmentMesh):
 
                 node = fem.add_node(node_coords)
 
-                psm_id = self._segment.primary_supp_mem.id
-                direct = self._segment.primary_supp_mem.direction.name
-                psm_type = self._segment.beam_prop.beam_type.name
+                # psm_id = self._segment.primary_supp_mem.id
+                # direct = self._segment.primary_supp_mem.direction.name
+                # psm_type = self._segment.beam_prop.beam_type.name
                 # print("Jaki", direct, psm_type, "nosač broj", psm_id, ", segmenta broj", self._segment.id,
                 #       ", node ID struka:", node.id, ", koordinate:", node.p)
 
-                if row == 0:
-                    fem.add_node_to_node_overlaps(node)
-                if row == p_row_limit - 1 and column <= eaf + 1:
-                    fem.add_node_to_node_overlaps(node)
-                if row == p_row_limit - 1 and column >= p_column_limit - eaf - 1:
-                    fem.add_node_to_node_overlaps(node)
-                if column == 0 or column == p_column_limit - 1:
-                    fem.add_node_to_node_overlaps(node)
-
                 node_id += 1
 
-        # print("ROW OD p_row_limit DO p_row_limit + f_row_limit", p_row_limit, p_row_limit + f_row_limit)
         for row in range(p_row_limit, p_row_limit + f_row_limit):
             vertical_spacing_vector = perpendicular_vector * dim_z * row
             long_dim_index = 1
@@ -3691,18 +3733,11 @@ class SegmentMeshV2(SegmentMesh):
 
                 node = fem.add_node(node_coords)
 
-                psm_id = self._segment.primary_supp_mem.id
-                direct = self._segment.primary_supp_mem.direction.name
-                psm_type = self._segment.beam_prop.beam_type.name
+                # psm_id = self._segment.primary_supp_mem.id
+                # direct = self._segment.primary_supp_mem.direction.name
+                # psm_type = self._segment.beam_prop.beam_type.name
                 # print("Jaki", direct, psm_type, "nosač broj", psm_id, ", segmenta broj", self._segment.id,
                 #       ", node ID struka:", node.id, ", koordinate:", node.p)
-
-                if row == f_row_limit - 1 and column <= eaf + 1:
-                    fem.add_node_to_node_overlaps(node)
-                if row == f_row_limit - 1 and column >= p_column_limit - eaf - 1:
-                    fem.add_node_to_node_overlaps(node)
-                if column == 0 or column == f_column_limit - 1:
-                    fem.add_node_to_node_overlaps(node)
 
                 node_id += 1
 
@@ -3745,38 +3780,39 @@ class SegmentMeshV2(SegmentMesh):
         ref_vector = np.subtract(ref_node2, ref_node1)
         unit_ref_vector = ref_vector / np.linalg.norm(ref_vector)
 
-        width_spacing_vector = np.zeros(3)
         long_spacing_vector = np.zeros(3)
 
-        fl_el_width = self._mesh_size.get_flange_el_width(self._segment)
+        fl_el_dim = self._mesh_size.get_flange_el_width(self._segment)
+        fl_el_dim_end1 = self._mesh_size.get_end1_max_flange_width(self._segment)
+        fl_el_dim_end2 = self._mesh_size.get_end2_max_flange_width(self._segment)
         z_start_offset = ref_node1 * np.array((1, 1, 0))
-        width_offset = flange_unit_vector * fl_el_width * eaf
-        start_node = z_start_offset + width_offset
+        start_node = z_start_offset + flange_unit_vector * fl_el_dim
+        half_segments = self._mesh_size.mesh_extent.half_segments.values()
         node_id = flange_start_node
 
         for row in range(0, row_limit):
-            if row > 0:
-                width_spacing_vector -= flange_unit_vector * fl_el_width
-            else:
-                width_spacing_vector = np.zeros(3)
-
             dim_index = 1
             for column in range(0, column_limit):
+                if row > 0:
+                    width_spacing_vector = flange_unit_vector * fl_el_dim
+                else:
+                    width_spacing_vector = np.zeros(3)
+
                 if column > 0:
                     long_spacing_vector += mesh_dim[dim_index] * unit_ref_vector
                     dim_index += 1
                 else:
                     long_spacing_vector = np.zeros(3)
 
+                if column < 2:
+                    width_spacing_vector = flange_unit_vector * (fl_el_dim_end1 - fl_el_dim)
+
+                elif column > column_limit - 3 and self._segment not in half_segments:
+                    width_spacing_vector = flange_unit_vector * (fl_el_dim_end2 - fl_el_dim)
+
                 position_vector = long_spacing_vector + width_spacing_vector
                 node_coords = position_vector + start_node
                 node = fem.add_node(node_coords)
-
-                psm_id = self._segment.primary_supp_mem.id
-                direct = self._segment.primary_supp_mem.direction.name
-                psm_type = self._segment.beam_prop.beam_type.name
-                # print("Jaki", direct, psm_type, "nosač broj", psm_id, ", segmenta broj", self._segment.id,
-                #       ", node ID prirubnice:", node.id, ", koordinate:", node.p)
 
                 if column >= (column_limit - eaf - 1):
                     fem.add_node_to_node_overlaps(node)
@@ -3816,129 +3852,132 @@ class SegmentMeshV2(SegmentMesh):
                 local_id += 1
         return element_id
 
+    def add_first_quad_to_row(self, fem: GeoGrillageFEM, row1, row2, l_id, num):
+        """
+        :param fem: Grillage mesh.
+        :param row1: Input node ID list, upper row of nodes.
+        :param row2: Input node ID list, lower row of nodes.
+        :param l_id: Local ID of the element in the transition row.
+        :param num: Number of quad elements to be generated.
+        """
+        fem_prop_id = self.get_web_element_property_id(fem)
+        for quad_id in range(l_id, l_id + num):
+            node1 = row1[quad_id]
+            node2 = row1[quad_id + 1]
+            node3 = row2[quad_id + 1]
+            node4 = row2[quad_id]
+            node_id_list = [node1, node2, node3, node4]
+            elem = fem.add_quad_element(fem_prop_id, node_id_list)
+            # print("Quad (deformed, first), ID elementa:", elem.id, ", lista čvorova:", node_id_list)
+
+    def add_first_tria_to_row(self, fem: GeoGrillageFEM, row1, row2, local_id):
+        fem_prop_id = self.get_web_element_property_id(fem)
+        node1 = row1[local_id]
+        node2 = row2[local_id + 1]
+        node3 = row2[local_id]
+        node_id_list = [node1, node2, node3]
+        elem = fem.add_tria_element(fem_prop_id, node_id_list)
+        # print("Tria, ID elementa:", elem.id, ", lista čvorova:", node_id_list)
+
+    def add_second_tria_to_row(self, fem: GeoGrillageFEM, row1, row2, local_id):
+        # Triangle at ref node 2 (right) for n_tri1 == 1:
+        fem_prop_id = self.get_web_element_property_id(fem)
+        node1 = row1[local_id - 1]
+        node2 = row2[local_id + 1]
+        node3 = row2[local_id]
+        node_id_list = [node1, node2, node3]
+        elem = fem.add_tria_element(fem_prop_id, node_id_list)
+        # print("Tria, ID elementa:", elem.id, ", lista čvorova:", node_id_list)
+
+    def add_quad_after_tria(self, fem: GeoGrillageFEM, row1, row2, local_id, el_num):
+        # Central (non deformed) quad elements after a first tria element
+        fem_prop_id = self.get_web_element_property_id(fem)
+        for quad_id in range(local_id, local_id + el_num):
+            node1 = row1[quad_id - 1]
+            node2 = row1[quad_id]
+            node3 = row2[quad_id + 1]
+            node4 = row2[quad_id]
+            node_id_list = [node1, node2, node3, node4]
+            elem = fem.add_quad_element(fem_prop_id, node_id_list)
+            # print("Quad, ID elementa:", elem.id, ", lista čvorova:", node_id_list)
+
+    def add_last_quad_to_row(self, fem: GeoGrillageFEM, row1, row2, local_id, el_num):
+        # Last element: deformed quad for n_tria1 == 1
+        fem_prop_id = self.get_web_element_property_id(fem)
+        for quad_id in range(local_id, local_id + el_num):
+            node1 = row1[local_id - 2]
+            node2 = row1[local_id - 1]
+            node3 = row2[local_id + 1]
+            node4 = row2[local_id]
+            node_id_list = [node1, node2, node3, node4]
+            elem = fem.add_quad_element(fem_prop_id, node_id_list)
+            # print("Quad (deformed, last), ID elementa:", elem.id, ", lista čvorova:", node_id_list)
+
+    def add_def_quad_end2(self, fem: GeoGrillageFEM, row1, row2, local_id, el_num):
+        # Last element: deformed quad for
+        fem_prop_id = self.get_web_element_property_id(fem)
+        for quad_id in range(local_id, local_id + el_num):
+            node1 = row1[local_id - 1]
+            node2 = row1[local_id]
+            node3 = row2[local_id + 1]
+            node4 = row2[local_id]
+            node_id_list = [node1, node2, node3, node4]
+            elem = fem.add_quad_element(fem_prop_id, node_id_list)
+            # print("Quad (deformed, last), ID elementa:", elem.id, ", lista čvorova:", node_id_list)
+
     def tr_web_element_row(self, fem: GeoGrillageFEM, start_element_id):
         """
         :param fem:
         :param start_element_id: Starting element ID for the row.
         :return: Generates elements on the transition row using quads and tris.
 
-        Method generates elements on the selected row of elements for case when
-        there are triangle elements on both sides, because of segment flanges
-        on both sides.
+        Method generates elements on the segment transition web row.
+
+        plate_edge_nodes - input distances between plate nodes.
+        p_row_limit - number of node rows with plate edge node spacing.
+        ref_node_list - list of nodes on the selected segment for each row.
+        tr_row1 - input node ID list, upper row of nodes.
+        tr_row2 - input node ID list, lower row of nodes.
+        n_quad - number of quad elements at the plating.
+        n_tri1, n_tri2 - number of triangle elements at edge1 and edge2
+        n_elem - total number of elements in transition row.
+        n_nd_quad - total number of non deformed quad elements.
         """
-        plate_edge_nodes = self._edge_plate_nodes       # Distances between plate nodes
+        plate_edge_nodes = self._edge_plate_nodes
+        p_row_limit = self.plate_node_row_number()
         ref_node_list = self.reference_web_node_ID_list()
-        p_row_limit = self.plate_node_row_number()             # Plate row limit
 
-        transition_row1 = ref_node_list[p_row_limit - 1]
-        transition_row2 = ref_node_list[p_row_limit]
+        tr_row1 = ref_node_list[p_row_limit - 1]
+        tr_row2 = ref_node_list[p_row_limit]
 
-        n_quad = len(plate_edge_nodes)                          # Number of quad elements at plate
-        n_tri1, n_tri2 = self.idenetify_num_of_tris(self._segment)    # Number of triangle elements
-        n_elem = n_quad + n_tri1 + n_tri2                       # Total number of elements in transition row
-        n_nd_quad = n_elem - 2 * n_tri1 - 2 * n_tri2            # Number of non deformed quad elements
-        # print("n_tri1:", n_tri1, ", n_tri2:", n_tri2, ", n_quad:", n_quad, ", nondeformed quads:", n_nd_quad)
-        start_id = start_element_id
-        end_id = start_id + n_elem - 1
+        n_quad = len(plate_edge_nodes)
+        n_tri1, n_tri2 = self.idenetify_num_of_tris(self._segment)
+        n_elem = n_quad + n_tri1 + n_tri2
+        n_nd_quad = n_elem - 2 * n_tri1 - 2 * n_tri2
+
+        end_id = start_element_id + n_elem - 1
         local_id = 0
-        fem_prop_id = self.get_web_element_property_id(fem)
-
-        # psm_id = self._segment.primary_supp_mem.id
-        # direct = self._segment.primary_supp_mem.direction.name
-        # psm_type = self._segment.beam_prop.beam_type.name
-        # print("Jaki", direct, psm_type, "nosač broj", psm_id, ", segmenta broj", self._segment.id)
-
-        # Nondeformed quad element range:
-        if n_tri1 == 0 and n_tri2 == 0:
-            range_end = n_nd_quad
-        else:
-            range_end = local_id + n_nd_quad + n_tri1 + n_tri2 - 1
-        if self._segment in self._mesh_extent.half_segments.values():
-            range_end += 1
 
         if n_tri1 == 1:
-            # First element: deformed quad
-            node1 = transition_row1[local_id]
-            node2 = transition_row1[local_id + 1]
-            node3 = transition_row2[local_id + 1]
-            node4 = transition_row2[local_id]
-            node_id_list = [node1, node2, node3, node4]
-            fem.add_quad_element(fem_prop_id, node_id_list)
-
-            element_id = start_id + local_id
-
-            # print("Quad, redni broj elementa u retku:", local_id, "ID elementa:",
-            #       element_id, ", lista čvorova:", node_id_list)
-
+            self.add_first_quad_to_row(fem, tr_row1, tr_row2, local_id, 1)
             local_id += 1
-
-            # Triangle at ref node 1 (left)
-            node1 = transition_row1[local_id]
-            node2 = transition_row2[local_id + 1]
-            node3 = transition_row2[local_id]
-            node_id_list = [node1, node2, node3]
-            fem.add_tria_element(fem_prop_id, node_id_list)
-
-            element_id = start_id + local_id
-
-            # print("Tri, redni broj elementa u retku:", local_id, "ID elementa:",
-            #       element_id, ", lista čvorova:", node_id_list)
-
+            # self.add_first_tria_to_row(fem, tr_row1, tr_row2, local_id)        # ONEMOGUĆENA GENERACIJA TROKUTA ZBOG GREŠKE PRIKAZA
             local_id += 1
-
-        for quad_id in range(local_id, range_end + 1):
-            # Central right angle (non deformed) quad elements
-            if n_tri1 == 1:
-                node1 = transition_row1[quad_id - 1]
-                node2 = transition_row1[quad_id]
-            else:
-                node1 = transition_row1[quad_id]
-                node2 = transition_row1[quad_id + 1]
-            node3 = transition_row2[quad_id + 1]
-            node4 = transition_row2[quad_id]
-            node_id_list = [node1, node2, node3, node4]
-            fem.add_quad_element(fem_prop_id, node_id_list)
-
-            element_id = start_id + quad_id
-
-            # print("Quad, redni broj elementa u retku:", quad_id, "ID elementa:",
-            #       element_id, ", lista čvorova:", node_id_list)
+            self.add_quad_after_tria(fem, tr_row1, tr_row2, local_id, n_nd_quad)
+        else:
+            self.add_first_quad_to_row(fem, tr_row1, tr_row2, local_id, n_nd_quad)
 
         if n_tri2 == 1:
             local_id += n_nd_quad
-            # Triangle at ref node 2 (right)
             if n_tri1 == 1:
-                node1 = transition_row1[local_id - 1]
+                # self.add_second_tria_to_row(fem, tr_row1, tr_row2, local_id)    # ONEMOGUĆENA GENERACIJA TROKUTA ZBOG GREŠKE PRIKAZA
+                local_id += 1
+                self.add_last_quad_to_row(fem, tr_row1, tr_row2, local_id, 1)
             else:
-                node1 = transition_row1[local_id]
-            node2 = transition_row2[local_id + 1]
-            node3 = transition_row2[local_id]
-            node_id_list = [node1, node2, node3]
-            fem.add_tria_element(fem_prop_id, node_id_list)
-
-            element_id = start_id + local_id
-
-            # print("Tri, redni broj elementa u retku:", local_id, "ID elementa:",
-            #       element_id, ", lista čvorova:", node_id_list)
-
-            local_id += 1
-
-            # Last element: deformed quad
-            if n_tri1 == 1:
-                node1 = transition_row1[local_id - 2]
-                node2 = transition_row1[local_id - 1]
-            else:
-                node1 = transition_row1[local_id - 1]
-                node2 = transition_row1[local_id]
-            node3 = transition_row2[local_id + 1]
-            node4 = transition_row2[local_id]
-
-            node_id_list = [node1, node2, node3, node4]
-            element_id = start_id + local_id
-            fem.add_quad_element(fem_prop_id, node_id_list)
-
-            # print("Quad, redni broj elementa u retku:", local_id, "ID elementa:",
-            #       element_id, ", lista čvorova:", node_id_list)
+                # self.add_first_tria_to_row(fem, tr_row1, tr_row2, local_id)    # ONEMOGUĆENA GENERACIJA TROKUTA ZBOG GREŠKE PRIKAZA
+                local_id += 1
+                print(local_id)
+                self.add_def_quad_end2(fem, tr_row1, tr_row2, local_id, 1)
 
         return end_id
 
@@ -3986,9 +4025,9 @@ class SegmentMeshV2(SegmentMesh):
         :return: Generates elements on the entire segment web and returns last
             element ID to continue element numeration on other segments.
         """
-        psm_id = self._segment.primary_supp_mem.id
-        direct = self._segment.primary_supp_mem.direction.name
-        psm_type = self._segment.beam_prop.beam_type.name
+        # psm_id = self._segment.primary_supp_mem.id
+        # direct = self._segment.primary_supp_mem.direction.name
+        # psm_type = self._segment.beam_prop.beam_type.name
         # print("Elementi struka jakog", direct, psm_type, "nosač broj", psm_id, ", segmenta broj", self._segment.id)
 
         if self._mesh_size.min_num_eweb == 1:
@@ -4013,9 +4052,9 @@ class SegmentMeshV2(SegmentMesh):
         flange_id_array = self.ref_flange_node_ID_array(flange_start_node)
         fem_prop_id = self.get_flange_element_property_id(fem)
 
-        psm_id = self._segment.primary_supp_mem.id
-        direct = self._segment.primary_supp_mem.direction.name
-        psm_type = self._segment.beam_prop.beam_type.name
+        # psm_id = self._segment.primary_supp_mem.id
+        # direct = self._segment.primary_supp_mem.direction.name
+        # psm_type = self._segment.beam_prop.beam_type.name
         # print("Elementi prirubnice jakog", direct, psm_type, "nosač broj", psm_id, ", segmenta broj", self._segment.id)
 
         id_el_nodes = [None] * 4
@@ -4093,39 +4132,8 @@ class GrillageMesh:
             n_id, e_id = sm.generate_mesh(fem)
 
         # Ručno dodavanje jednog trokuta za test prikaza
-        # tria_nodes = [199, 211, 210]
+        # tria_nodes = [207, 218, 217]
         # fem.add_tria_element(1, tria_nodes)
-
-        """
-        start_node_id = 1
-        start_element_id = 101
-
-        # TEST
-        psm_id = 1
-        segment_id = 1
-        direction = BeamDirection.LONGITUDINAL
-
-        segment = None
-        if direction == BeamDirection.LONGITUDINAL:
-            segment = self._mesh_extent.longitudinal_psm_extent()[psm_id].segments[segment_id - 1]
-        elif direction == BeamDirection.TRANSVERSE:
-            segment = self._mesh_extent.transverse_psm_extent()[psm_id].segments[segment_id - 1]
-
-        # TEST SEGMENT MESH V2
-        sm = SegmentMeshV2(self._mesh_size, segment, start_node_id, start_element_id)
-        sm.get_plate_edge_nodes()
-        node_id = sm.generate_web_nodes(fem)
-        flange_id_nodes = sm.generate_flange_nodes(fem, FlangeDirection.INWARD, node_id)
-        elem_id = sm.generate_web_elements(fem)
-
-
-        # print("Zadnji node ID:", node_id)
-        # print("Zadnji element ID:", elem_id)
-        
-        # sm.top_web_element_row(segment, start_element_id)
-        # sm.tr_web_element_row(segment, start_element_id)
-        # sm.bot_web_element_row(segment, start_element_id)
-        """
 
     def generate_grillage_mesh_v1(self, name):
         """

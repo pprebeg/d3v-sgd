@@ -15,7 +15,7 @@ np.set_printoptions(suppress=True)          # Suppress scientific output notatio
 
 start = timer()
 
-hc_var = 1
+hc_var = 5
 filename = str("../grillage savefiles/hc_var_") + str(hc_var) + str("_savefile.gin")
 hc_variant = GrillageModelData(filename).read_file()        # Učitavanje topologije iz datoteke
 
@@ -750,12 +750,74 @@ def Test_get_segments_at_intersection(grillage, long_id, tran_id):
         print("Nosač", segment.primary_supp_mem.direction.name, segment.primary_supp_mem.id, ", segment ID", segment.id)
 
 
-def Test_get_intersect_flange_width(grillage, long_id, tran_id):
-    member1 = grillage.longitudinal_members()[long_id]
-    member2 = grillage.transverse_members()[tran_id]
-    long = grillage.get_long_intersect_flange_width(member1, member2)
-    tran = grillage.get_tran_intersect_flange_width(member1, member2)
-    print("Longitudinal bf net:", long, ", transverse bf net:", tran)
+def Test_parallel_segments(grillage):
+    print("Uzdužni segmenti")
+    for psm in grillage.longitudinal_members().values():
+        for segment in psm.segments:
+            end1, end2 = hc_variant.get_parallel_segments(segment)
+            end1_id = None
+            end2_id = None
+            psm_end1 = None
+            psm_end2 = None
+
+            if end1:
+                end1_id = end1.id
+                psm_end1 = end1.primary_supp_mem.id
+            if end2:
+                end2_id = end2.id
+                psm_end2 = end2.primary_supp_mem.id
+
+            print("  ", "Jaki", segment.primary_supp_mem.direction.name,
+                  segment.beam_prop.beam_type.name, "nosač broj", segment.primary_supp_mem.id,
+                  ", segment broj", segment.id, ", segment ID na krajevima.", end1_id, end2_id, ", ID jakih nosača", psm_end1, psm_end2)
+
+    print("\n Poprečni segmenti")
+    for psm in grillage.transverse_members().values():
+        for segment in psm.segments:
+            end1, end2 = hc_variant.get_parallel_segments(segment)
+            end1_id = None
+            end2_id = None
+            psm_end1 = None
+            psm_end2 = None
+
+            if end1:
+                end1_id = end1.id
+                psm_end1 = end1.primary_supp_mem.id
+
+            if end2:
+                end2_id = end2.id
+                psm_end2 = end2.primary_supp_mem.id
+
+            print("  ", "Jaki", segment.primary_supp_mem.direction.name,
+                  segment.beam_prop.beam_type.name, "nosač broj", segment.primary_supp_mem.id,
+                  ", segment broj", segment.id, ", segment ID na krajevima.", end1_id, end2_id, ", ID jakih nosača", psm_end1, psm_end2)
+
+
+def Test_get_end1_max_flange_width(grillage):
+    print("Uzdužni segmenti")
+    for psm in grillage.longitudinal_members().values():
+        for segment in psm.segments:
+            end1 = grillage.get_end1_max_flange_width(segment)
+            end2 = grillage.get_end2_max_flange_width(segment)
+            print("  ", "Jaki", segment.primary_supp_mem.direction.name,
+                  segment.beam_prop.beam_type.name, "nosač broj", segment.primary_supp_mem.id,
+                  ", segment broj", segment.id, ", širina prirubnice end1", end1, ", end2", end2)
+
+    print("\n Poprečni segmenti")
+    for psm in grillage.transverse_members().values():
+        for segment in psm.segments:
+            end1 = grillage.get_end1_max_flange_width(segment)
+            end2 = grillage.get_end2_max_flange_width(segment)
+            print("  ", "Jaki", segment.primary_supp_mem.direction.name,
+                  segment.beam_prop.beam_type.name, "nosač broj", segment.primary_supp_mem.id,
+                  ", segment broj", segment.id, ", širina prirubnice end1", end1, ", end2", end2)
+
+# def Test_get_intersect_flange_width(grillage, long_id, tran_id):
+#     member1 = grillage.longitudinal_members()[long_id]
+#     member2 = grillage.transverse_members()[tran_id]
+#     long = grillage.get_long_intersect_flange_width(member1, member2)
+#     tran = grillage.get_tran_intersect_flange_width(member1, member2)
+#     print("Longitudinal bf net:", long, ", transverse bf net:", tran)
 
 
 def Test_segment_common_plates(grillage, direction: BeamDirection, id_nosaca, id_segmenta):
@@ -877,6 +939,8 @@ def PlotGrillageTopology(grillage):
 # Test_get_segments_at_intersection(hc_variant, 1, 2)
 # Test_get_intersect_flange_width(hc_variant, 2, 2)
 # Test_segment_common_plates(hc_variant, BeamDirection.LONGITUDINAL, 3, 2)
+# Test_parallel_segments(hc_variant)
+# Test_get_end1_max_flange_width(hc_variant)  # Premješteno u grillage mesher!
 # PlotGrillageTopology(hc_variant)
 
 

@@ -363,25 +363,6 @@ class GeoGrillageFEM (GeoFEM):
         x_index, y_index = find_where
         n_overlaps = len(x_index)
 
-        unique_list = []
-        # n_stack = np.stack((x_index, y_index), axis=1)  # Sortirani parovi preklopljenih čvorova
-        # print(n_stack)
-
-        # vals, counts = np.unique(n_stack, return_counts=True)
-        # print(vals)
-        # print(counts)
-
-        # vals, index, counts = np.unique(n_stack, return_index=True, return_counts=True)
-        # print(vals)
-        # print(index)
-        # print(counts)
-
-        # inters = np.intersect1d(x_index, y_index)   # Svi čvorovi koji se preklapaju
-        # print(inters)
-
-        # masked_arr = np.ma.masked_where(counts <= 1, counts)    # čvorovi koji se pojavljuju samo jednom
-        # print(masked_arr)
-
         if n_overlaps > 1:
             print("Full model coincident node identification complete. "
                   "Node overlaps detected. Total overlaps:", n_overlaps)

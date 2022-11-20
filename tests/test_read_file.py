@@ -894,7 +894,7 @@ def PlotGrillageTopology(grillage):
 # KoordinateCvorova()
 # SvojstvaTprofila(1089, 10, 545, 40, 0, 0)
 # SvojstvaHPprofila(240, 12, 0, 0)
-# SvojstvaHatProfila(150, 10, 200, 50, 0, 0)
+# SvojstvaHatProfila(150, 10, 200, 50, 600, 10)
 # SvojstvaHatProfila(220, 10, 220, 80, 600, 10)
 # SvojstvaFBProfila(1000, 12, 0, 0)
 

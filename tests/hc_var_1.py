@@ -67,8 +67,12 @@ hc_var_1.add_plate_prop(plateprop4)
 # Stiffener layouts
 stifflayout1 = StiffenerLayout(1, initial_stiffener, DefinitionType.SPACING, 0.873)
 stifflayout2 = StiffenerLayout(2, initial_stiffener, DefinitionType.SPACING, 0.935)
+stifflayout3 = StiffenerLayout(3, initial_stiffener, DefinitionType.SPACING, 1.500)
+
 hc_var_1.add_stiffener_layout(stifflayout1)                                   # dodavanje stiffener layouta u dictionary
 hc_var_1.add_stiffener_layout(stifflayout2)
+hc_var_1.add_stiffener_layout(stifflayout3)
+
 
 stiff_dir = BeamDirection.TRANSVERSE                  # inicijalna orijentacija ukrepa na svim zonama oplate
 
@@ -102,7 +106,11 @@ Grillage.set_plating_prop_transversals(hc_var_1, 1, "stiff_layout", stifflayout2
 Grillage.set_plating_prop_transversals(hc_var_1, 4, "stiff_layout", stifflayout2)
 
 # Grillage.set_plating_prop_symmetric(hc_var_1, 1, "stiff_dir", BeamDirection.LONGITUDINAL)
-# hc_var_1.plating()[5].stiff_layout = stifflayout1                             # Unos drugacijeg layouta da mesh_feasibility javi gresku
+# hc_var_1.plating()[6].stiff_layout = stifflayout3                             # Unos drugacijeg layouta da mesh_feasibility javi gresku
+# hc_var_1.plating()[7].stiff_layout = stifflayout3                             # Unos drugacijeg layouta da mesh_feasibility javi gresku
+# hc_var_1.plating()[10].stiff_layout = stifflayout3                             # Unos drugacijeg layouta da mesh_feasibility javi gresku
+# hc_var_1.plating()[11].stiff_layout = stifflayout3                             # Unos drugacijeg layouta da mesh_feasibility javi gresku
+
 # hc_var_1.plating()[1].stiff_dir = BeamDirection.LONGITUDINAL                  # izmjena da zone oplate ne budu simetricne
 # hc_var_1.longitudinal_members()[1].segments[1].beam_prop = center_girder      # izmjena da segmenti ne budu simetricni
 # hc_var_1.set_tran_member_beam_property(1, FB_beam)                            # Izmjena beam property za cijeli nosač

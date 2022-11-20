@@ -15,13 +15,13 @@ cwd = os.getcwd()
 #print("Current working directory: {0}".format(cwd))
 
 
-hc_var = 5
+hc_var = 1
 filename = str("../grillage savefiles/hc_var_") + str(hc_var) + str("_savefile.gin")
 hc_variant = GrillageModelData(filename).read_file()
 print("Testing FE mesh for grillage variant", hc_var)
 
-extents = MeshExtent(hc_variant, AOS.NONE)    # Calculate mesh extents with Axis of Symmetry override
-# extents = MeshExtent(hc_variant)                # Calculate mesh extents with automatic Axis of Symmetry discovery
+# extents = MeshExtent(hc_variant, AOS.NONE)    # Calculate mesh extents with Axis of Symmetry override
+extents = MeshExtent(hc_variant)                # Calculate mesh extents with automatic Axis of Symmetry discovery
 
 # test_mesh_size = ElementSizeV1(extents)      # Calculate mesh dimensions for mesh variant V1
 test_mesh_size = ElementSizeV2(extents)     # Calculate mesh dimensions for mesh variant V2
@@ -46,14 +46,14 @@ def generate_test_mesh_v1():
     mesh_v1.min_num_ebs = 1  # Minimum number of elements between stiffeners; default = 1
     mesh_v1.min_num_eweb = 3  # Minimum number of elements along psm web height; default = 3
     mesh_v1.num_eaf = 1  # Number of elements across the psm flange; default = 1
-    mesh_v1.flange_aspect_ratio = 7  # Max flange aspect ratio; default = 8
+    mesh_v1.flange_aspect_ratio = 8  # Max flange aspect ratio; default = 8
     mesh_v1.plate_aspect_ratio = 4  # Max plate aspect ratio; default = 4
     mesh_v1.des_plate_aspect_ratio = 3  # Desired plate aspect ratio; default = 3
     test_mesh_v1 = GrillageMesh(mesh_v1)
 
     grillage_test_mesh = test_mesh_v1.generate_grillage_mesh_v1("test_mesh_v1")
     grillage_test_mesh.merge_coincident_nodes()
-    grillage_test_mesh.merge_coincident_elements()
+    # grillage_test_mesh.merge_coincident_elements()
     end = timer()
     print("Mesh generation time:", end - start, "s")
     # grillage_test_mesh.full_model_node_overlap_check()
@@ -70,13 +70,17 @@ def generate_test_mesh_v2():
     mesh_v2.num_eaf = 1  # Number of elements across the psm flange; default = 1
     mesh_v2.flange_aspect_ratio = 8  # Max flange aspect ratio; default = 8
     mesh_v2.plate_aspect_ratio = 4  # Max plate aspect ratio; default = 4
-    mesh_v2.des_plate_aspect_ratio = 1  # Desired plate aspect ratio; default = 3
+    mesh_v2.des_plate_aspect_ratio = 3  # Desired plate aspect ratio; default = 3
     test_mesh_v2 = GrillageMesh(mesh_v2)
 
     grillage_test_mesh = test_mesh_v2.generate_grillage_mesh_v2("test_mesh_v2")
 
     grillage_test_mesh.merge_coincident_nodes()
     grillage_test_mesh.merge_coincident_elements()
+    # grillage_test_mesh.get_nodes_at_coords()
+    # grillage_test_mesh.get_long_symm_nodes()
+    # grillage_test_mesh.get_tran_symm_nodes()
+    # grillage_test_mesh.get_both_symm_nodes()
     end = timer()
     print("Mesh generation time:", end - start, "s")
     # grillage_test_mesh.full_model_node_overlap_check()
@@ -112,11 +116,11 @@ def Test_GeoFEM_T_L_beam_property(grillage_test_mesh):
 
 def Test_current():
     start = timer()
-    grillage_test_mesh = gm_test.generate_grillage_mesh_v1("test_mesh")
+    grillage_test_mesh = gm_test.generate_grillage_mesh_v2("test_mesh")
     grillage_test_mesh.merge_coincident_nodes()
-    grillage_test_mesh.identify_plating_nodes()
+    grillage_test_mesh.merge_coincident_elements()
+
     # grillage_test_mesh.check_node_overlap_np()
-    # grillage_test_mesh.check_node_overlap()
     # grillage_test_mesh.full_model_node_overlap_check()
 
     # for node in grillage_test_mesh.nodes.values():

@@ -119,3 +119,28 @@ class FeasibilityTestFailTran(Exception):
 
     def __str__(self):
         return self.message_string()
+
+
+class MeshV2FeasibilityFail(Exception):
+    def __init__(self, p_dim_total, f_dim):
+        super().__init__()
+        self._p_dim_total = "{:.1f}".format(p_dim_total)
+        self._f_dim = "{:.1f}".format(f_dim)
+
+    def message_string(self):
+        line = str("Mesh V2 feasibility test failed!")
+        line += str(" Cannot generate FE mesh using Mesh Variant V2 with the "
+                    "given mesh control parameters because element size is too small.")
+        line += str(" Flange element with dimension ")
+        line += str(self._f_dim)
+        line += str("mm is greater than the sum of first two plating elements ")
+        line += str("equal to ")
+        line += str(self._p_dim_total)
+        line += str("mm. ")
+        line += str(" Increase the maximum plating or flange aspect ratios")
+        line += str(" and try again, or select another meshing variant.")
+
+        return line
+
+    def __str__(self):
+        return self.message_string()

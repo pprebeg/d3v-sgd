@@ -24,6 +24,7 @@ class GeoGrillageFEM (GeoFEM):
         super().__init__(name)
         self.initial_node_overlaps = {}
         self.flange_element_overlaps = {}
+        self.end_boundary_node_coords = []
 
         self.plate_property_IDs = {}
         self.stiff_beam_prop_IDs = {}
@@ -281,21 +282,21 @@ class GeoGrillageFEM (GeoFEM):
             identify node overlaps instead of for loops.
         """
         print("Starting coincident node check...")
-        nodes_dict = self.nodes.values()                  # Nije puno sporije!
-        # nodes_dict = self.initial_node_overlaps.values()
+        start = timer()
+
+        nodes_dict = self.initial_node_overlaps.values()
         coords = [node.p for node in nodes_dict]
         id_list = [node.id for node in nodes_dict]
 
         coords_1 = np.expand_dims(coords, 0)
         coords_2 = np.expand_dims(coords, 1)
-        boolean_array = np.isclose(coords_1, coords_2).all(-1)
+        # Relative node merge tolerance = 0.1mm
+        boolean_array = np.isclose(coords_1, coords_2, rtol=1e-3).all(-1)
         boolean_array = np.tril(boolean_array)
         np.fill_diagonal(boolean_array, False)
         coincident_pairs = np.where(boolean_array)
         x_index, y_index = coincident_pairs
         n_overlaps = len(x_index)
-
-        start = timer()
 
         overlap_array = []
         for index in range(0, n_overlaps):
@@ -306,7 +307,7 @@ class GeoGrillageFEM (GeoFEM):
 
             duplicate_coords = False
             for row in overlap_array:
-                if np.allclose(node1.p, row[0]):
+                if np.allclose(node1.p, row[0], rtol=1e-3):
                     if node1 not in row[1:]:
                         row.append(node1)
                     if node2 not in row[1:]:
@@ -316,9 +317,6 @@ class GeoGrillageFEM (GeoFEM):
 
             if duplicate_coords is False:
                 overlap_array.append([node1.p, node1, node2])
-
-        end = timer()
-        print("Sort coincident nodes time:", end - start, "s")
 
         overlap_counter = 0
         coincident_nodes = []
@@ -330,9 +328,10 @@ class GeoGrillageFEM (GeoFEM):
                 to_delete_nodes = row[2:]  # Duplicate nodes
                 coincident_nodes.append([remaining_node, to_delete_nodes])
 
+        end = timer()
         print("Coincident node identification complete. "
               "Total coincident nodes:", overlap_counter,
-              ", at", len(overlap_array), "unique coordinates.")
+              ", at", len(overlap_array), "unique coordinates.", end - start, "s")
         return coincident_nodes
 
     def full_model_node_overlap_check(self):
@@ -371,7 +370,9 @@ class GeoGrillageFEM (GeoFEM):
                   " No node overlaps found.")
 
     def merge_coincident_nodes(self):
-        coincident_nodes = self.check_node_overlap_np()      # New NumPy check node overlap
+        coincident_nodes = self.check_node_overlap_np()
+
+        start = timer()
 
         merge_nodes = {}
         delete_list = []
@@ -386,7 +387,6 @@ class GeoGrillageFEM (GeoFEM):
             local_node_id = 0
             for node in el_object.nodes:
                 if node in delete_list:
-                    # print("         ", node.id, ", zamjena sa", merge_nodes[node].id, ", indeks u listi čvorova", local_node_id)
                     el_object.nodes[local_node_id] = merge_nodes[node]
                 local_node_id += 1
 
@@ -394,17 +394,16 @@ class GeoGrillageFEM (GeoFEM):
         for delete_node in delete_list:
             del self.nodes[delete_node.id]
 
-        print("Node merge complete, deleted", len(delete_list), "nodes.")
+        end = timer()
+
+        print("Node merge complete, deleted", len(delete_list), "nodes in", end - start, "s")
         print("Total number of nodes:", self.num_nodes)
         print("Total number of elements before element merge:", self.num_elements)
 
-        # for node in self.initial_node_overlaps.values():
-        #     print(node.id)
-
     def check_element_overlap(self):
         overlap_array = []
-        # element_dict = self.flange_element_overlaps
-        element_dict = self.elements
+        element_dict = self.flange_element_overlaps
+        # element_dict = self.elements
         element_combos = itertools.combinations(element_dict.keys(), 2)
         for elements in element_combos:
             element_1_id, element_2_id = elements
@@ -440,7 +439,7 @@ class GeoGrillageFEM (GeoFEM):
 
         print("Total number of elements:", self.num_elements)
 
-    def identify_plating_nodes(self):
+    def get_plating_nodes(self):
         """
         :return: Dictionary of all plating nodes for pressure load case.
         """
@@ -450,7 +449,7 @@ class GeoGrillageFEM (GeoFEM):
         id_list = [node.id for node in nodes_dict]
 
         hw = np.max(z_coords)
-        boolean_array = np.isclose(z_coords, hw)
+        boolean_array = np.isclose(z_coords, hw, rtol=1e-2)
         node_index = np.where(boolean_array)
         node_index = np.concatenate(node_index)
 
@@ -459,3 +458,138 @@ class GeoGrillageFEM (GeoFEM):
             node = self.nodes[node_id]
             plating_nodes[node.id] = node
         return plating_nodes
+
+    def get_long_symm_nodes(self):
+        """
+        :return: Dictionary of all nodes on the longitudinal Axis of Symmetry
+            for symmetry boundary conditions.
+        """
+        long_symm_nodes = {}
+        nodes_dict = self.nodes.values()
+        y_coords = [node.p[1] for node in nodes_dict]
+        id_list = [node.id for node in nodes_dict]
+
+        y_max = np.max(y_coords)
+        boolean_array = np.isclose(y_coords, y_max, rtol=1e-2)
+        node_index = np.where(boolean_array)
+        node_index = np.concatenate(node_index)
+
+        for index in range(0, len(node_index)):
+            node_id = id_list[node_index[index]]
+            node = self.nodes[node_id]
+            long_symm_nodes[node.id] = node
+        # TEST
+        """
+        node_count = 0
+        for node in long_symm_nodes.values():
+            node_count += 1
+            print(node_count, ". Rubni čvor ID", node.id, ", koordinate:", node.p)
+        """
+        return long_symm_nodes
+
+    def get_tran_symm_nodes(self):
+        """
+        :return: Dictionary of all nodes on the transverse Axis of Symmetry
+            for symmetry boundary conditions.
+        """
+        tran_symm_nodes = {}
+        nodes_dict = self.nodes.values()
+        x_coords = [node.p[0] for node in nodes_dict]
+        id_list = [node.id for node in nodes_dict]
+
+        x_max = np.max(x_coords)
+        boolean_array = np.isclose(x_coords, x_max, rtol=1e-2)
+        node_index = np.where(boolean_array)
+        node_index = np.concatenate(node_index)
+
+        for index in range(0, len(node_index)):
+            node_id = id_list[node_index[index]]
+            node = self.nodes[node_id]
+            tran_symm_nodes[node.id] = node
+
+        # TEST
+        """
+        node_count = 0
+        for node in tran_symm_nodes.values():
+            node_count += 1
+            print(node_count, ". Rubni čvor ID", node.id, ", koordinate:", node.p)
+        """
+        return tran_symm_nodes
+
+    def get_both_symm_nodes(self):
+        """
+        :return: Dictionary of all nodes on the longitudinal and transverse
+            Axis of Symmetry for symmetry boundary conditions.
+        """
+        both_symm_nodes = {}
+        nodes_dict = self.nodes.values()
+        y_coords = [node.p[1] for node in nodes_dict]
+        id_list = [node.id for node in nodes_dict]
+
+        y_max = np.max(y_coords)
+        boolean_array = np.isclose(y_coords, y_max, rtol=1e-2)
+        node_index = np.where(boolean_array)
+        node_index = np.concatenate(node_index)
+
+        for index in range(0, len(node_index)):
+            node_id = id_list[node_index[index]]
+            node = self.nodes[node_id]
+            both_symm_nodes[node.id] = node
+
+        nodes_dict = self.nodes.values()
+        x_coords = [node.p[0] for node in nodes_dict]
+        id_list = [node.id for node in nodes_dict]
+
+        x_max = np.max(x_coords)
+        boolean_array = np.isclose(x_coords, x_max, rtol=1e-2)
+        node_index = np.where(boolean_array)
+        node_index = np.concatenate(node_index)
+
+        for index in range(0, len(node_index)):
+            node_id = id_list[node_index[index]]
+            node = self.nodes[node_id]
+            both_symm_nodes[node.id] = node
+
+        # TEST
+        """
+        node_count = 0
+        for node in both_symm_nodes.values():
+            node_count += 1
+            print(node_count, ". Rubni čvor ID", node.id, ", koordinate:", node.p)
+        """
+        return both_symm_nodes
+
+    # def get_symmetry_nodes(self, symmetry):
+    #     if symmetry is AOS.LONGITUDINAL:
+    #         return self.get_long_symm_nodes()
+    #     elif symmetry is AOS.TRANSVERSE:
+    #         return self.get_tran_symm_nodes()
+    #     elif symmetry is AOS.BOTH:
+    #         return self.get_both_symm_nodes()
+
+    def get_nodes_at_coords(self):
+        """
+        :return: Dictionary of all nodes at the ends of primary supporting
+            members for pinned boundary conditions.
+        """
+        boundary_nodes = {}
+        nodes_dict = self.nodes.values()
+        end_nodes = self.end_boundary_node_coords
+        coords = [node.p for node in nodes_dict]
+        id_list = [node.id for node in nodes_dict]
+        coords_1 = np.expand_dims(coords, 0)
+        coords_2 = np.expand_dims(end_nodes, 1)
+        boolean_array = np.isclose(coords_1, coords_2, rtol=1e-3).all(-1)
+        index_list = np.where(boolean_array)[1]
+        for index in index_list:
+            node_id = id_list[index]
+            node = self.nodes[node_id]
+            boundary_nodes[node.id] = node
+        # TEST
+        """
+        node_count = 0
+        for node in boundary_nodes.values():
+            node_count += 1
+            print(node_count, ". Rubni čvor ID", node.id, ", koordinate:", node.p)
+        """
+        return boundary_nodes

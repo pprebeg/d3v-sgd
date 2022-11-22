@@ -15,7 +15,7 @@ cwd = os.getcwd()
 #print("Current working directory: {0}".format(cwd))
 
 
-hc_var = 1
+hc_var = 5
 filename = str("../grillage savefiles/hc_var_") + str(hc_var) + str("_savefile.gin")
 hc_variant = GrillageModelData(filename).read_file()
 print("Testing FE mesh for grillage variant", hc_var)
@@ -53,7 +53,7 @@ def generate_test_mesh_v1():
 
     grillage_test_mesh = test_mesh_v1.generate_grillage_mesh_v1("test_mesh_v1")
     grillage_test_mesh.merge_coincident_nodes()
-    # grillage_test_mesh.merge_coincident_elements()
+    grillage_test_mesh.merge_coincident_elements()
     end = timer()
     print("Mesh generation time:", end - start, "s")
     # grillage_test_mesh.full_model_node_overlap_check()

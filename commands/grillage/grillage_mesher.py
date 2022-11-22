@@ -1596,9 +1596,12 @@ class MeshSize:
         :return: Element dimension value that is less than the maximum allowed
             and equally divides given length.
         """
-        n_elements = np.ceil(length / dim_limit)
-        dim = length / n_elements
-        return dim
+        if dim_limit == 0:
+            return length
+        else:
+            n_elements = np.ceil(length / dim_limit)
+            dim = length / n_elements
+            return dim
 
     def element_size_perp_to_stiffeners(self, plate: Plate):
         """
@@ -1963,18 +1966,6 @@ class MeshSize:
 
         return final_mesh_dim_y
 
-    def calc_element_base_size_mesh(self):
-        """
-        Method for global consideration of base mesh dimensions dim_x and dim_y.
-
-        :return: Assigns base dim_x and dim_y to each row and column of plating
-            zones that will be meshed. Dimensions are saved for each row and
-             column in dictionary mesh_dim_x and mesh_dim_y.
-        """
-        base_dim_x, base_dim_y = self.calc_element_base_size()
-        self.mesh_dim_x = self.assign_base_dim_x(base_dim_x)
-        self.mesh_dim_y = self.assign_base_dim_y(base_dim_y)
-
     def get_base_dim_x(self, plate: Plate):
         """
         :param plate: Selected plating zone.
@@ -2105,13 +2096,11 @@ class MeshSize:
                              plate_id in plating_zone_IDs]
             for plate in plating_zones:
                 tr_dim_x1, tr_dim_x2 = self.transition_dim_x(plate)
+                tr_el_dim_x[0, column - 1] = tr_dim_x1
+                tr_el_dim_x[1, column - 1] = tr_dim_x2
                 if plate.stiff_dir == BeamDirection.TRANSVERSE:
-                    tr_el_dim_x[0, column - 1] = tr_dim_x1
-                    tr_el_dim_x[1, column - 1] = tr_dim_x2
                     break
-                else:
-                    tr_el_dim_x[0, column - 1] = tr_dim_x1
-                    tr_el_dim_x[1, column - 1] = tr_dim_x2
+
         return tr_el_dim_x
 
     def assign_transition_dim_y(self):
@@ -2134,13 +2123,11 @@ class MeshSize:
                              plate_id in plating_zone_IDs]
             for plate in plating_zones:
                 tr_dim_y1, tr_dim_y2 = self.transition_dim_y(plate)
+                tr_el_dim_y[0, row - 1] = tr_dim_y1
+                tr_el_dim_y[1, row - 1] = tr_dim_y2
                 if plate.stiff_dir == BeamDirection.LONGITUDINAL:
-                    tr_el_dim_y[0, row - 1] = tr_dim_y1
-                    tr_el_dim_y[1, row - 1] = tr_dim_y2
                     break
-                else:
-                    tr_el_dim_y[0, row - 1] = tr_dim_y1
-                    tr_el_dim_y[1, row - 1] = tr_dim_y2
+
         return tr_el_dim_y
 
     def get_tr_dim_x(self, plate: Plate):
@@ -2330,7 +2317,6 @@ class MeshSize:
             tr_el_num_seg_2 = 0
 
         y_spacing = {}
-
         self.save_node_spacing(y_spacing, tr_el_num_seg_1, tr_element_dim_y1)
         self.save_node_spacing(y_spacing, base_mesh_element_num, base_dim_y)
         self.save_node_spacing(y_spacing, split_element_number, base_dim_y / 2)
@@ -2460,10 +2446,10 @@ class MeshSize:
             else:
                 fl_tr_1 = plate_tr_dim_1 - fl_el_width_1
         else:
-            if plate_tr_dim_1 != 0:
-                fl_tr_1 = plate_tr_dim_1 - n_elem1 * base_dim - fl_el_width_1
-            else:
+            if plate_tr_dim_1 == 0:
                 fl_tr_1 = n_elem1 * base_dim - fl_el_width_1
+            else:
+                fl_tr_1 = plate_tr_dim_1 - n_elem1 * base_dim - fl_el_width_1
 
         if n_elem2 == 0:
             if plate_tr_dim_2 == 0:
@@ -2471,10 +2457,10 @@ class MeshSize:
             else:
                 fl_tr_2 = plate_tr_dim_2 - fl_el_width_2
         else:
-            if plate_tr_dim_1 != 0:
-                fl_tr_2 = plate_tr_dim_2 - n_elem2 * base_dim - fl_el_width_2
-            else:
+            if plate_tr_dim_1 == 0:
                 fl_tr_2 = n_elem2 * base_dim - fl_el_width_2
+            else:
+                fl_tr_2 = plate_tr_dim_2 - n_elem2 * base_dim - fl_el_width_2
 
         if fl_tr_1 != 0:
             ar = self.element_aspect_ratio(fl_tr_1, perp_base_dim)
@@ -2517,7 +2503,8 @@ class MeshSize:
             fl_tr_2 = 0
             fl_el_width_2 = 0
 
-        base_range = segment_len - fl_el_width_1 - fl_tr_1 - fl_tr_2 - fl_el_width_2 - split_num * base_dim * 0.5
+        base_range = segment_len - fl_el_width_1 - fl_tr_1 - fl_tr_2
+        base_range -= fl_el_width_2 + split_num * base_dim * 0.5
         base_dim_num = np.round(base_range / base_dim)
         return base_dim_num
 
@@ -2561,7 +2548,8 @@ class MeshSize:
 
     def calculate_mesh_dimensions(self):
         """
-        :return: Calculates all element dimensions and stores into ************************************
+        :return: Calculates all element dimensions and saves them to
+            dictionaries mesh_dim_x, mesh_dim_y.
             These values need to be calculated only once and will be used
             for all node and element generation.
         """
@@ -2576,8 +2564,10 @@ class MeshSize:
             print("Automatically discovered grillage model symmetry:",
                   self._mesh_extent.aos_input.name)
 
-        self._mesh_extent.grillage_mesh_extent()    # Calculate mesh limits
-        self.calc_element_base_size_mesh()          # Calculate base mesh size
+        self._mesh_extent.grillage_mesh_extent()
+        base_dim_x, base_dim_y = self.calc_element_base_size()
+        self.mesh_dim_x = self.assign_base_dim_x(base_dim_x)
+        self.mesh_dim_y = self.assign_base_dim_y(base_dim_y)
         self.calc_plate_start_node_ids()
 
 
@@ -2603,17 +2593,18 @@ class ElementSizeV1(MeshSize):
         :return: Reduced plate dimensions based on plate stiffener orientation
             and flange width for mesh variant V1.
         """
+        n_eaf = self.num_eaf
         if plate.stiff_dir == BeamDirection.LONGITUDINAL:
             L = plate.plate_longitudinal_dim() * 1000
-            dim_xf1 = self.get_flange_el_width(plate.trans_seg1)
-            dim_xf2 = self.get_flange_el_width(plate.trans_seg2)
+            dim_xf1 = self.get_flange_el_width(plate.trans_seg1) * n_eaf
+            dim_xf2 = self.get_flange_el_width(plate.trans_seg2) * n_eaf
             L_red = L - dim_xf1 - dim_xf2
             return L_red
 
         elif plate.stiff_dir == BeamDirection.TRANSVERSE:
             B = plate.plate_transverse_dim() * 1000
-            dim_yf1 = self.get_flange_el_width(plate.long_seg1)
-            dim_yf2 = self.get_flange_el_width(plate.long_seg2)
+            dim_yf1 = self.get_flange_el_width(plate.long_seg1) * n_eaf
+            dim_yf2 = self.get_flange_el_width(plate.long_seg2) * n_eaf
             B_red = B - dim_yf1 - dim_yf2
             return B_red
 
@@ -2764,17 +2755,17 @@ class ElementSizeV1(MeshSize):
         """
         L = self._mesh_extent.get_long_plate_dim(plate)
         B = self._mesh_extent.get_tran_plate_dim(plate)
-
+        n_eaf = self.num_eaf
         dim_x = self.get_base_dim_x(plate)
         dim_y = self.get_base_dim_y(plate)
 
         tr_el_dim_x1, tr_el_dim_x2 = self.get_tr_dim_x(plate)
         tr_el_dim_y1, tr_el_dim_y2 = self.get_tr_dim_y(plate)
 
-        fl_dim_x1 = self.get_flange_el_width(plate.trans_seg1)
-        fl_dim_x2 = self.get_flange_el_width(plate.trans_seg2)
-        fl_dim_y1 = self.get_flange_el_width(plate.long_seg1)
-        fl_dim_y2 = self.get_flange_el_width(plate.long_seg2)
+        fl_dim_x1 = self.get_flange_el_width(plate.trans_seg1) * n_eaf
+        fl_dim_x2 = self.get_flange_el_width(plate.trans_seg2) * n_eaf
+        fl_dim_y1 = self.get_flange_el_width(plate.long_seg1) * n_eaf
+        fl_dim_y2 = self.get_flange_el_width(plate.long_seg2) * n_eaf
 
         if plate.id in self._mesh_extent.long_half_plate_zones:
             fl_dim_y2 = 0
@@ -2946,12 +2937,6 @@ class ElementSizeV2(MeshSize):
             base_dim = self.get_base_dim_x(plate)
         else:
             base_dim = self.get_base_dim_y(plate)
-
-        # psm_id = segment.primary_supp_mem.id
-        # direct = segment.primary_supp_mem.direction.name
-        # psm_type = segment.beam_prop.beam_type.name
-        # print("Jaki", direct, psm_type, "nosač broj", psm_id, ", segmenta broj", segment.id,
-        #       base_dim, base_el_num, ", flange tr numbers", tr_dim_1, tr_dim_2)
 
         split_element_number = self.get_tran_split_element_num(plate)
 
@@ -3550,12 +3535,13 @@ class SegmentMeshV1(SegmentMesh):
         web_node_id_array = self.reference_web_node_ID_array()
         last_web_node_row = web_node_id_array[-1, :]
         column_limit = len(self._edge_plate_nodes) + 1
-        row_limit = self._mesh_size.num_eaf + 1
+        n_eaf = self._mesh_size.num_eaf
+        row_limit = n_eaf + 1
         total = column_limit * (row_limit - 1)
 
         id_list = np.arange(flange_start_node, flange_start_node + total, 1)
         id_array = np.reshape(id_list, [row_limit - 1, column_limit])
-        flange_node_id_array = np.insert(id_array, 0, last_web_node_row, axis=0)
+        flange_node_id_array = np.insert(id_array, n_eaf, last_web_node_row, axis=0)
 
         return flange_node_id_array
 
@@ -3667,7 +3653,7 @@ class SegmentMeshV1(SegmentMesh):
                 id_el_nodes[2] = flange_id_array[row + 1, column + 1]
                 id_el_nodes[3] = flange_id_array[row + 1, column]
                 elem = fem.add_quad_element(fem_prop_id, id_el_nodes)
-                elem = fem.add_element_to_element_overlaps(elem)
+                fem.add_element_to_element_overlaps(elem)
                 element_id += 1
         return element_id
 
@@ -3986,7 +3972,7 @@ class SegmentMeshV2(SegmentMesh):
 
         Method generates elements on the segment transition web row.
 
-        plate_edge_nodes - input distances between plate nodes.
+        flange_edge_nodes - input distances between flange nodes.
         p_row_limit - number of node rows with plate edge node spacing.
         ref_node_list - list of nodes on the selected segment for each row.
         tr_row1 - input node ID list, upper row of nodes.
@@ -3996,16 +3982,15 @@ class SegmentMeshV2(SegmentMesh):
         n_elem - total number of elements in transition row.
         n_nd_quad - total number of non deformed quad elements.
         """
-        plate_edge_nodes = self._edge_plate_nodes
+        flange_edge_nodes = self._edge_flange_nodes
         p_row_limit = self.plate_node_row_number()
         ref_node_list = self.reference_web_node_ID_list()
 
         tr_row1 = ref_node_list[p_row_limit - 1]
         tr_row2 = ref_node_list[p_row_limit]
 
-        n_quad = len(plate_edge_nodes)
         n_tri1, n_tri2 = self.idenetify_num_of_tris(self._segment)
-        n_elem = n_quad + n_tri1 + n_tri2
+        n_elem = len(flange_edge_nodes)
         n_nd_quad = n_elem - 2 * n_tri1 - 2 * n_tri2
         end_id = start_element_id + n_elem - 1
         local_id = 0

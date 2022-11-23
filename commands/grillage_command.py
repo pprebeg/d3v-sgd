@@ -2,6 +2,7 @@ from PySide6.QtWidgets import QApplication, QMenu
 from PySide6.QtWidgets import QDialog, QPushButton,QGridLayout,QToolTip,QCheckBox,QComboBox
 from PySide6.QtWidgets import QTreeView,QMainWindow,QVBoxLayout,QHBoxLayout,QSizePolicy
 from PySide6.QtWidgets import QTreeWidget,QTreeWidgetItem,QDockWidget,QWidget,QGroupBox
+from PySide6.QtWidgets import QLabel, QSpinBox, QLineEdit
 from PySide6.QtGui import QCursor
 
 
@@ -110,6 +111,145 @@ def tmp_fun_gen_hc_var1():
 
     return hc_var_1
 
+
+class GrillageAnalysisGUI(QDialog):
+    def __init__(self, parent, grillgeo: GrillageGeometry):
+        super().__init__(parent)
+        self.mainwin = parent
+        self._grillgeo = grillgeo
+        self.setWindowTitle("Grillage Finite Element Mesh Generation")
+        self.setFixedSize(450, 310)
+        self.main_layout = QGridLayout()
+        self.setLayout(self.main_layout)
+
+        self.mesh_variant = QComboBox(self)
+        self.aos_override = QComboBox(self)
+        self.name_input = QLineEdit(self)
+        self.ebs_input = QSpinBox(self)
+        self.eweb_input = QSpinBox(self)
+        self.eaf_input = QSpinBox(self)
+        self.far_input = QSpinBox(self)
+        self.par_input = QSpinBox(self)
+        self.dpar_input = QSpinBox(self)
+
+    def get_mesh_variant(self):
+        mesh_var = self.mesh_variant.currentText()
+        if mesh_var == "V1":
+            return MeshVariant.V1
+        elif mesh_var == "V2":
+            return MeshVariant.V2
+
+    def get_aos(self):
+        aos = self.aos_override.currentText()
+        if aos == "Automatic Axis of Symmetry discovery":
+            return None
+        elif aos == "Longitudinal Axis of Symmetry override":
+            return AOS.LONGITUDINAL
+        elif aos == "Transverse Axis of Symmetry override":
+            return AOS.TRANSVERSE
+        elif aos == "No Axis of Symmetry override":
+            return AOS.NONE
+
+    def generate_grill_mesh(self):
+        QApplication.changeOverrideCursor(QCursor(Qt.WaitCursor))
+
+        mesh_var = self.get_mesh_variant()
+        aos_override = self.get_aos()
+        name = self.name_input.text()
+        ebs = self.ebs_input.value()
+        eweb = self.eweb_input.value()
+        eaf = self.eaf_input.value()
+        far = self.far_input.value()
+        par = self.par_input.value()
+        dpar = self.dpar_input.value()
+        self.close()
+
+        grill_var = self._grillgeo.grillage
+        mesh = GrillageMesh(mesh_var, grill_var, aos_override)
+        grill_fem = mesh.generate_grillage_mesh(name, ebs, eweb, eaf, far, par, dpar)
+        grill_fem.regenerate()
+        if grill_fem is not None:
+            manager.add_geometry([grill_fem])
+            manager.show_geometry([grill_fem])
+        QApplication.restoreOverrideCursor()
+        return grill_fem
+
+    def mesh_var_label(self):
+        label = QLabel(self)
+        label.setText("Mesh variant")
+        self.main_layout.addWidget(label, 0, 0)
+
+    def mesh_var_widget(self):
+        self.mesh_variant.addItem("V1")
+        self.mesh_variant.addItem("V2")
+        self.mesh_variant.setMaximumWidth(70)
+        self.main_layout.addWidget(self.mesh_variant, 0, 1)
+
+    def aos_override_widget(self):
+        self.aos_override.addItem("Automatic Axis of Symmetry discovery")
+        self.aos_override.addItem("Longitudinal Axis of Symmetry override")
+        self.aos_override.addItem("Transverse Axis of Symmetry override")
+        self.aos_override.addItem("No Axis of Symmetry override")
+        self.main_layout.addWidget(self.aos_override, 1, 0)
+
+    def name_widget(self):
+        self.name_input.setText("Grillage mesh")
+        self.main_layout.addWidget(self.name_input, 2, 0)
+
+    def user_input_labels(self):
+        input_labels = {3: "Number of elements between stiffeners",
+                        4: "Number of elements along the height of PSM web",
+                        5: "Number of elements across PSM flange",
+                        6: "Max PSM flange aspect ratio",
+                        7: "Max plating and PSM web aspect ratio",
+                        8: "Desired plating aspect ratio"}
+
+        for key, val in input_labels.items():
+            label = QLabel(self)
+            label.setText(val)
+            self.main_layout.addWidget(label, key, 0)
+
+    def ar_input_widgets(self):
+        self.far_input.setMinimum(1)
+        self.far_input.setValue(8)
+        self.main_layout.addWidget(self.far_input, 6, 1)
+
+        self.par_input.setMinimum(1)
+        self.par_input.setValue(4)
+        self.main_layout.addWidget(self.par_input, 7, 1)
+
+        self.dpar_input.setMinimum(1)
+        self.dpar_input.setValue(3)
+        self.main_layout.addWidget(self.dpar_input, 8, 1)
+
+    def element_num_widgets(self):
+        self.ebs_input.setValue(1)
+        self.main_layout.addWidget(self.ebs_input, 3, 1)
+
+        self.eweb_input.setMinimum(1)
+        self.eweb_input.setValue(3)
+        self.main_layout.addWidget(self.eweb_input, 4, 1)
+
+        self.eaf_input.setMinimum(1)
+        self.eaf_input.setValue(1)
+        self.main_layout.addWidget(self.eaf_input, 5, 1)
+
+    def button_generate(self):
+        generate_button = QPushButton("Generate mesh", self)
+        self.main_layout.addWidget(generate_button, 9, 3)
+        generate_button.clicked.connect(self.generate_grill_mesh)
+
+    def mesh_parameters_gui(self):
+        self.mesh_var_label()
+        self.mesh_var_widget()
+        self.aos_override_widget()
+        self.name_widget()
+        self.user_input_labels()
+        self.ar_input_widgets()
+        self.element_num_widgets()
+        self.button_generate()
+
+
 class SGDCommand(Command):
     def __init__(self):
         super().__init__()
@@ -175,31 +315,9 @@ class SGDCommand(Command):
         Test_edge_node_spacing()
 
     def onGenerateFEM(self):
-        QApplication.changeOverrideCursor(QCursor(Qt.WaitCursor))
-        tart = timer()
-
-        gril_var = self._grillgeo.grillage
-        mesh_var = MeshVariant.V1
-        aos_override = None
-        # aos_override = AOS.TRANSVERSE
-
-        name = "hc test mesh"
-        ebs = 1     # Number of elements between stiffeners
-        eweb = 3    # Number of elements along the height of PSM web
-        eaf = 1     # Number of elements across primary supporting member flange
-        far = 8     # Maximum PSM flange aspect ratio
-        par = 4     # Maximum plate and PSM web aspect ratio
-        dpar = 3    # Desired plating aspect ratio, less than the maximum
-
-        grillage_mesh = GrillageMesh(mesh_var, gril_var, aos_override)
-        grill_fem = grillage_mesh.generate_grillage_mesh(name, ebs, eweb, eaf, far, par, dpar)
-
-        grill_fem.regenerate()
-        if grill_fem is not None:
-            manager.add_geometry([grill_fem])
-            manager.show_geometry([grill_fem])
-        QApplication.restoreOverrideCursor()
-
+        analysis_gui = GrillageAnalysisGUI(self.mainwin, self._grillgeo)
+        analysis_gui.mesh_parameters_gui()
+        analysis_gui.exec()
         pass
 
     def onNewHatchCover(self):

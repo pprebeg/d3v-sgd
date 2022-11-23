@@ -1850,10 +1850,10 @@ class DoffBasedBCandLoad(BC_and_Load):
     def __init__(self, id, values:List[float], dofs:List[int]=None):
         super().__init__(id)
         if dofs is None:
-            self._dofs = list(range(1, len(values) + 1))
+            self._dofs = np.array(list(range(1, len(values) + 1)))
         else:
-            self._values = np.array(values)
             self._dofs = np.array(dofs) # indice values are 1 based (from 1 to 6)
+        self._values = np.array(values)
 
     @property
     def values(self):

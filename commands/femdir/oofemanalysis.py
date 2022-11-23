@@ -3,16 +3,16 @@ from typing import List, Dict, Set,Tuple
 import os
 import errno
 oofempydir=''
-oofempydir='D:\\Development\\oofem\\build\\Release'
+oofempydir='..\\fembin'
 if(oofempydir !=''):
     import sys
     sys.path.append(oofempydir)
 is_loaded = False
 try:
-    import oofempy
+    import fembin.oofempy as oofempy
     is_loaded = True
     print('Used oofempy library: ' + oofempy.__file__)
-except ImportError:
+except ImportError as e:
     print('Warning: oofempy library not found, OOFEM analysis will be disabled! ')
     oofempy = None
 from femdir.oofemin import *
@@ -33,11 +33,6 @@ class OOFEMAnalysisModel():
         self._file_path,self._dr,self._eng_model,self._nlc = self.init_problem(fileName)
         self._wdir = os.getcwd()
         self._dict_idset_outtypes:Dict[int,OutputElementType] = dict_idset_outtypes
-
-    @staticmethod
-    @property
-    def is_oofempy_loaded():
-        return OOFEMAnalysisModel._is_loaded
 
     @property
     def num_lc(self):
@@ -171,5 +166,8 @@ class OOFEMAnalysisModel():
 
     def analyse(self):
         return self.analyse_all_loadcases(self._dict_idset_outtypes)
-
 OOFEMAnalysisModel._is_loaded = is_loaded
+
+def is_oofempy_loaded():
+   return OOFEMAnalysisModel._is_loaded
+

@@ -342,7 +342,7 @@ class ModelCheck:
 
 
 class MeshExtent:
-    def __init__(self, grillage: Grillage, axis_of_symm_override: AOS = None):
+    def __init__(self, grillage: Grillage, axis_of_symm_override):
         """
         Class for calculating FE mesh extents for the selected grillage model
         and Axis of Symmetry. Contains dictionaries of all plating zones and
@@ -350,8 +350,7 @@ class MeshExtent:
         plate and beam properties based on identified mesh extents.
 
         :param grillage: Input grillage model.
-        :param axis_of_symm_override: Optional argument: overrides automatic
-            Axis of Symmetry discovery.
+        :param axis_of_symm_override: overrides automatic Axis of Symmetry discovery.
 
         Class contains the following data:
 
@@ -1369,7 +1368,13 @@ class MeshExtent:
 
 
 class MeshSize:
-    def __init__(self, mesh_extent: MeshExtent):
+    def __init__(self, mesh_extent: MeshExtent,
+                 min_num_ebs: int,
+                 min_num_eweb: int,
+                 num_eaf: int,
+                 flange_aspect_ratio: float,
+                 plate_aspect_ratio: float,
+                 des_plate_aspect_ratio: float):
         """
         Class for calculating finite element dimensions on the selected
         grillage model.
@@ -1405,12 +1410,12 @@ class MeshSize:
         self._grillage = self._mesh_extent.grillage
         self._axis_of_symm = self._mesh_extent.axis_of_symm
 
-        self._min_num_ebs: int = 1
-        self._min_num_eweb: int = 3
-        self._num_eaf: int = 1
-        self._flange_aspect_ratio: float = 8
-        self._plate_aspect_ratio: float = 3
-        self._des_plate_aspect_ratio: float = 2
+        self._min_num_ebs = min_num_ebs
+        self._min_num_eweb = min_num_eweb
+        self._num_eaf = num_eaf
+        self._flange_aspect_ratio = flange_aspect_ratio
+        self._plate_aspect_ratio = plate_aspect_ratio
+        self._des_plate_aspect_ratio = des_plate_aspect_ratio
 
         self._mesh_dim_x = {}
         self._mesh_dim_y = {}
@@ -1484,8 +1489,8 @@ class MeshSize:
     @des_plate_aspect_ratio.setter
     def des_plate_aspect_ratio(self, value):
         self._des_plate_aspect_ratio = value
-        if value > self.plate_aspect_ratio:
-            raise InvalidDesiredAspectRatio(value, self.plate_aspect_ratio)
+        if value > self._plate_aspect_ratio:
+            raise InvalidDesiredAspectRatio(value, self._plate_aspect_ratio)
 
     @staticmethod
     def save_node_spacing(dictionary: dict, n_dims, dimension):
@@ -1628,12 +1633,12 @@ class MeshSize:
             method refine_plate_element is used.
         """
         y = self.element_size_perp_to_stiffeners(plate)
-        des_x_val = y * self.des_plate_aspect_ratio  # Desired element dim
+        des_x_val = y * self._des_plate_aspect_ratio  # Desired element dim
         n_elem = self.find_largest_divisor(plate_dim, des_x_val)
         if n_elem is not None:
             x = plate_dim / n_elem  # Element dimension parallel to stiffeners
             ar = self.element_aspect_ratio(x, y)
-            if ar > self.plate_aspect_ratio:  # If L is a prime number
+            if ar > self._plate_aspect_ratio:  # If L is a prime number
                 x = self.refine_plate_element(plate_dim, des_x_val)
         else:
             x = self.refine_plate_element(plate_dim, des_x_val)
@@ -1673,7 +1678,7 @@ class MeshSize:
     def get_end1_max_flange_width(self, segment: Segment):
         beam_type = segment.beam_prop.beam_type
         corr_add = self._grillage.corrosion_addition()[1]
-        eaf = self.num_eaf
+        eaf = self._num_eaf
         if beam_type is BeamType.T:
             self_bf_net = segment.beam_prop.bf_net(corr_add) / (eaf + 1)
         elif beam_type is BeamType.L:
@@ -1700,7 +1705,7 @@ class MeshSize:
     def get_end2_max_flange_width(self, segment: Segment):
         beam_type = segment.beam_prop.beam_type
         corr_add = self._grillage.corrosion_addition()[1]
-        eaf = self.num_eaf
+        eaf = self._num_eaf
         if beam_type is BeamType.T:
             self_bf_net = segment.beam_prop.bf_net(corr_add) / (eaf + 1)
         elif beam_type is BeamType.L:
@@ -1842,8 +1847,8 @@ class MeshSize:
             dim_xf = self.get_min_fl_el_len(plate.long_seg1, plate.long_seg2)
             dim_yf = self.get_min_fl_el_len(plate.trans_seg1, plate.trans_seg2)
 
-            dim_x_limit = np.minimum(dim_xf, dim_y * self.plate_aspect_ratio)
-            dim_y_limit = np.minimum(dim_yf, dim_x * self.plate_aspect_ratio)
+            dim_x_limit = np.minimum(dim_xf, dim_y * self._plate_aspect_ratio)
+            dim_y_limit = np.minimum(dim_yf, dim_x * self._plate_aspect_ratio)
 
             if plate.stiff_dir == BeamDirection.LONGITUDINAL:
                 if dim_y > dim_x:
@@ -2002,7 +2007,7 @@ class MeshSize:
         if flange_element_width == 0:
             return 0
         else:
-            return self.num_eaf
+            return self._num_eaf
 
     def transition_dim_x(self, plate: Plate):
         """
@@ -2402,11 +2407,11 @@ class MeshSize:
         if bf_max1 == 0 and bf_max2 == 0:
             return 0, 0
         elif bf_max1 == 0 and bf_max2 != 0:
-            return 0, self.num_eaf
+            return 0, self._num_eaf
         elif bf_max1 != 0 and bf_max2 == 0:
-            return self.num_eaf, 0
+            return self._num_eaf, 0
         else:
-            return self.num_eaf, self.num_eaf
+            return self._num_eaf, self._num_eaf
 
     def flange_transition_dim(self, segment: Segment):
         """
@@ -2572,7 +2577,13 @@ class MeshSize:
 
 
 class ElementSizeV1(MeshSize):
-    def __init__(self, mesh_extent: MeshExtent):
+    def __init__(self, mesh_extent: MeshExtent,
+                 min_num_ebs: int,
+                 min_num_eweb: int,
+                 num_eaf: int,
+                 flange_aspect_ratio: float,
+                 plate_aspect_ratio: float,
+                 des_plate_aspect_ratio: float):
         """
         Class for calculating finite element dimensions
         specific to meshing variant V1.
@@ -2585,7 +2596,8 @@ class ElementSizeV1(MeshSize):
             3.) Flange element overlap has to be in the same plane.
             4.) Grillage plating can not be defined with any camber.
         """
-        super().__init__(mesh_extent)
+        super().__init__(mesh_extent, min_num_ebs, min_num_eweb, num_eaf,
+                         flange_aspect_ratio, plate_aspect_ratio, des_plate_aspect_ratio)
 
     def get_reduced_plate_dim(self, plate: Plate):
         """
@@ -2593,7 +2605,7 @@ class ElementSizeV1(MeshSize):
         :return: Reduced plate dimensions based on plate stiffener orientation
             and flange width for mesh variant V1.
         """
-        n_eaf = self.num_eaf
+        n_eaf = self._num_eaf
         if plate.stiff_dir == BeamDirection.LONGITUDINAL:
             L = plate.plate_longitudinal_dim() * 1000
             dim_xf1 = self.get_flange_el_width(plate.trans_seg1) * n_eaf
@@ -2651,7 +2663,7 @@ class ElementSizeV1(MeshSize):
             dim_x = self.get_base_dim_x(plate)
             dim_y = self.get_base_dim_y(plate)
             stiff_offset = plate.get_equal_stiffener_offset() * 1000
-            n_eaf = self.num_eaf
+            n_eaf = self._num_eaf
 
             flange_width1 = self.get_flange_el_width(plate.trans_seg1) * n_eaf
             flange_width2 = self.get_flange_el_width(plate.trans_seg2) * n_eaf
@@ -2707,7 +2719,7 @@ class ElementSizeV1(MeshSize):
             dim_x = self.get_base_dim_x(plate)
             dim_y = self.get_base_dim_y(plate)
             stiff_offset = plate.get_equal_stiffener_offset() * 1000
-            n_eaf = self.num_eaf
+            n_eaf = self._num_eaf
 
             flange_width1 = self.get_flange_el_width(plate.long_seg1) * n_eaf
             flange_width2 = self.get_flange_el_width(plate.long_seg2) * n_eaf
@@ -2755,7 +2767,7 @@ class ElementSizeV1(MeshSize):
         """
         L = self._mesh_extent.get_long_plate_dim(plate)
         B = self._mesh_extent.get_tran_plate_dim(plate)
-        n_eaf = self.num_eaf
+        n_eaf = self._num_eaf
         dim_x = self.get_base_dim_x(plate)
         dim_y = self.get_base_dim_y(plate)
 
@@ -2901,7 +2913,13 @@ class ElementSizeV1(MeshSize):
 
 
 class ElementSizeV2(MeshSize):
-    def __init__(self, mesh_extent: MeshExtent):
+    def __init__(self, mesh_extent: MeshExtent,
+                 min_num_ebs: int,
+                 min_num_eweb: int,
+                 num_eaf: int,
+                 flange_aspect_ratio: float,
+                 plate_aspect_ratio: float,
+                 des_plate_aspect_ratio: float):
         """
         Class for calculating finite element dimensions
         specific to meshing variant V2.
@@ -2917,7 +2935,8 @@ class ElementSizeV2(MeshSize):
             3.) Grillage plating can not be defined with any camber.
             4.) Value of num_eaf can not be greater than 1. ???????????????
         """
-        super().__init__(mesh_extent)
+        super().__init__(mesh_extent, min_num_ebs, min_num_eweb, num_eaf,
+                         flange_aspect_ratio, plate_aspect_ratio, des_plate_aspect_ratio)
 
     def flange_edge_node_spacing(self, segment: Segment):
         """
@@ -2955,13 +2974,12 @@ class ElementSizeV2(MeshSize):
 
 
 class PlateMesh:
-    def __init__(self, mesh_size: MeshSize, plate: Plate, split_along=AOS.NONE):
+    def __init__(self, mesh_size: MeshSize, plate: Plate):
         """
         Class for generating FE mesh on a selected plating zone.
 
         :param mesh_size: Selected input mesh size for plate zone mesh generation.
         :param plate: Selected plate for generating Node and Element objects.
-        :param split_along: Optional argument, determines the meshing limits
             of the selected plating zone based on Axis Of Symmetry.
         :return: Determines node coordinates and generates finite element Node
             and Element objects on the selected plating zone. Returns last node
@@ -2969,7 +2987,6 @@ class PlateMesh:
         """
         self._mesh_size = mesh_size
         self._plate = plate
-        self._split_along = split_along
 
         self._edge_nodes_x = self._mesh_size.plate_edge_node_spacing_x(plate)
         self._edge_nodes_y = self._mesh_size.plate_edge_node_spacing_y(plate)
@@ -3180,7 +3197,7 @@ class PlateMesh:
 
 class SegmentMesh:
     def __init__(self, mesh_size: MeshSize, segment: Segment,
-                 start_n_id, start_e_id, split=False):
+                 start_n_id, start_e_id):
         """
         Class for generating FE mesh on a selected segment.
 
@@ -3188,7 +3205,6 @@ class SegmentMesh:
         :param segment: Selected segment for generating Noodes and Elements.
         :param start_n_id: Starting node ID which allows continued numeration.
         :param start_e_id: Starting element ID which allows continued numeration.
-        :param split:
         :return: Determines node coordinates and generates finite element Node
             and Element objects on the selected segment. Returns last node and
             element ID, to continue node and element numbering.
@@ -3210,7 +3226,6 @@ class SegmentMesh:
         self._segment = segment
         self._start_node_id = start_n_id
         self._start_element_id = start_e_id
-        self._split = split
 
         self._edge_plate_nodes = {}
         self._edge_flange_nodes = self._mesh_size.flange_edge_node_spacing(segment)
@@ -3450,19 +3465,18 @@ class SegmentMesh:
 
 class SegmentMeshV1(SegmentMesh):
     def __init__(self, mesh_size: MeshSize, segment: Segment,
-                 start_n_id, start_e_id, split=False):
+                 start_n_id, start_e_id):
         """
         CLass for segment mesh generation specific to meshing variant V1.
 
         Distances between flange nodes are equal to plate edge node distances
         on meshing variant V1.
         """
-        super().__init__(mesh_size, segment, start_n_id, start_e_id, split)
+        super().__init__(mesh_size, segment, start_n_id, start_e_id)
         self._mesh_size = mesh_size
         self._segment = segment
         self._start_node_id = start_n_id        # Starting node ID
         self._start_element_id = start_e_id     # Starting element ID
-        self._split = split
 
     def generate_web_nodes(self, fem: GeoGrillageFEM):
         """
@@ -3660,7 +3674,7 @@ class SegmentMeshV1(SegmentMesh):
 
 class SegmentMeshV2(SegmentMesh):
     def __init__(self, mesh_size: MeshSize, segment: Segment,
-                 start_n_id, start_e_id, split=False):
+                 start_n_id, start_e_id):
         """
         CLass for segment mesh generation specific to meshing variant V2.
 
@@ -3668,12 +3682,11 @@ class SegmentMeshV2(SegmentMesh):
         Transition mesh on the segment web uses both deformed quad elements and
         triangle elements.
         """
-        super().__init__(mesh_size, segment, start_n_id, start_e_id, split)
+        super().__init__(mesh_size, segment, start_n_id, start_e_id)
         self._mesh_size = mesh_size
         self._segment = segment
         self._start_node_id = start_n_id
         self._start_element_id = start_e_id
-        self._split = split
 
     def idenetify_num_of_tris(self, segment: Segment):
         """
@@ -4096,12 +4109,117 @@ class SegmentMeshV2(SegmentMesh):
 
 
 class GrillageMesh:
-    def __init__(self, mesh_size: MeshSize):
+    def __init__(self, mesh_variant: MeshVariant,
+                 grillage: Grillage,
+                 axis_of_symm_override: AOS = None):
         """
         Class for generating FE mesh on the entire grillage model.
 
-        :param mesh_size: Calculated mesh dimensions.
+        :param mesh_variant: Selected MeshVariant.
+        :param grillage: Input Grillage model.
+        :param axis_of_symm_override: Selected Axis of Symmetry override.
         """
+        self._mesh_variant = mesh_variant
+        self._grillage = grillage
+        self.mesh_extent = MeshExtent(self._grillage, axis_of_symm_override)
+
+    def generate_FEM_property(self, fem: GeoGrillageFEM):
+        self.mesh_extent.generate_FEM_material(fem)
+        self.mesh_extent.generate_FEM_plate_property(fem)
+        self.mesh_extent.generate_FEM_beam_property(fem)
+        self.mesh_extent.generate_half_FEM_beam_property(fem)
+
+    def generate_plate_mesh(self, size: MeshSize, fem: GeoGrillageFEM):
+        for plate in self.mesh_extent.full_plate_zones.values():
+            pzm = PlateMesh(size, plate)
+            pzm.generate_mesh(fem)
+
+        for plate in self.mesh_extent.long_half_plate_zones.values():
+            pzm = PlateMesh(size, plate)
+            pzm.generate_mesh(fem)
+
+        for plate in self.mesh_extent.tran_half_plate_zones.values():
+            pzm = PlateMesh(size, plate)
+            pzm.generate_mesh(fem)
+
+        for plate in self.mesh_extent.quarter_plate_zone.values():
+            pzm = PlateMesh(size, plate)
+            pzm.generate_mesh(fem)
+
+    def generate_psm_mesh_V1(self, size: MeshSize, fem: GeoGrillageFEM):
+        n_id = fem.id_node_count
+        e_id = fem.id_element_count
+
+        for segment in self.mesh_extent.full_segments.values():
+            sm = SegmentMeshV1(size, segment, n_id, e_id)
+            n_id, e_id = sm.generate_mesh(fem)
+
+        for segment in self.mesh_extent.half_segments.values():
+            sm = SegmentMeshV1(size, segment, n_id, e_id)
+            n_id, e_id = sm.generate_mesh(fem)
+
+    def generate_psm_mesh_V2(self, size: MeshSize, fem: GeoGrillageFEM):
+        n_id = fem.id_node_count
+        e_id = fem.id_element_count
+
+        for segment in self.mesh_extent.full_segments.values():
+            sm = SegmentMeshV2(size, segment, n_id, e_id)
+            n_id, e_id = sm.generate_mesh(fem)
+
+        for segment in self.mesh_extent.half_segments.values():
+            sm = SegmentMeshV2(size, segment, n_id, e_id)
+            n_id, e_id = sm.generate_mesh(fem)
+
+    def grillage_mesh_v1(self, name, ebs, eweb, eaf, far, par, dpar):
+        size = ElementSizeV1(self.mesh_extent, ebs, eweb, eaf, far, par, dpar)
+        fem = GeoGrillageFEM(name)
+        size.calculate_mesh_dimensions()
+        self.mesh_extent.identify_boundary_coords(fem)
+        self.generate_FEM_property(fem)
+        self.generate_plate_mesh(size, fem)
+        self.generate_psm_mesh_V1(size, fem)
+        fem.merge_coincident_nodes()
+        fem.merge_coincident_elements()
+
+        print("Mesh generation complete.")
+        return fem
+
+    def grillage_mesh_v2(self, name, ebs, eweb, eaf, far, par, dpar):
+        size = ElementSizeV2(self.mesh_extent, ebs, eweb, eaf, far, par, dpar)
+        fem = GeoGrillageFEM(name)
+        size.calculate_mesh_dimensions()
+        self.mesh_extent.identify_boundary_coords(fem)
+        self.generate_FEM_property(fem)
+        self.generate_plate_mesh(size, fem)
+        self.generate_psm_mesh_V2(size, fem)
+        fem.merge_coincident_nodes()
+        fem.merge_coincident_elements()
+
+        print("Mesh generation complete.")
+        return fem
+
+    def generate_grillage_mesh(self, name, ebs, eweb, eaf, far, par, dpar):
+        if self._mesh_variant is MeshVariant.V1:
+            fem = self.grillage_mesh_v1(name, ebs, eweb, eaf, far, par, dpar)
+
+        elif self._mesh_variant is MeshVariant.V2:
+            fem = self.grillage_mesh_v2(name, ebs, eweb, eaf, far, par, dpar)
+
+        else:
+            fem = None
+
+        return fem
+
+
+# Stari GrillageMesh
+"""
+class GrillageMesh:
+    def __init__(self, mesh_size: MeshSize):
+        
+        Class for generating FE mesh on the entire grillage model.
+
+        :param mesh_size: Calculated mesh dimensions.
+        
         self._mesh_size = mesh_size
         self._mesh_extent = self._mesh_size.mesh_extent
 
@@ -4113,19 +4231,19 @@ class GrillageMesh:
 
     def generate_plate_mesh(self, fem: GeoGrillageFEM):
         for plate in self._mesh_extent.full_plate_zones.values():
-            pzm = PlateMesh(self._mesh_size, plate, AOS.NONE)
+            pzm = PlateMesh(self._mesh_size, plate)
             pzm.generate_mesh(fem)
 
         for plate in self._mesh_extent.long_half_plate_zones.values():
-            pzm = PlateMesh(self._mesh_size, plate, AOS.LONGITUDINAL)
+            pzm = PlateMesh(self._mesh_size, plate)
             pzm.generate_mesh(fem)
 
         for plate in self._mesh_extent.tran_half_plate_zones.values():
-            pzm = PlateMesh(self._mesh_size, plate, AOS.TRANSVERSE)
+            pzm = PlateMesh(self._mesh_size, plate)
             pzm.generate_mesh(fem)
 
         for plate in self._mesh_extent.quarter_plate_zone.values():
-            pzm = PlateMesh(self._mesh_size, plate, AOS.BOTH)
+            pzm = PlateMesh(self._mesh_size, plate)
             pzm.generate_mesh(fem)
 
     def generate_psm_mesh_V1(self, fem: GeoGrillageFEM):
@@ -4133,11 +4251,11 @@ class GrillageMesh:
         e_id = fem.id_element_count
 
         for segment in self._mesh_extent.full_segments.values():
-            sm = SegmentMeshV1(self._mesh_size, segment, n_id, e_id, split=False)
+            sm = SegmentMeshV1(self._mesh_size, segment, n_id, e_id)
             n_id, e_id = sm.generate_mesh(fem)
 
         for segment in self._mesh_extent.half_segments.values():
-            sm = SegmentMeshV1(self._mesh_size, segment, n_id, e_id, split=True)
+            sm = SegmentMeshV1(self._mesh_size, segment, n_id, e_id)
             n_id, e_id = sm.generate_mesh(fem)
 
     def generate_psm_mesh_V2(self, fem: GeoGrillageFEM):
@@ -4145,37 +4263,42 @@ class GrillageMesh:
         e_id = fem.id_element_count
 
         for segment in self._mesh_extent.full_segments.values():
-            sm = SegmentMeshV2(self._mesh_size, segment, n_id, e_id, split=False)
+            sm = SegmentMeshV2(self._mesh_size, segment, n_id, e_id)
             n_id, e_id = sm.generate_mesh(fem)
 
         for segment in self._mesh_extent.half_segments.values():
-            sm = SegmentMeshV2(self._mesh_size, segment, n_id, e_id, split=True)
+            sm = SegmentMeshV2(self._mesh_size, segment, n_id, e_id)
             n_id, e_id = sm.generate_mesh(fem)
 
     def generate_grillage_mesh_v1(self, name):
-        """
+        
         :param name:
         :return: Generates mesh on the grillage model using mesh variant V1.
-        """
+        
         fem = GeoGrillageFEM(name)
         self._mesh_size.calculate_mesh_dimensions()
         self._mesh_extent.identify_boundary_coords(fem)
         self.generate_FEM_property(fem)
         self.generate_plate_mesh(fem)
         self.generate_psm_mesh_V1(fem)
+        fem.merge_coincident_nodes()
+        fem.merge_coincident_elements()
         print("Mesh generation complete.")
         return fem
 
     def generate_grillage_mesh_v2(self, name):
-        """
+        
         :param name:
         :return: Generates mesh on the grillage model using mesh variant V2.
-        """
+        
         fem = GeoGrillageFEM(name)
         self._mesh_size.calculate_mesh_dimensions()
         self._mesh_extent.identify_boundary_coords(fem)
         self.generate_FEM_property(fem)
         self.generate_plate_mesh(fem)
         self.generate_psm_mesh_V2(fem)
+        fem.merge_coincident_nodes()
+        fem.merge_coincident_elements()
         print("Mesh generation complete.")
         return fem
+"""

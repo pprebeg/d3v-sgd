@@ -139,33 +139,9 @@ class SGDCommand(Command):
 
         actionRunTest = self.menuMain.addAction("&Generate Test Mesh V1")
         actionRunTest.triggered.connect(self.onActionGenerateTestMeshV1)
-
+        
         actionRunTest = self.menuMain.addAction("&Generate Test Mesh V2")
         actionRunTest.triggered.connect(self.onActionGenerateTestMeshV2)
-
-        actionRunTest = self.menuTests.addAction("&Calculate Mesh Dimensions")
-        actionRunTest.triggered.connect(self.onActionCalculate_mesh_dimensions)
-
-        actionRunTest = self.menuTests.addAction("&Show Beam Property")
-        actionRunTest.triggered.connect(self.onActionTestProperty)
-
-        actionRunTest = self.menuTests.addAction("&Full Model Overlap Check")
-        actionRunTest.triggered.connect(self.onActionFullOverlapCheck)
-
-        actionRunTest = self.menuTests.addAction("&Current TEST")
-        actionRunTest.triggered.connect(self.onActionCurrentTest)
-
-        actionRunTest = self.menuTests.addAction("&Test Mesh V2 base size")
-        actionRunTest.triggered.connect(self.onActionTestV2basesize)
-
-        actionRunTest = self.menuTests.addAction("&Test Mesh V2 transition mesh")
-        actionRunTest.triggered.connect(self.onActionTestV2transition)
-
-        actionRunTest = self.menuTests.addAction("&Test Mesh V2 element numbers")
-        actionRunTest.triggered.connect(self.onActionTestV2elementNumber)
-
-        actionRunTest = self.menuTests.addAction("&Test Mesh V2 flange edge nodes")
-        actionRunTest.triggered.connect(self.onActionTestV2FlangeEdgeNodes)
 
         try:
             manager.selected_geometry_changed.connect(self.onSelectedGeometryChanged)
@@ -192,47 +168,17 @@ class SGDCommand(Command):
             manager.show_geometry([grill_fem])
         pass
 
-    # ******* RUN TESTS **********
-    def onActionCalculate_mesh_dimensions(self):
-        Test_calculate_mesh_dimensions()
-    def onActionFullOverlapCheck(self):
-        TestFullModelOverlap()
-    def onActionTestProperty(self):
-        grill_fem = generate_test_mesh_v1()
-        Test_GeoFEM_T_L_beam_property(grill_fem)
-    def onActionCurrentTest(self):
-        Test_current()
-    def onActionTestV2basesize(self):
-        Test_MeshVariant_V2_basesize()
-    def onActionTestV2transition(self):
-        Test_MeshVariant_V2_transition()
-    def onActionTestV2elementNumber(self):
-        Test_MeshVariant_V2_element_number()
-    def onActionTestV2FlangeEdgeNodes(self):
-        Test_MeshVariant_V2_flange_edge_nodes()
-
-
     def onGenerateFEM(self):
         QApplication.changeOverrideCursor(QCursor(Qt.WaitCursor))
         tart = timer()
 
-        # mesh_extent = MeshExtent(self._grillgeo.grillage, AOS.NONE)    # Calculate mesh extents with Axis of Symmetry override
-        mesh_extent = MeshExtent(self._grillgeo.grillage)                # Calculate mesh extents with automatic Axis of Symmetry discovery
+        mesh_var = MeshVariant.V1
+        gril_var = self._grillgeo.grillage
+        aos_override = None
+        # aos_override = AOS.TRANSVERSE
 
-        mesher = ElementSizeV1(mesh_extent)     # Calculate mesh dimensions for mesh variant V1
-        # mesher = ElementSizeV2(mesh_extent)    # Calculate mesh dimensions for mesh variant V2
-
-        # Mesh Control
-        mesher.min_num_ebs = 1              # Minimum number of elements between stiffeners
-        mesher.min_num_eweb = 3             # Minimum number of elements along psm web height
-        mesher.num_eaf = 1                  # Number of elements across the psm flange
-        mesher.flange_aspect_ratio = 8      # Max flange aspect ratio
-        mesher.plate_aspect_ratio = 4       # Max plate aspect ratio
-        mesher.des_plate_aspect_ratio = 3   # Desired plate aspect ratio
-
-        grillage_mesh = GrillageMesh(mesher)
-        grill_fem = grillage_mesh.generate_grillage_mesh_v1('Mesh variant V1 test')
-        grill_fem.merge_coincident_nodes()
+        grillage_mesh = GrillageMesh(mesh_var, gril_var, aos_override)
+        grill_fem = grillage_mesh.generate_grillage_mesh("test mesh", ebs=1, eweb=3, eaf=1, far=5, par=4, dpar=3)
 
         grill_fem.regenerate()
         if grill_fem is not None:

@@ -57,7 +57,6 @@ class AOS(Enum):    # Axis Of Symmetry
     LONGITUDINAL = 1
     BOTH = 2
     NONE = 3
-    # AUTO = 4 ?
 
 
 class DefinitionType(Enum):     # Stiffener definition type
@@ -79,13 +78,10 @@ class ResponseAnalysis:
     Class for storing references from analysis modules and analysis results.
 
     Each structural element of the grillage model contains an instance of this object
-    for storing associated FEM elements, analysis results and other information.
-    Used for retrieving the relevant response analysis results for adequacy analysis.
+    for storing associated FEM elements and analysis results.
+    Used for retrieving response analysis results for adequacy analysis.
     """
-    def __init__(self, id_):
-        self._id = id_
-        # self.boundary_condition_nodes = {}
-        # self.nodal_loads = {}
+    def __init__(self):
         self.flange_elements = {}
         self.web_elements = {}
         self.plate_elements = {}
@@ -1071,7 +1067,10 @@ class Segment:
 
     @property
     def analysis_results(self):
-        return self.analysis_results
+        try:
+            return self.analysis_results
+        except RecursionError:
+            return None
 
     @analysis_results.setter
     def analysis_results(self, value):

@@ -272,40 +272,41 @@ def generate_OOFEM_input_file(file_path:str, mdl:GeoFEM, eltypes:Dict[FEMElement
     #             i += 1
     #         else:
     #             print('Unhandled boundary condition type found in the model: '+ str(bc))
-
-    for load in lc.loads:
-        idload= i + 1 # old way
-        #idload = load.id # new way
-        if isinstance(load, GroupDoffBasedLoad):
-            keyword = 'nodalload'
-            idset = idgroup_to_idset[load.id_group]
-            idfun = lcidtotf[id]
-            dofs = load.dofs
-            vals = load.values
-            data = (keyword, idload, idset, idfun, dofs, vals)
-            rg = oofemin.getRecordGroup(BCandLoadRecords.getkeyname())
-            rg.setRecordDataNeutralFormat(i, data)
-            i += 1
-        elif isinstance(load, AccelerationLoad):
-            keyword = 'accelerationload'
-            idset = id_all_el_set
-            idfun = lcidtotf[id]
-            vals = load.get_6dof_values()
-            data = (keyword, idload, idset, idfun, vals)
-            rg = oofemin.getRecordGroup(BCandLoadRecords.getkeyname())
-            rg.setRecordDataNeutralFormat(i, data)
-            i += 1
-        elif isinstance(load, GroupPressureLoad):
-            keyword = 'pressureload'
-            idset = idgroup_to_idset[load.id_group]
-            idfun = lcidtotf[id]
-            press = load.signed_pressure
-            data = (keyword, idload, idset, idfun, press)
-            rg = oofemin.getRecordGroup(BCandLoadRecords.getkeyname())
-            rg.setRecordDataNeutralFormat(i, data)
-            i += 1
-        else:
-            print('Unhandled load type found in the model: '+ str(load))
+    for id in sorted(mdl.loadcases):
+        lc = mdl.getLoadCase(id)
+        for load in lc.loads:
+            idload= i + 1 # old way
+            #idload = load.id # new way
+            if isinstance(load, GroupDoffBasedLoad):
+                keyword = 'nodalload'
+                idset = idgroup_to_idset[load.id_group]
+                idfun = lcidtotf[id]
+                dofs = load.dofs
+                vals = load.values
+                data = (keyword, idload, idset, idfun, dofs, vals)
+                rg = oofemin.getRecordGroup(BCandLoadRecords.getkeyname())
+                rg.setRecordDataNeutralFormat(i, data)
+                i += 1
+            elif isinstance(load, AccelerationLoad):
+                keyword = 'accelerationload'
+                idset = id_all_el_set
+                idfun = lcidtotf[id]
+                vals = load.get_6dof_values()
+                data = (keyword, idload, idset, idfun, vals)
+                rg = oofemin.getRecordGroup(BCandLoadRecords.getkeyname())
+                rg.setRecordDataNeutralFormat(i, data)
+                i += 1
+            elif isinstance(load, GroupPressureLoad):
+                keyword = 'pressureload'
+                idset = idgroup_to_idset[load.id_group]
+                idfun = lcidtotf[id]
+                press = load.signed_pressure
+                data = (keyword, idload, idset, idfun, press)
+                rg = oofemin.getRecordGroup(BCandLoadRecords.getkeyname())
+                rg.setRecordDataNeutralFormat(i, data)
+                i += 1
+            else:
+                print('Unhandled load type found in the model: '+ str(load))
     # prepare sets (groups)
     iditems = []
     i = 0

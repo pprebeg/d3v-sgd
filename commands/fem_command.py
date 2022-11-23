@@ -23,6 +23,7 @@ try:
     from femdir.geofem import GeoFEM
     from core import geometry_manager as manager
     import logging
+    from femdir.oofemanalysis import is_oofempy_loaded
 except BaseException as error:
     print('An exception occurred: {}'.format(error))
 except:
@@ -45,8 +46,8 @@ class FEMCommand(Command):
         # path to oofem
         self._oofem_input_filepath = ''
         self._oofem_idset_outtypes = null
-        oofempymodfind = importlib.util.find_spec("oofempy") is not None
-        if oofempymodfind:
+        #oofempymodfind = importlib.util.find_spec("oofempy") is not None
+        if is_oofempy_loaded():
             self._show_oofem_analysis_menu = True
 
         self.add_toolbars_and_menus()
@@ -162,7 +163,7 @@ class FEMCommand(Command):
         if isinstance(self.femmdl, GeoFEM):
             eltypes = get_initial_element_types_dict()
             dir_path = os.path.dirname(self.femmdl.get_input_file_path())
-            text, ok = QInputDialog.getText(self._mainwin, 'GeoOOFEM Export input file', 'Use next file name?',
+            text, ok = QInputDialog.getText(self.mainwin, 'GeoOOFEM Export input file', 'Use next file name?',
                                             QLineEdit.Normal, 'oofem_exp_input.in')
             if ok:
                 self._oofem_input_filepath = os.path.abspath(dir_path) + '\\' + text

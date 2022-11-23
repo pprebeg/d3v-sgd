@@ -143,6 +143,9 @@ class SGDCommand(Command):
         actionRunTest = self.menuMain.addAction("&Generate Test Mesh V2")
         actionRunTest.triggered.connect(self.onActionGenerateTestMeshV2)
 
+        actionRunTest = self.menuTests.addAction("&Test Edge Node Spacing")
+        actionRunTest.triggered.connect(self.onActionTestEdgeSpacing)
+
         try:
             manager.selected_geometry_changed.connect(self.onSelectedGeometryChanged)
             manager.geometry_created.connect(self.onGeometryCreated)
@@ -168,17 +171,28 @@ class SGDCommand(Command):
             manager.show_geometry([grill_fem])
         pass
 
+    def onActionTestEdgeSpacing(self):
+        Test_edge_node_spacing()
+
     def onGenerateFEM(self):
         QApplication.changeOverrideCursor(QCursor(Qt.WaitCursor))
         tart = timer()
 
-        mesh_var = MeshVariant.V1
         gril_var = self._grillgeo.grillage
+        mesh_var = MeshVariant.V1
         aos_override = None
         # aos_override = AOS.TRANSVERSE
 
+        name = "hc test mesh"
+        ebs = 1     # Number of elements between stiffeners
+        eweb = 3    # Number of elements along the height of PSM web
+        eaf = 1     # Number of elements across primary supporting member flange
+        far = 8     # Maximum PSM flange aspect ratio
+        par = 4     # Maximum plate and PSM web aspect ratio
+        dpar = 3    # Desired plating aspect ratio, less than the maximum
+
         grillage_mesh = GrillageMesh(mesh_var, gril_var, aos_override)
-        grill_fem = grillage_mesh.generate_grillage_mesh("test mesh", ebs=1, eweb=3, eaf=1, far=5, par=4, dpar=3)
+        grill_fem = grillage_mesh.generate_grillage_mesh(name, ebs, eweb, eaf, far, par, dpar)
 
         grill_fem.regenerate()
         if grill_fem is not None:

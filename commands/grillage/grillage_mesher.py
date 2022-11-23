@@ -4108,6 +4108,7 @@ class SegmentMeshV2(SegmentMesh):
         return element_id
 
 
+# Zasebne klase za mesh V1 i V2!
 class GrillageMesh:
     def __init__(self, mesh_variant: MeshVariant,
                  grillage: Grillage,
@@ -4199,6 +4200,17 @@ class GrillageMesh:
         return fem
 
     def generate_grillage_mesh(self, name, ebs, eweb, eaf, far, par, dpar):
+        """
+        :param name: Mesh name.
+        :param ebs: Number of elements between stiffeners.
+        :param eweb: Number of elements representing the web of a primary
+            supporting member along its height.
+        :param eaf: Number of elements across primary supporting member flange.
+        :param far: Maximum PSM flange aspect ratio.
+        :param par: Maximum plate and PSM web aspect ratio.
+        :param dpar: Desired plating aspect ratio, less than the maximum.
+        :return: GeoGrillageFEM object.
+        """
         if self._mesh_variant is MeshVariant.V1:
             fem = self.grillage_mesh_v1(name, ebs, eweb, eaf, far, par, dpar)
 

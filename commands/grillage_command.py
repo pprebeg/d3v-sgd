@@ -132,12 +132,14 @@ class GrillageAnalysisGUI(QDialog):
         self.par_input = QSpinBox(self)
         self.dpar_input = QSpinBox(self)
 
-    def get_mesh_variant(self):
+    def grillage_mesh_variant(self):
+        grill_var = self._grillgeo.grillage
+        aos_override = self.get_aos()
         mesh_var = self.mesh_variant.currentText()
         if mesh_var == "V1":
-            return MeshVariant.V1
+            return MeshVariantV1(grill_var, aos_override)
         elif mesh_var == "V2":
-            return MeshVariant.V2
+            return MeshVariantV2(grill_var, aos_override)
 
     def get_aos(self):
         aos = self.aos_override.currentText()
@@ -152,9 +154,6 @@ class GrillageAnalysisGUI(QDialog):
 
     def generate_grill_mesh(self):
         QApplication.changeOverrideCursor(QCursor(Qt.WaitCursor))
-
-        mesh_var = self.get_mesh_variant()
-        aos_override = self.get_aos()
         name = self.name_input.text()
         ebs = self.ebs_input.value()
         eweb = self.eweb_input.value()
@@ -164,9 +163,12 @@ class GrillageAnalysisGUI(QDialog):
         dpar = self.dpar_input.value()
         self.close()
 
-        grill_var = self._grillgeo.grillage
-        mesh = GrillageMesh(mesh_var, grill_var, aos_override)
+        mesh = self.grillage_mesh_variant()
+        symmetry = mesh.mesh_extent.axis_of_symm
         grill_fem = mesh.generate_grillage_mesh(name, ebs, eweb, eaf, far, par, dpar)
+        pressure = 0.034
+        mesh.generate_loadcase(grill_fem, symmetry, pressure)
+
         grill_fem.regenerate()
         if grill_fem is not None:
             manager.add_geometry([grill_fem])

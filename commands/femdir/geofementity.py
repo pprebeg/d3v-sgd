@@ -1768,7 +1768,7 @@ class QuadElement(Element):
     def updateDeformedMesh(self, mesh: om.PolyMesh, face2entity: Dict[int, int], mc: MeshControl, deformation,
                            const_color=[0.4, 1.0, 1.0, 1.0], fun_getcolor=None, minvalue=0, maxvalue=1):
 
-        def_scale = 1000  # Deformation amplification (scale) factor
+        def_scale = 10  # Deformation amplification (scale) factor
 
         node1 = self.nodes[0]
         node2 = self.nodes[1]

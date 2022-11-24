@@ -20,7 +20,6 @@ def generate_test_mesh_v1():
     hc_variant = GrillageModelData(filename).read_file()
     print("Testing FE mesh variant V1 for grillage variant", hc_var)
 
-    mesh_var = MeshVariant.V1
     gril_var = hc_variant
     aos_override = None
     ebs = 1     # Number of elements between stiffeners
@@ -30,7 +29,7 @@ def generate_test_mesh_v1():
     par = 4     # Maximum plate and PSM web aspect ratio
     dpar = 3    # Desired plating aspect ratio, less than the maximum
 
-    grillage_mesh = GrillageMesh(mesh_var, gril_var, aos_override)
+    grillage_mesh = MeshVariantV1(gril_var, aos_override)
     grill_fem = grillage_mesh.generate_grillage_mesh("test mesh", ebs, eweb, eaf, far, par, dpar)
 
     end = timer()
@@ -47,17 +46,16 @@ def generate_test_mesh_v2():
     hc_variant = GrillageModelData(filename).read_file()
     print("Testing FE mesh variant V2 for grillage variant", hc_var)
 
-    mesh_var = MeshVariant.V2
     gril_var = hc_variant
     aos_override = None
     ebs = 1     # Number of elements between stiffeners
     eweb = 3    # Number of elements along the height of PSM web
     eaf = 1     # Number of elements across primary supporting member flange
-    far = 5     # Maximum PSM flange aspect ratio
+    far = 8     # Maximum PSM flange aspect ratio
     par = 3     # Maximum plate and PSM web aspect ratio
     dpar = 3    # Desired plating aspect ratio, less than the maximum
 
-    grillage_mesh = GrillageMesh(mesh_var, gril_var, aos_override)
+    grillage_mesh = MeshVariantV2(gril_var, aos_override)
     grill_fem = grillage_mesh.generate_grillage_mesh("test mesh", ebs, eweb, eaf, far, par, dpar)
 
     end = timer()

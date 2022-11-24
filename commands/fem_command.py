@@ -86,6 +86,9 @@ class FEMCommand(Command):
         menuAnalysisResults = self._menuOOFEMresults.addAction("&Show displacement")
         menuAnalysisResults.triggered.connect(self.onShowDisplacement)
 
+        menuAnalysisResults = self._menuOOFEMresults.addAction("&Print displacements")
+        menuAnalysisResults.triggered.connect(self.onPrintDisplacements)
+
         mb.addMenu(self._menuMain)
         self._combo_lc = self.init_combo_lc()
         if self._show_oofem_analysis_menu:
@@ -109,10 +112,15 @@ class FEMCommand(Command):
 
     def onShowDisplacement(self):
         nodal_displacement = self.get_node_displacement()
-        deformed_mesh = self.femmdl.regenerate_deformation(nodal_displacement)
-        if deformed_mesh is not None:
-            manager.add_geometry([deformed_mesh])
-            manager.show_geometry([deformed_mesh])
+        self.femmdl.regenerate_deformation(nodal_displacement)
+        if self.femmdl is not None:
+            manager.add_geometry([self.femmdl])
+            manager.show_geometry([self.femmdl])
+
+    def onPrintDisplacements(self):
+        node_displacements = self.get_node_displacement()
+        for key, val in node_displacements.items():
+            print("Node ID:", key, ",nodal displacement:", val)
 
     def add_OOFEM_analysis_toolbars_and_menus(self):
         menu_anylyse_oofem = self._menuOOFEM.addAction("&Analyse")

@@ -22,9 +22,9 @@ class GeoGrillageFEM (GeoFEM):
             for Segments on AOS with half web thickness.
         """
         super().__init__(name)
+        self.plate_elements = {}
         self.initial_node_overlaps = {}
         self.flange_element_overlaps = {}
-        self.end_boundary_node_coords = []
 
         self.plate_property_IDs = {}
         self.stiff_beam_prop_IDs = {}
@@ -60,6 +60,13 @@ class GeoGrillageFEM (GeoFEM):
         :return: Add flange elements to FEM model overlaps dictionary.
         """
         self.flange_element_overlaps[element.id] = element
+
+    def add_to_plate_elements(self, element):
+        """
+        :param element:
+        :return: Add plate elements to FEM model plate elements dictionary.
+        """
+        self.plate_elements[element.id] = element
 
     def add_element(self, elem: Element, idProp, nodeIds):
         """
@@ -439,157 +446,44 @@ class GeoGrillageFEM (GeoFEM):
 
         print("Total number of elements:", self.num_elements)
 
-    def get_plating_nodes(self):
-        """
-        :return: Dictionary of all plating nodes for pressure load case.
-        """
-        plating_nodes = {}
-        nodes_dict = self.nodes.values()
-        z_coords = [node.p[2] for node in nodes_dict]
-        id_list = [node.id for node in nodes_dict]
+    def add_node_group(self, group_id: int, nodes: Dict):
+        group = NodeGroup()
+        group.init(group_id, "Node_group_" + str(group_id))
+        for node in nodes.values():
+            group.add_item(node)
+        self.addGroup(group_id, group)
 
-        hw = np.max(z_coords)
-        boolean_array = np.isclose(z_coords, hw, rtol=1e-2)
-        node_index = np.where(boolean_array)
-        node_index = np.concatenate(node_index)
+    def add_element_group(self, group_id: int, elements: Dict):
+        group = ElementGroup()
+        group.init(group_id, "Element_group_" + str(group_id))
+        for element in elements.values():
+            group.add_item(element)
+        self.addGroup(group_id, group)
 
-        for index in range(0, len(node_index)):
-            node_id = id_list[node_index[index]]
-            node = self.nodes[node_id]
-            plating_nodes[node.id] = node
-        return plating_nodes
-
-    def get_long_symm_nodes(self):
+    def add_boundary_condition(self, bc_id: int, lc_id: int, values: List[float],
+                               dof: List[int], set_id: int):
         """
-        :return: Dictionary of all nodes on the longitudinal Axis of Symmetry
-            for symmetry boundary conditions.
+        :param bc_id: Boundary condition ID
+        :param lc_id: Load case ID
+        :param values: Value for the DoF: 1 or 0; list of same length as dof
+        :param dof: Degrees of Freedom: [wx=1, wy=2, wz=3, rx=4, ry=5, rz=6]
+        :param set_id: GeoFEM nodal group ID
         """
-        long_symm_nodes = {}
-        nodes_dict = self.nodes.values()
-        y_coords = [node.p[1] for node in nodes_dict]
-        id_list = [node.id for node in nodes_dict]
+        group = self.getGroup(set_id)
+        bc = GroupNodalBC(bc_id, group, values, dof)
+        self.addBoundaryCondition(bc)
+        self.addBoundaryConditionToLoadcase(lc_id, bc)
 
-        y_max = np.max(y_coords)
-        boolean_array = np.isclose(y_coords, y_max, rtol=1e-2)
-        node_index = np.where(boolean_array)
-        node_index = np.concatenate(node_index)
-
-        for index in range(0, len(node_index)):
-            node_id = id_list[node_index[index]]
-            node = self.nodes[node_id]
-            long_symm_nodes[node.id] = node
-        # TEST
+    def add_pressure_load(self, load_id: int, lc_id: int, pressure: float,
+                          set_id: int):
         """
-        node_count = 0
-        for node in long_symm_nodes.values():
-            node_count += 1
-            print(node_count, ". Rubni čvor ID", node.id, ", koordinate:", node.p)
+        :param load_id: Pressure load ID
+        :param lc_id: Load case ID
+        :param pressure: External pressure
+        :param set_id: GeoFEM element group ID
+        :return:
         """
-        return long_symm_nodes
-
-    def get_tran_symm_nodes(self):
-        """
-        :return: Dictionary of all nodes on the transverse Axis of Symmetry
-            for symmetry boundary conditions.
-        """
-        tran_symm_nodes = {}
-        nodes_dict = self.nodes.values()
-        x_coords = [node.p[0] for node in nodes_dict]
-        id_list = [node.id for node in nodes_dict]
-
-        x_max = np.max(x_coords)
-        boolean_array = np.isclose(x_coords, x_max, rtol=1e-2)
-        node_index = np.where(boolean_array)
-        node_index = np.concatenate(node_index)
-
-        for index in range(0, len(node_index)):
-            node_id = id_list[node_index[index]]
-            node = self.nodes[node_id]
-            tran_symm_nodes[node.id] = node
-
-        # TEST
-        """
-        node_count = 0
-        for node in tran_symm_nodes.values():
-            node_count += 1
-            print(node_count, ". Rubni čvor ID", node.id, ", koordinate:", node.p)
-        """
-        return tran_symm_nodes
-
-    def get_both_symm_nodes(self):
-        """
-        :return: Dictionary of all nodes on the longitudinal and transverse
-            Axis of Symmetry for symmetry boundary conditions.
-        """
-        both_symm_nodes = {}
-        nodes_dict = self.nodes.values()
-        y_coords = [node.p[1] for node in nodes_dict]
-        id_list = [node.id for node in nodes_dict]
-
-        y_max = np.max(y_coords)
-        boolean_array = np.isclose(y_coords, y_max, rtol=1e-2)
-        node_index = np.where(boolean_array)
-        node_index = np.concatenate(node_index)
-
-        for index in range(0, len(node_index)):
-            node_id = id_list[node_index[index]]
-            node = self.nodes[node_id]
-            both_symm_nodes[node.id] = node
-
-        nodes_dict = self.nodes.values()
-        x_coords = [node.p[0] for node in nodes_dict]
-        id_list = [node.id for node in nodes_dict]
-
-        x_max = np.max(x_coords)
-        boolean_array = np.isclose(x_coords, x_max, rtol=1e-2)
-        node_index = np.where(boolean_array)
-        node_index = np.concatenate(node_index)
-
-        for index in range(0, len(node_index)):
-            node_id = id_list[node_index[index]]
-            node = self.nodes[node_id]
-            both_symm_nodes[node.id] = node
-
-        # TEST
-        """
-        node_count = 0
-        for node in both_symm_nodes.values():
-            node_count += 1
-            print(node_count, ". Rubni čvor ID", node.id, ", koordinate:", node.p)
-        """
-        return both_symm_nodes
-
-    # def get_symmetry_nodes(self, symmetry):
-    #     if symmetry is AOS.LONGITUDINAL:
-    #         return self.get_long_symm_nodes()
-    #     elif symmetry is AOS.TRANSVERSE:
-    #         return self.get_tran_symm_nodes()
-    #     elif symmetry is AOS.BOTH:
-    #         return self.get_both_symm_nodes()
-
-    def get_nodes_at_coords(self):
-        """
-        :return: Dictionary of all nodes at the ends of primary supporting
-            members for pinned boundary conditions.
-        """
-        boundary_nodes = {}
-        nodes_dict = self.nodes.values()
-        end_nodes = self.end_boundary_node_coords
-        coords = [node.p for node in nodes_dict]
-        id_list = [node.id for node in nodes_dict]
-        coords_1 = np.expand_dims(coords, 0)
-        coords_2 = np.expand_dims(end_nodes, 1)
-        boolean_array = np.isclose(coords_1, coords_2, rtol=1e-3).all(-1)
-        index_list = np.where(boolean_array)[1]
-        for index in index_list:
-            node_id = id_list[index]
-            node = self.nodes[node_id]
-            boundary_nodes[node.id] = node
-        # TEST
-        """
-        node_count = 0
-        for node in boundary_nodes.values():
-            node_count += 1
-            print(node_count, ". Rubni čvor ID", node.id, ", koordinate:", node.p)
-        """
-        return boundary_nodes
+        group = self.getGroup(set_id)
+        pressure_load = GroupPressureLoad(load_id, group, pressure)
+        self.addLoad(pressure_load)
+        self.addLoadToLoadcase(lc_id, pressure_load)

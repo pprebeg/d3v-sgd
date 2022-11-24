@@ -20,9 +20,9 @@ from grillage.grillage_fem import GeoGrillageFEM
 # np.set_printoptions(linewidth=400)
 
 
-class MeshVariant(Enum):
-    V1 = 1
-    V2 = 2
+# class MeshVariant(Enum):
+#     V1 = 1
+#     V2 = 2
 
 
 class ModelCheck:
@@ -1341,14 +1341,14 @@ class MeshExtent:
         self.grillage_plate_extent()
         self.grillage_segment_extent()
 
-    def identify_boundary_coords(self, fem: GeoGrillageFEM):
+    def identify_boundary_coords(self):
         """
-        :param fem:
-        :return: Identifies end boundary coordinates for pinned boundary
-            conditions and saves into list end_boundary_node_coords.
+        :return: Identifies coordinates for pinned boundary conditions and
+            returns list of end_coords.
         """
         symmetry = self.axis_of_symm
         end_coords = []
+
         for member in self.longitudinal_psm_extent().values():
             end1_coords, end2_coords = member.end_nodes
             if symmetry is AOS.TRANSVERSE or symmetry is AOS.BOTH:
@@ -1364,7 +1364,7 @@ class MeshExtent:
             else:
                 end_coords.append(end1_coords * [1, 1, 0])
                 end_coords.append(end2_coords * [1, 1, 0])
-        fem.end_boundary_node_coords = end_coords
+        return end_coords
 
 
 class MeshSize:
@@ -3113,7 +3113,8 @@ class PlateMesh:
                 id_el_nodes[2] = node_id_array[row + 1, column + 1]
                 id_el_nodes[3] = node_id_array[row + 1, column]
 
-                fem.add_quad_element(fem_prop_id, id_el_nodes)
+                elem = fem.add_quad_element(fem_prop_id, id_el_nodes)
+                fem.add_to_plate_elements(elem)
 
     def identify_beam_nodes(self):
         """
@@ -4108,19 +4109,14 @@ class SegmentMeshV2(SegmentMesh):
         return element_id
 
 
-# Zasebne klase za mesh V1 i V2!
 class GrillageMesh:
-    def __init__(self, mesh_variant: MeshVariant,
-                 grillage: Grillage,
-                 axis_of_symm_override: AOS = None):
+    def __init__(self, grillage: Grillage, axis_of_symm_override: AOS = None):
         """
         Class for generating FE mesh on the entire grillage model.
 
-        :param mesh_variant: Selected MeshVariant.
         :param grillage: Input Grillage model.
         :param axis_of_symm_override: Selected Axis of Symmetry override.
         """
-        self._mesh_variant = mesh_variant
         self._grillage = grillage
         self.mesh_extent = MeshExtent(self._grillage, axis_of_symm_override)
 
@@ -4147,7 +4143,128 @@ class GrillageMesh:
             pzm = PlateMesh(size, plate)
             pzm.generate_mesh(fem)
 
-    def generate_psm_mesh_V1(self, size: MeshSize, fem: GeoGrillageFEM):
+    def generate_psm_mesh(self, size: MeshSize, fem: GeoGrillageFEM):
+        pass
+
+    def pinned_bc_node_group(self, fem: GeoGrillageFEM):
+        """
+        Adds all nodes at the ends of primary supporting members to nodal group
+        for pinned boundary conditions. Group ID = 1
+        """
+        nodes_dict = fem.nodes.values()
+        end_nodes = self.mesh_extent.identify_boundary_coords()
+        coords = [node.p for node in nodes_dict]
+        id_list = [node.id for node in nodes_dict]
+        coords_1 = np.expand_dims(coords, 0)
+        coords_2 = np.expand_dims(end_nodes, 1)
+        boolean_array = np.isclose(coords_1, coords_2, rtol=1e-3).all(-1)
+
+        pinned_boundary_nodes = {}
+        index_list = np.where(boolean_array)[1]
+        for index in index_list:
+            node_id = id_list[index]
+            node = fem.nodes[node_id]
+            pinned_boundary_nodes[node.id] = node
+
+        fem.add_node_group(1, pinned_boundary_nodes)
+
+    @staticmethod
+    def long_symm_bc_node_group(fem: GeoGrillageFEM):
+        """
+        :return: Dictionary of all nodes on the longitudinal Axis of Symmetry
+            for symmetry boundary conditions. Group ID = 2
+        """
+        nodes_dict = fem.nodes.values()
+        y_coords = [node.p[1] for node in nodes_dict]
+        id_list = [node.id for node in nodes_dict]
+
+        y_max = np.max(y_coords)
+        boolean_array = np.isclose(y_coords, y_max, rtol=1e-2)
+        node_index = np.where(boolean_array)
+        node_index = np.concatenate(node_index)
+
+        long_symm_nodes = {}
+        for index in range(0, len(node_index)):
+            node_id = id_list[node_index[index]]
+            node = fem.nodes[node_id]
+            long_symm_nodes[node.id] = node
+
+        fem.add_node_group(2, long_symm_nodes)
+
+    @staticmethod
+    def tran_symm_bc_node_group(fem: GeoGrillageFEM):
+        """
+        :return: Dictionary of all nodes on the transverse Axis of Symmetry
+            for symmetry boundary conditions. Group ID = 3
+        """
+        nodes_dict = fem.nodes.values()
+        x_coords = [node.p[0] for node in nodes_dict]
+        id_list = [node.id for node in nodes_dict]
+
+        x_max = np.max(x_coords)
+        boolean_array = np.isclose(x_coords, x_max, rtol=1e-2)
+        node_index = np.where(boolean_array)
+        node_index = np.concatenate(node_index)
+
+        tran_symm_nodes = {}
+        for index in range(0, len(node_index)):
+            node_id = id_list[node_index[index]]
+            node = fem.nodes[node_id]
+            tran_symm_nodes[node.id] = node
+
+        fem.add_node_group(3, tran_symm_nodes)
+
+    def generate_boundary_conditions(self, fem: GeoGrillageFEM, symmetry: AOS):
+        """
+        Method generates all nodal groups for loads and boundary conditions
+        based on Axis of Symmetry.
+        """
+        self.pinned_bc_node_group(fem)
+        lc_id = 1
+        fem.add_boundary_condition(1, lc_id, [0], [3], 1)
+
+        if symmetry is AOS.LONGITUDINAL:
+            self.long_symm_bc_node_group(fem)
+            dof = [2, 4, 6]
+            dof_val = [0.0, 0.0, 0.0]
+            fem.add_boundary_condition(2, lc_id, dof_val, dof, 2)
+
+        elif symmetry is AOS.TRANSVERSE:
+            self.tran_symm_bc_node_group(fem)
+            dof = [1, 5, 6]
+            dof_val = [0, 0, 0]
+            fem.add_boundary_condition(3, lc_id, dof_val, dof, 3)
+
+        elif symmetry is AOS.BOTH:
+            self.long_symm_bc_node_group(fem)
+            self.tran_symm_bc_node_group(fem)
+            dof = [2, 4, 6]
+            dof_val = [0.0, 0.0, 0.0]
+            fem.add_boundary_condition(2, lc_id, dof_val, dof, 2)
+            dof = [1, 5, 6]
+            dof_val = [0, 0, 0]
+            fem.add_boundary_condition(3, lc_id, dof_val, dof, 3)
+
+    @staticmethod
+    def generate_pressure_load(fem: GeoGrillageFEM, pressure):
+        lc_id = 1
+        fem.addLoadCase(lc_id, "Pressure LoadCase")
+        fem.add_element_group(4, fem.plate_elements)
+        fem.add_pressure_load(1, lc_id, pressure, 4)
+
+    def generate_loadcase(self, fem: GeoGrillageFEM, symmetry, pressure):
+        self.generate_boundary_conditions(fem, symmetry)
+        self.generate_pressure_load(fem, pressure)
+
+    def generate_grillage_mesh(self, name, ebs, eweb, eaf, far, par, dpar):
+        pass
+
+
+class MeshVariantV1(GrillageMesh):
+    def __init__(self, grillage: Grillage, axis_of_symm_override: AOS = None):
+        super().__init__(grillage, axis_of_symm_override)
+
+    def generate_psm_mesh(self, size: MeshSize, fem: GeoGrillageFEM):
         n_id = fem.id_node_count
         e_id = fem.id_element_count
 
@@ -4158,46 +4275,6 @@ class GrillageMesh:
         for segment in self.mesh_extent.half_segments.values():
             sm = SegmentMeshV1(size, segment, n_id, e_id)
             n_id, e_id = sm.generate_mesh(fem)
-
-    def generate_psm_mesh_V2(self, size: MeshSize, fem: GeoGrillageFEM):
-        n_id = fem.id_node_count
-        e_id = fem.id_element_count
-
-        for segment in self.mesh_extent.full_segments.values():
-            sm = SegmentMeshV2(size, segment, n_id, e_id)
-            n_id, e_id = sm.generate_mesh(fem)
-
-        for segment in self.mesh_extent.half_segments.values():
-            sm = SegmentMeshV2(size, segment, n_id, e_id)
-            n_id, e_id = sm.generate_mesh(fem)
-
-    def grillage_mesh_v1(self, name, ebs, eweb, eaf, far, par, dpar):
-        size = ElementSizeV1(self.mesh_extent, ebs, eweb, eaf, far, par, dpar)
-        fem = GeoGrillageFEM(name)
-        size.calculate_mesh_dimensions()
-        self.mesh_extent.identify_boundary_coords(fem)
-        self.generate_FEM_property(fem)
-        self.generate_plate_mesh(size, fem)
-        self.generate_psm_mesh_V1(size, fem)
-        fem.merge_coincident_nodes()
-        fem.merge_coincident_elements()
-
-        print("Mesh generation complete.")
-        return fem
-
-    def grillage_mesh_v2(self, name, ebs, eweb, eaf, far, par, dpar):
-        size = ElementSizeV2(self.mesh_extent, ebs, eweb, eaf, far, par, dpar)
-        fem = GeoGrillageFEM(name)
-        size.calculate_mesh_dimensions()
-        self.mesh_extent.identify_boundary_coords(fem)
-        self.generate_FEM_property(fem)
-        self.generate_plate_mesh(size, fem)
-        self.generate_psm_mesh_V2(size, fem)
-        fem.merge_coincident_nodes()
-        fem.merge_coincident_elements()
-
-        print("Mesh generation complete.")
-        return fem
 
     def generate_grillage_mesh(self, name, ebs, eweb, eaf, far, par, dpar):
         """
@@ -4211,106 +4288,55 @@ class GrillageMesh:
         :param dpar: Desired plating aspect ratio, less than the maximum.
         :return: GeoGrillageFEM object.
         """
-        if self._mesh_variant is MeshVariant.V1:
-            fem = self.grillage_mesh_v1(name, ebs, eweb, eaf, far, par, dpar)
+        fem = GeoGrillageFEM(name)
+        size = ElementSizeV1(self.mesh_extent, ebs, eweb, eaf, far, par, dpar)
+        size.calculate_mesh_dimensions()
+        self.generate_FEM_property(fem)
+        self.generate_plate_mesh(size, fem)
+        self.generate_psm_mesh(size, fem)
+        fem.merge_coincident_nodes()
+        fem.merge_coincident_elements()
 
-        elif self._mesh_variant is MeshVariant.V2:
-            fem = self.grillage_mesh_v2(name, ebs, eweb, eaf, far, par, dpar)
-
-        else:
-            fem = None
-
+        print("Mesh V1 generation complete.")
         return fem
 
 
-# Stari GrillageMesh
-"""
-class GrillageMesh:
-    def __init__(self, mesh_size: MeshSize):
-        
-        Class for generating FE mesh on the entire grillage model.
+class MeshVariantV2(GrillageMesh):
+    def __init__(self, grillage: Grillage, axis_of_symm_override: AOS = None):
+        super().__init__(grillage, axis_of_symm_override)
 
-        :param mesh_size: Calculated mesh dimensions.
-        
-        self._mesh_size = mesh_size
-        self._mesh_extent = self._mesh_size.mesh_extent
-
-    def generate_FEM_property(self, fem: GeoGrillageFEM):
-        self._mesh_extent.generate_FEM_material(fem)
-        self._mesh_extent.generate_FEM_plate_property(fem)
-        self._mesh_extent.generate_FEM_beam_property(fem)
-        self._mesh_extent.generate_half_FEM_beam_property(fem)
-
-    def generate_plate_mesh(self, fem: GeoGrillageFEM):
-        for plate in self._mesh_extent.full_plate_zones.values():
-            pzm = PlateMesh(self._mesh_size, plate)
-            pzm.generate_mesh(fem)
-
-        for plate in self._mesh_extent.long_half_plate_zones.values():
-            pzm = PlateMesh(self._mesh_size, plate)
-            pzm.generate_mesh(fem)
-
-        for plate in self._mesh_extent.tran_half_plate_zones.values():
-            pzm = PlateMesh(self._mesh_size, plate)
-            pzm.generate_mesh(fem)
-
-        for plate in self._mesh_extent.quarter_plate_zone.values():
-            pzm = PlateMesh(self._mesh_size, plate)
-            pzm.generate_mesh(fem)
-
-    def generate_psm_mesh_V1(self, fem: GeoGrillageFEM):
+    def generate_psm_mesh(self, size: MeshSize, fem: GeoGrillageFEM):
         n_id = fem.id_node_count
         e_id = fem.id_element_count
 
-        for segment in self._mesh_extent.full_segments.values():
-            sm = SegmentMeshV1(self._mesh_size, segment, n_id, e_id)
+        for segment in self.mesh_extent.full_segments.values():
+            sm = SegmentMeshV2(size, segment, n_id, e_id)
             n_id, e_id = sm.generate_mesh(fem)
 
-        for segment in self._mesh_extent.half_segments.values():
-            sm = SegmentMeshV1(self._mesh_size, segment, n_id, e_id)
+        for segment in self.mesh_extent.half_segments.values():
+            sm = SegmentMeshV2(size, segment, n_id, e_id)
             n_id, e_id = sm.generate_mesh(fem)
 
-    def generate_psm_mesh_V2(self, fem: GeoGrillageFEM):
-        n_id = fem.id_node_count
-        e_id = fem.id_element_count
-
-        for segment in self._mesh_extent.full_segments.values():
-            sm = SegmentMeshV2(self._mesh_size, segment, n_id, e_id)
-            n_id, e_id = sm.generate_mesh(fem)
-
-        for segment in self._mesh_extent.half_segments.values():
-            sm = SegmentMeshV2(self._mesh_size, segment, n_id, e_id)
-            n_id, e_id = sm.generate_mesh(fem)
-
-    def generate_grillage_mesh_v1(self, name):
-        
-        :param name:
-        :return: Generates mesh on the grillage model using mesh variant V1.
-        
+    def generate_grillage_mesh(self, name, ebs, eweb, eaf, far, par, dpar):
+        """
+        :param name: Mesh name.
+        :param ebs: Number of elements between stiffeners.
+        :param eweb: Number of elements representing the web of a primary
+            supporting member along its height.
+        :param eaf: Number of elements across primary supporting member flange.
+        :param far: Maximum PSM flange aspect ratio.
+        :param par: Maximum plate and PSM web aspect ratio.
+        :param dpar: Desired plating aspect ratio, less than the maximum.
+        :return: GeoGrillageFEM object.
+        """
         fem = GeoGrillageFEM(name)
-        self._mesh_size.calculate_mesh_dimensions()
-        self._mesh_extent.identify_boundary_coords(fem)
+        size = ElementSizeV2(self.mesh_extent, ebs, eweb, eaf, far, par, dpar)
+        size.calculate_mesh_dimensions()
         self.generate_FEM_property(fem)
-        self.generate_plate_mesh(fem)
-        self.generate_psm_mesh_V1(fem)
+        self.generate_plate_mesh(size, fem)
+        self.generate_psm_mesh(size, fem)
         fem.merge_coincident_nodes()
         fem.merge_coincident_elements()
-        print("Mesh generation complete.")
-        return fem
 
-    def generate_grillage_mesh_v2(self, name):
-        
-        :param name:
-        :return: Generates mesh on the grillage model using mesh variant V2.
-        
-        fem = GeoGrillageFEM(name)
-        self._mesh_size.calculate_mesh_dimensions()
-        self._mesh_extent.identify_boundary_coords(fem)
-        self.generate_FEM_property(fem)
-        self.generate_plate_mesh(fem)
-        self.generate_psm_mesh_V2(fem)
-        fem.merge_coincident_nodes()
-        fem.merge_coincident_elements()
-        print("Mesh generation complete.")
+        print("Mesh V2 generation complete.")
         return fem
-"""

@@ -52,7 +52,7 @@ class FEMCommand(Command):
 
         self.add_toolbars_and_menus()
         self.meshctrl = DialogMeshControl(self.mainwin)
-
+        self.analysis_output = None
 
         try:
             #manager.selected_geometry_changed.connect(self.onSelectedGeometryChanged)
@@ -74,6 +74,8 @@ class FEMCommand(Command):
         self._menuMain.addMenu(self._menuResults)
         self._menuOOFEM = QMenu("&OOFEM")
         self._menuMain.addMenu(self._menuOOFEM)
+        self._menuOOFEMresults = QMenu("&Analysis results")
+        self._menuMain.addMenu(self._menuOOFEMresults)
 
         menuExportOOFEM = self._menuOOFEM.addAction("&Export input file")
         menuExportOOFEM.triggered.connect(self.onExportOOFEMin)
@@ -81,10 +83,36 @@ class FEMCommand(Command):
         menuMeshControl = self._menuMain.addAction("View Control")
         menuMeshControl.triggered.connect(self.onMeshControl)
 
+        menuAnalysisResults = self._menuOOFEMresults.addAction("&Show displacement")
+        menuAnalysisResults.triggered.connect(self.onShowDisplacement)
+
         mb.addMenu(self._menuMain)
         self._combo_lc = self.init_combo_lc()
         if self._show_oofem_analysis_menu:
             self.add_OOFEM_analysis_toolbars_and_menus()
+
+    def get_node_displacement(self):
+        """
+        :return: Nodal displacement dictionary
+        """
+        nodal_displacement = {}
+        results = self.analysis_output
+        node_out, shell_out, beam_out, react_out, node_id_out = results
+
+        loadcase_id = 0
+        node_ids = node_id_out[loadcase_id]
+        displacement = node_out[loadcase_id]
+        n_nodes = len(node_ids)
+        for node in range(0, n_nodes):
+            nodal_displacement[node_ids[node]] = displacement[node]
+        return nodal_displacement
+
+    def onShowDisplacement(self):
+        nodal_displacement = self.get_node_displacement()
+        deformed_mesh = self.femmdl.regenerate_deformation(nodal_displacement)
+        if deformed_mesh is not None:
+            manager.add_geometry([deformed_mesh])
+            manager.show_geometry([deformed_mesh])
 
     def add_OOFEM_analysis_toolbars_and_menus(self):
         menu_anylyse_oofem = self._menuOOFEM.addAction("&Analyse")
@@ -174,11 +202,12 @@ class FEMCommand(Command):
     def on_analyse_oofem(self):
         if os.path.exists(self._oofem_input_filepath):
             if False:
-                analyse_with_OOFEM(self._oofem_input_filepath, self._oofem_idset_outtypes, self.femmdl)
+                results = analyse_with_OOFEM(self._oofem_input_filepath, self._oofem_idset_outtypes, self.femmdl)
             else:
                 dict_idset_outtypes: Dict[OutputElementType, int] = {}  # output
                 dict_idset_outtypes[4] = OutputElementType.Shell
-                analyse_with_OOFEM(self._oofem_input_filepath, dict_idset_outtypes, self.femmdl)
+                results = analyse_with_OOFEM(self._oofem_input_filepath, dict_idset_outtypes, self.femmdl)
+            self.analysis_output = results
 
     def get_selected_element(self):
         return self.femmdl.selected_entitiy

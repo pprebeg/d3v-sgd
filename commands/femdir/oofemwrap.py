@@ -376,12 +376,12 @@ def analyse_with_OOFEM(file_path,dict_idset_outtypes, mdl:GeoFEM=None):
         cs.setPropertyValue(csp.CS_Thickness.value,0.15)
 
     node_out, shell_out, beam_out, react_out, node_id_out= oofem.analyse_all_loadcases(dict_idset_outtypes)
-    print (node_out)
-    print(shell_out)
-    print(beam_out)
-    print(react_out)
-    print(node_id_out)
-    return
+    # print (node_out)
+    # print(shell_out)
+    # print(beam_out)
+    # print(react_out)
+    # print(node_id_out)
+    return node_out, shell_out, beam_out, react_out, node_id_out
     if mdl is not None:
         id_nodes = [15]
         for id_nod in id_nodes:

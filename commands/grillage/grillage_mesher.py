@@ -1634,14 +1634,7 @@ class MeshSize:
         """
         y = self.element_size_perp_to_stiffeners(plate)
         des_x_val = y * self._des_plate_aspect_ratio  # Desired element dim
-        n_elem = self.find_largest_divisor(plate_dim, des_x_val)
-        if n_elem is not None:
-            x = plate_dim / n_elem  # Element dimension parallel to stiffeners
-            ar = self.element_aspect_ratio(x, y)
-            if ar > self._plate_aspect_ratio:  # If L is a prime number
-                x = self.refine_plate_element(plate_dim, des_x_val)
-        else:
-            x = self.refine_plate_element(plate_dim, des_x_val)
+        x = self.refine_plate_element(plate_dim, des_x_val)
         return x
 
     def get_web_el_height(self, segment: Segment):

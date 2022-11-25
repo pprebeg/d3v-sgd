@@ -451,15 +451,31 @@ class GeoFEM(GeometryExtension):
             dt = time.perf_counter() - ts
             print("GEO FEM Time to regenerate mesh, s:", dt)
 
-    def regenerate_deformation(self, nodal_displacement):
+    def regenerate_deformation(self, nodal_displacement, def_scale):
         if __debug__:
             ts = time.perf_counter()
 
         mesh = om.PolyMesh()
         self.mc.viewtype = ViewType.constant_color
         for el in self.elements.values():
-            el.updateDeformedMesh(mesh, self.facetoelement, self.mc, nodal_displacement)
+            el.updateDeformedMesh(mesh, self.facetoelement, self.mc,
+                                  nodal_displacement, def_scale)
         pass
+        self._allfegeo.mesh = mesh
+
+        mesh = om.PolyMesh()
+        mesh.request_face_colors()
+        if self.mc.show_nodes:
+            box = self._allfegeo.bbox
+            refdim = self.get_box_max_span(box)
+            Node.set_sphere(refdim, self.mc)
+            for nod in self.nodes.values():
+                nod.updateMesh(mesh, self.nodetoelement, self.mc)
+            pass
+            #colors = mesh.face_colors()
+            #colors[:]= [1.0,0.0,0.0,1.0]
+        self._allnodgeo.mesh = mesh
+        self.mesh=self._allfegeo.mesh
 
         if __debug__:
             dt = time.perf_counter() - ts

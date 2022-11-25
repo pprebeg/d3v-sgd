@@ -4,6 +4,7 @@ try:
     from PySide6.QtWidgets import QTreeView,QMainWindow,QVBoxLayout,QHBoxLayout,QSizePolicy
     from PySide6.QtWidgets import QTreeWidget,QTreeWidgetItem,QDockWidget,QWidget,QGroupBox
     from PySide6.QtWidgets import QInputDialog,QLineEdit,QFormLayout,QTextEdit
+    from PySide6.QtWidgets import QLabel, QSpinBox
     from PySide6.QtGui import QCursor
     import importlib
 
@@ -83,7 +84,7 @@ class FEMCommand(Command):
         menuMeshControl = self._menuMain.addAction("View Control")
         menuMeshControl.triggered.connect(self.onMeshControl)
 
-        menuAnalysisResults = self._menuOOFEMresults.addAction("&Show displacement")
+        menuAnalysisResults = self._menuOOFEMresults.addAction("&Show displacement...")
         menuAnalysisResults.triggered.connect(self.onShowDisplacement)
 
         menuAnalysisResults = self._menuOOFEMresults.addAction("&Print displacements")
@@ -111,11 +112,9 @@ class FEMCommand(Command):
         return nodal_displacement
 
     def onShowDisplacement(self):
-        nodal_displacement = self.get_node_displacement()
-        self.femmdl.regenerate_deformation(nodal_displacement)
-        if self.femmdl is not None:
-            manager.add_geometry([self.femmdl])
-            manager.show_geometry([self.femmdl])
+        displacement_gui = DialogShowDeformation(self.mainwin, self)
+        displacement_gui.show_deformation_gui()
+        displacement_gui.exec()
 
     def onPrintDisplacements(self):
         node_displacements = self.get_node_displacement()
@@ -314,6 +313,7 @@ class DialogMeshControl(QDialog):
         self.txtMClowtresh.setText(str(self.mc.lowertreshold))
         self.txtMCupptresh.setText(str(self.mc.uppertreshold))
 
+
 class DialogSelectionInfo(QDialog):
     def __init__(self, parent):
         super().__init__(parent)
@@ -334,6 +334,53 @@ class DialogSelectionInfo(QDialog):
             self.txtInfo.setText(str(geofem.selected_entitiy.get_info()))
         elif geofem.selected_entitiy is not None:
             self.txtInfo.setText(str(geofem.selected_entitiy))
+
+
+class DialogShowDeformation(QDialog):
+    def __init__(self, parent, fcm: FEMCommand):
+        super().__init__(parent)
+        self.mainwin = parent
+        self.fcm = fcm
+        self.femmdl = fcm.femmdl
+        self.setWindowTitle("Display deformed model")
+        # self.setFixedSize(450, 310)
+        self.main_layout = QGridLayout()
+        self.setLayout(self.main_layout)
+
+        self.scale_factor = QSpinBox(self)
+
+    def def_scale_label(self):
+        label = QLabel(self)
+        label.setText("Deformation scale factor")
+        self.main_layout.addWidget(label, 0, 0)
+
+    def def_scale_input(self):
+        self.scale_factor.setMinimum(1)
+        self.scale_factor.setValue(10)
+        self.scale_factor.setMaximum(10000)
+        self.main_layout.addWidget(self.scale_factor, 1, 0)
+
+    def button_display(self):
+        generate_button = QPushButton("Display deformation", self)
+        self.main_layout.addWidget(generate_button, 1, 1)
+        generate_button.clicked.connect(self.regenerate_deformation)
+
+    def show_deformation_gui(self):
+        self.def_scale_label()
+        self.def_scale_input()
+        self.button_display()
+
+    def regenerate_deformation(self):
+        nodal_displacement = self.fcm.get_node_displacement()
+        def_scale = self.scale_factor.value()
+        self.femmdl.regenerate_deformation(nodal_displacement, def_scale)
+        if self.femmdl is not None:
+            manager.remove_geometry([self.femmdl])
+            manager.add_geometry([self.femmdl])
+            manager.show_geometry([self.femmdl])
+        self.close()
+        pass
+
 
 def createCommand():
     return FEMCommand()

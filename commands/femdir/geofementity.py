@@ -95,7 +95,7 @@ class GeoEntity():
         pass
 
     def updateDeformedMesh(self, mesh: om.PolyMesh, face2entity: Dict[int, int], mc: MeshControl, deformation,
-                           const_color=[0.4, 1.0, 1.0, 1.0], fun_getcolor=None, minvalue=0, maxvalue=1):
+                           def_scale, const_color=[0.4, 1.0, 1.0, 1.0], fun_getcolor=None, minvalue=0, maxvalue=1):
         pass
 
     def setFaceValueUsingElementID(self, result: dict):
@@ -1339,7 +1339,7 @@ class Element(GeoEntity):
         pass
 
     def updateDeformedMesh(self, mesh: om.PolyMesh, face2entity: Dict[int, int], mc: MeshControl, deformation,
-                           const_color=[0.4, 1.0, 1.0, 1.0], fun_getcolor=None, minvalue=0, maxvalue=1):
+                           def_scale, const_color=[0.4, 1.0, 1.0, 1.0], fun_getcolor=None, minvalue=0, maxvalue=1):
         pass
 
     def onTPLValue(self):
@@ -1660,6 +1660,78 @@ class BeamElement(Element):
                 colors = self.getColorForFaceVertexResult(fun_getcolor, minvalue, maxvalue)
                 for ivh in range(len(vhandle)):
                     mesh.set_color(vhandle[ivh], color[handleColorIndex[ivh]])
+
+    def updateDeformedMesh(self, mesh: om.PolyMesh, face2entity: Dict[int, int], mc: MeshControl, deformation,
+                           def_scale, const_color=[0.4, 1.0, 1.0, 1.0], fun_getcolor=None, minvalue=0, maxvalue=1):
+        color = const_color
+        vhandle = []
+        handleColorIndex = []
+        n1 = self.nodes[0]
+        n2 = self.nodes[1]
+
+        node1_pos = np.array([n1.p[0], n1.p[1], n1.p[2]])
+        node2_pos = np.array([n2.p[0], n2.p[1], n2.p[2]])
+
+        node1_def = np.array([deformation[n1.id][0], deformation[n1.id][1], deformation[n1.id][2]])
+        node2_def = np.array([deformation[n2.id][0], deformation[n2.id][1], deformation[n2.id][2]])
+
+        node1_disp = node1_def * def_scale + node1_pos
+        node2_disp = node2_def * def_scale + node2_pos
+
+        def_nodes = [node1_disp, node2_disp]
+
+        if (isinstance(self.beam_prop,StifnessBeamProperty) and mc.show_beams_with_rigid_arm_as_quad
+                and isinstance(n1,NodeRigidArm) and isinstance(n2,NodeRigidArm)):
+            vhandle.append(mesh.add_vertex(node1_disp.p))
+            handleColorIndex.append(0)
+            vhandle.append(mesh.add_vertex(node2_disp.p))
+            handleColorIndex.append(1)
+            vhandle.append(mesh.add_vertex(node2_disp.master.p))
+            handleColorIndex.append(1)
+            vhandle.append(mesh.add_vertex(node1_disp.master.p))
+            handleColorIndex.append(0)
+            fh = mesh.add_face(vhandle[0], vhandle[1], vhandle[2], vhandle[3])
+            self.face_handles.append(fh.idx())
+            face2entity[fh.idx()] = self
+            if fun_getcolor is None:
+                mesh.set_color(fh, [1.0, 0.6, 0.0, 1.0])
+        else:
+            e_x = node1_disp - node2_disp
+            e_z = self.z_vec
+            e_y = - np.cross(e_x, e_z)
+            e_y = e_y/np.linalg.norm(e_y)
+            i = 0
+            pp = self.beam_prop.get_yz_point_pairs_for_plane_visualization()
+            n = len(pp) / 2
+            yo = self.neutral_axis_offset_y
+            zo = self.neutral_axis_offset_z
+            while i < n:
+                for j in range(2):
+                    pj_y = pp[i * 2 + j][0]
+                    pj_z = pp[i * 2 + j][1]
+                    for k in range(2):
+                        v_kj = def_nodes[k]+(pj_y+yo)*e_y+(pj_z+zo)*e_z
+                        vhandle.append(mesh.add_vertex(v_kj))
+                        handleColorIndex.append(k)
+                fh = mesh.add_face(vhandle[i*4], vhandle[i*4+1], vhandle[i*4+3], vhandle[i*4+2])  # 0-1-3-2
+                self.face_handles.append(fh.idx())
+                face2entity[fh.idx()] = self
+                if fun_getcolor is None:
+                    mesh.set_color(fh, [1.0, 0.8, 0.4, 1.0])
+                i += 1
+
+        # define color
+        if fun_getcolor is not None:
+            if mc.viewtype == ViewType.face_colors:
+                color = self.getColorForFaceResult(fun_getcolor, minvalue, maxvalue)
+                for fhidx in self.face_handles:
+                    fh = mesh.face_handle(fhidx)
+                    mesh.set_color(fh, color)
+            if mc.viewtype == ViewType.face_vertex_colors:
+                colors = self.getColorForFaceVertexResult(fun_getcolor, minvalue, maxvalue)
+                for ivh in range(len(vhandle)):
+                    mesh.set_color(vhandle[ivh], color[handleColorIndex[ivh]])
+
 class BeamElementShipStructure(BeamElement):
     def __init__(self):
         super().__init__()
@@ -1691,6 +1763,48 @@ class TriaElement(Element):
         vhandle.append(mesh.add_vertex(data))
         data = np.array([self.nodes[2].p[0], self.nodes[2].p[1], self.nodes[2].p[2]])
         vhandle.append(mesh.add_vertex(data))
+
+        fh = mesh.add_face(vhandle[0], vhandle[1], vhandle[2])
+        self.face_handles.append(fh.idx())
+        face2entity[fh.idx()] = self
+        if fun_getcolor is None:
+            mesh.set_color(fh, [0.0, 0.9, 0.0, 1.0])
+
+        # define color
+        if fun_getcolor != None:
+            if mc.viewtype == ViewType.face_colors:
+                color =self.getColorForFaceResult(fun_getcolor, minvalue, maxvalue)
+                for fhidx in self.face_handles:
+                    fh = mesh.face_handle(fhidx)
+                    mesh.set_color(fh, color)
+            elif mc.viewtype == ViewType.face_vertex_colors:
+                colors =self.getColorForFaceVertexResult(fun_getcolor, minvalue, maxvalue)
+                for ivh in range(len(vhandle)):
+                    mesh.set_color(vhandle[ivh], color[ivh])
+
+    def updateDeformedMesh(self, mesh: om.PolyMesh, face2entity: Dict[int, int], mc: MeshControl, deformation,
+                           def_scale, const_color=[0.4, 1.0, 1.0, 1.0], fun_getcolor=None, minvalue=0, maxvalue=1):
+        node1 = self.nodes[0]
+        node2 = self.nodes[1]
+        node3 = self.nodes[2]
+
+        node1_pos = np.array([node1.p[0], node1.p[1], node1.p[2]])
+        node2_pos = np.array([node2.p[0], node2.p[1], node2.p[2]])
+        node3_pos = np.array([node3.p[0], node3.p[1], node3.p[2]])
+
+        node1_def = np.array([deformation[node1.id][0], deformation[node1.id][1], deformation[node1.id][2]])
+        node2_def = np.array([deformation[node2.id][0], deformation[node2.id][1], deformation[node2.id][2]])
+        node3_def = np.array([deformation[node3.id][0], deformation[node3.id][1], deformation[node3.id][2]])
+
+        color = const_color
+        vhandle = []
+        data = node1_def * def_scale + node1_pos
+        vhandle.append(mesh.add_vertex(data))
+        data = node2_def * def_scale + node2_pos
+        vhandle.append(mesh.add_vertex(data))
+        data = node3_def * def_scale + node3_pos
+        vhandle.append(mesh.add_vertex(data))
+
 
         fh = mesh.add_face(vhandle[0], vhandle[1], vhandle[2])
         self.face_handles.append(fh.idx())
@@ -1766,10 +1880,7 @@ class QuadElement(Element):
                     mesh.set_color(vhandle[ivh], color[ivh])
 
     def updateDeformedMesh(self, mesh: om.PolyMesh, face2entity: Dict[int, int], mc: MeshControl, deformation,
-                           const_color=[0.4, 1.0, 1.0, 1.0], fun_getcolor=None, minvalue=0, maxvalue=1):
-
-        def_scale = 10  # Deformation amplification (scale) factor
-
+                           def_scale, const_color=[0.4, 1.0, 1.0, 1.0], fun_getcolor=None, minvalue=0, maxvalue=1):
         node1 = self.nodes[0]
         node2 = self.nodes[1]
         node3 = self.nodes[2]
@@ -1792,7 +1903,6 @@ class QuadElement(Element):
         data = node2_def * def_scale + node2_pos
         vhandle.append(mesh.add_vertex(data))
         data = node3_def * def_scale + node3_pos
-        # print(node3_pos, data)     # Ispis koordinata prije i poslije deformacije uz faktor def_scale
         vhandle.append(mesh.add_vertex(data))
         data = node4_def * def_scale + node4_pos
         vhandle.append(mesh.add_vertex(data))

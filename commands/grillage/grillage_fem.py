@@ -484,6 +484,6 @@ class GeoGrillageFEM (GeoFEM):
         :return:
         """
         group = self.getGroup(set_id)
-        pressure_load = GroupPressureLoad(load_id, group, pressure)
+        pressure_load = GroupPressureLoad(load_id, group, pressure, flip=True)
         self.addLoad(pressure_load)
         self.addLoadToLoadcase(lc_id, pressure_load)

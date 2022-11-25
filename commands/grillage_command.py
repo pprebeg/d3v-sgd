@@ -112,6 +112,139 @@ def tmp_fun_gen_hc_var1():
     return hc_var_1
 
 
+class SGDCommand(Command):
+    def __init__(self):
+        super().__init__()
+        self._app = QApplication.instance()
+        importer=SGDImporter()
+        self.app.registerIOHandler(importer)
+        #self._tree: QTreeView = self.mainwin.window.findChild(QTreeView, "geometryTree")
+        #self._tree.hide()
+        self._grillgeo:GrillageGeometry=None
+        self.selected_geometries=[]
+        self.menuMain = QMenu("Grillage")
+        mb = self.mainwin.menuBar()
+
+        self.menuModel = QMenu("&Model")
+        self.menuMain.addMenu(self.menuModel)
+        self.menuAnalysis = QMenu("&Analysis")
+        self.menuMain.addMenu(self.menuAnalysis)
+        self.menuTests = QMenu("&Tests")
+        self.menuMain.addMenu(self.menuTests)
+        mb.addMenu(self.menuMain)
+
+        actionNewHatch = self.menuModel.addAction("&New Hatch Cover")
+        actionNewHatch.triggered.connect(self.onNewHatchCover)
+
+        actionGenerateFEM = self.menuAnalysis.addAction("&Generate FEM...")
+        actionGenerateFEM.triggered.connect(self.onGenerateFEM)
+
+        actionRunTest = self.menuTests.addAction("&Generate Test Mesh V1")
+        actionRunTest.triggered.connect(self.onActionGenerateTestMeshV1)
+        
+        actionRunTest = self.menuTests.addAction("&Generate Test Mesh V2")
+        actionRunTest.triggered.connect(self.onActionGenerateTestMeshV2)
+
+        actionRunTest = self.menuTests.addAction("&Test Edge Node Spacing")
+        actionRunTest.triggered.connect(self.onActionTestEdgeSpacing)
+
+        try:
+            manager.selected_geometry_changed.connect(self.onSelectedGeometryChanged)
+            manager.geometry_created.connect(self.onGeometryCreated)
+        except BaseException as error:
+            print('An exception occurred: {}'.format(error))
+        except:
+            print('Unknown exception occurred during signals connection')
+        self.mainwin.update()
+        self.mainwin.resize(1000, 700)
+
+    def onActionGenerateTestMeshV1(self):
+        grill_fem = generate_test_mesh_v1()
+        grill_fem.regenerate()
+        if grill_fem is not None:
+            manager.add_geometry([grill_fem])
+            manager.show_geometry([grill_fem])
+        pass
+
+    def onActionGenerateTestMeshV2(self):
+        grill_fem = generate_test_mesh_v2()
+        grill_fem.regenerate()
+        if grill_fem is not None:
+            manager.add_geometry([grill_fem])
+            manager.show_geometry([grill_fem])
+        pass
+
+    def onActionTestEdgeSpacing(self):
+        Test_edge_node_spacing()
+
+    def onGenerateFEM(self):
+        analysis_gui = GrillageAnalysisGUI(self.mainwin, self._grillgeo)
+        analysis_gui.mesh_parameters_gui()
+        analysis_gui.exec()
+        pass
+
+    def onNewHatchCover(self):
+        QApplication.changeOverrideCursor(QCursor(Qt.WaitCursor))
+        old_grillgeo = self._grillgeo
+        grill= tmp_fun_gen_hc_var1()
+        self._grillgeo = GrillageGeometry(grill,'New hatch cover name')
+        if old_grillgeo is not None:
+            manager.remove_geometry([old_grillgeo])
+        if self._grillgeo is not None:
+            manager.add_geometry([self._grillgeo])
+            manager.show_geometry([self._grillgeo])
+        QApplication.restoreOverrideCursor()
+
+
+    @Slot()
+    def onGeometryCreated(self, geometries: List[Geometry]):
+        for g in geometries:
+            if isinstance(g, GrillageGeometry):
+                self._grillgeo = g
+                break
+
+    @Slot()
+    def onSelectedGeometryChanged(self, visible: List[Geometry], loaded: List[Geometry], selected: List[Geometry]):
+        self.selected_geometries=selected
+
+    @property
+    def app(self):
+        return self._app
+
+    @property
+    def mainwin(self):
+        return self.app.mainFrame
+
+    @property
+    def glwin(self):
+        return self.mainwin.glWin
+
+
+class SGDImporter(IOHandler):
+    def __init__(self):
+        super().__init__()
+
+    def do_import_geometry(self, fileName):
+        if len(fileName) < 1:
+            return
+        filename_noext, file_extension = os.path.splitext(fileName)
+        if file_extension not in self.getImportFormats():
+            return
+        QApplication.changeOverrideCursor(QCursor(Qt.WaitCursor))
+        grillage = GrillageModelData(fileName).read_file()
+        if grillage != None:
+            os.chdir(os.path.dirname(fileName))
+            g=GrillageGeometry(grillage,filename_noext)
+            logging.debug("do_import_geometry: {}".format(g.guid))
+            QApplication.restoreOverrideCursor()
+            return g
+        else:
+            QApplication.restoreOverrideCursor()
+
+    def getImportFormats(self):
+        return (".gin")
+
+
 class GrillageAnalysisGUI(QDialog):
     def __init__(self, parent, grillgeo: GrillageGeometry):
         super().__init__(parent)
@@ -250,138 +383,6 @@ class GrillageAnalysisGUI(QDialog):
         self.ar_input_widgets()
         self.element_num_widgets()
         self.button_generate()
-
-
-class SGDCommand(Command):
-    def __init__(self):
-        super().__init__()
-        self._app = QApplication.instance()
-        importer=SGDImporter()
-        self.app.registerIOHandler(importer)
-        #self._tree: QTreeView = self.mainwin.window.findChild(QTreeView, "geometryTree")
-        #self._tree.hide()
-        self._grillgeo:GrillageGeometry=None
-        self.selected_geometries=[]
-        self.menuMain = QMenu("Grillage")
-        mb = self.mainwin.menuBar()
-
-        self.menuModel = QMenu("&Model")
-        self.menuMain.addMenu(self.menuModel)
-        self.menuAnalysis = QMenu("&Analysis")
-        self.menuMain.addMenu(self.menuAnalysis)
-        self.menuTests = QMenu("&Tests")
-        self.menuMain.addMenu(self.menuTests)
-        mb.addMenu(self.menuMain)
-
-        actionNewHatch = self.menuModel.addAction("&New Hatch Cover")
-        actionNewHatch.triggered.connect(self.onNewHatchCover)
-
-        actionGenerateFEM = self.menuAnalysis.addAction("&Generate FEM")
-        actionGenerateFEM.triggered.connect(self.onGenerateFEM)
-
-        actionRunTest = self.menuMain.addAction("&Generate Test Mesh V1")
-        actionRunTest.triggered.connect(self.onActionGenerateTestMeshV1)
-        
-        actionRunTest = self.menuMain.addAction("&Generate Test Mesh V2")
-        actionRunTest.triggered.connect(self.onActionGenerateTestMeshV2)
-
-        actionRunTest = self.menuTests.addAction("&Test Edge Node Spacing")
-        actionRunTest.triggered.connect(self.onActionTestEdgeSpacing)
-
-        try:
-            manager.selected_geometry_changed.connect(self.onSelectedGeometryChanged)
-            manager.geometry_created.connect(self.onGeometryCreated)
-        except BaseException as error:
-            print('An exception occurred: {}'.format(error))
-        except:
-            print('Unknown exception occurred during signals connection')
-        self.mainwin.update()
-
-    def onActionGenerateTestMeshV1(self):
-        grill_fem = generate_test_mesh_v1()
-        grill_fem.regenerate()
-        if grill_fem is not None:
-            manager.add_geometry([grill_fem])
-            manager.show_geometry([grill_fem])
-        pass
-
-    def onActionGenerateTestMeshV2(self):
-        grill_fem = generate_test_mesh_v2()
-        grill_fem.regenerate()
-        if grill_fem is not None:
-            manager.add_geometry([grill_fem])
-            manager.show_geometry([grill_fem])
-        pass
-
-    def onActionTestEdgeSpacing(self):
-        Test_edge_node_spacing()
-
-    def onGenerateFEM(self):
-        analysis_gui = GrillageAnalysisGUI(self.mainwin, self._grillgeo)
-        analysis_gui.mesh_parameters_gui()
-        analysis_gui.exec()
-        pass
-
-    def onNewHatchCover(self):
-        QApplication.changeOverrideCursor(QCursor(Qt.WaitCursor))
-        old_grillgeo = self._grillgeo
-        grill= tmp_fun_gen_hc_var1()
-        self._grillgeo = GrillageGeometry(grill,'New hatch cover name')
-        if old_grillgeo is not None:
-            manager.remove_geometry([old_grillgeo])
-        if self._grillgeo is not None:
-            manager.add_geometry([self._grillgeo])
-            manager.show_geometry([self._grillgeo])
-        QApplication.restoreOverrideCursor()
-
-
-    @Slot()
-    def onGeometryCreated(self, geometries: List[Geometry]):
-        for g in geometries:
-            if isinstance(g, GrillageGeometry):
-                self._grillgeo = g
-                break
-
-    @Slot()
-    def onSelectedGeometryChanged(self, visible: List[Geometry], loaded: List[Geometry], selected: List[Geometry]):
-        self.selected_geometries=selected
-
-    @property
-    def app(self):
-        return self._app
-
-    @property
-    def mainwin(self):
-        return self.app.mainFrame
-
-    @property
-    def glwin(self):
-        return self.mainwin.glWin
-
-
-class SGDImporter(IOHandler):
-    def __init__(self):
-        super().__init__()
-
-    def do_import_geometry(self, fileName):
-        if len(fileName) < 1:
-            return
-        filename_noext, file_extension = os.path.splitext(fileName)
-        if file_extension not in self.getImportFormats():
-            return
-        QApplication.changeOverrideCursor(QCursor(Qt.WaitCursor))
-        grillage = GrillageModelData(fileName).read_file()
-        if grillage != None:
-            os.chdir(os.path.dirname(fileName))
-            g=GrillageGeometry(grillage,filename_noext)
-            logging.debug("do_import_geometry: {}".format(g.guid))
-            QApplication.restoreOverrideCursor()
-            return g
-        else:
-            QApplication.restoreOverrideCursor()
-
-    def getImportFormats(self):
-        return (".gin")
 
 
 def createCommand():

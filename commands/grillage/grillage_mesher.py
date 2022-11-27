@@ -17,7 +17,7 @@ from grillage.grillage_model import *
 from femdir.custom_exceptions import *
 from grillage.grillage_fem import GeoGrillageFEM
 
-# np.set_printoptions(linewidth=400)
+# np.set_printoptions(linewidth=600)
 
 
 # class MeshVariant(Enum):
@@ -331,14 +331,29 @@ class ModelCheck:
         p2_end2 = plate_edge_nodes[len(plate_edge_nodes) - 1]
         p_end2_total = p1_end2 + p2_end2
 
-        f_end1 = flange_edge_nodes[1]
-        f_end2 = flange_edge_nodes[len(flange_edge_nodes)]
+        f1_end1 = flange_edge_nodes[1]
+        f1_end2 = flange_edge_nodes[len(flange_edge_nodes)]
 
-        if f_end1 > p_end1_total:
-            raise MeshV2FeasibilityFail(p_end1_total, f_end1)
+        if f1_end1 > p_end1_total:
+            raise MeshV2FeasibilityFail(p_end1_total, f1_end1)
 
-        if f_end2 > p_end2_total:
-            raise MeshV2FeasibilityFail(p_end2_total, f_end2)
+        if f1_end2 > p_end2_total:
+            raise MeshV2FeasibilityFail(p_end2_total, f1_end2)
+
+        if len(plate_edge_nodes) > 6:
+            p3_end1 = plate_edge_nodes[3]
+            p3_end2 = plate_edge_nodes[len(plate_edge_nodes) - 2]
+            f2_end1 = flange_edge_nodes[2]
+            f2_end2 = flange_edge_nodes[len(flange_edge_nodes) - 1]
+
+            p_end1_total = p1_end1 + p2_end1 + p3_end1
+            p_end2_total = p1_end2 + p2_end2 + p3_end2
+
+            if np.isclose(f1_end1 + f2_end1, p_end1_total):
+                raise MeshV2FeasibilityFailGeneric()
+
+            if np.isclose(f1_end2 + f2_end2, p_end2_total):
+                raise MeshV2FeasibilityFailGeneric()
 
 
 class MeshExtent:
@@ -1514,8 +1529,11 @@ class MeshSize:
             dimension_id += 1
 
     @staticmethod
-    def find_closest_divisor(length, spacing):
+    def find_closest_divisor(length: int, spacing: int):
         """
+        Method can be used as a separate calculator for equal stiffener spacing
+        calculation along some length L and approximate desired spacing.
+
         :param length: Length L which should be divided into n equal parts, each
             with length x.
         :param spacing: Value to which length x should be closes to.
@@ -1584,9 +1602,9 @@ class MeshSize:
         :param dim_y: Dimension of the quad element along y axis.
         :return: Aspect ratio of the quad element.
         """
-        if dim_x > dim_y:
+        if dim_x > dim_y != 0:
             ar = dim_x / dim_y
-        elif dim_x < dim_y:
+        elif dim_x < dim_y and dim_x != 0:
             ar = dim_y / dim_x
         else:
             ar = 1
@@ -1624,13 +1642,8 @@ class MeshSize:
         :param plate_dim: Plating zone dimension parallel to stiffener
             direction, takes into account Axis of Symmetry.
         :return: Quad element dimension parlallel to stiffener direction, based
-            only on quad element dimension perpendicular to stiffener direction,
-            desired and maximum aspect ratio. Method attempts to find a divisor
-            of plating zone dimension parallel to stiffeners that results in
-            quad element size not greater than the desired element dimension
-            parallel to stiffener direction. If no divisors are found or the
-            divisor is the plating zone dimension itself,
-            method refine_plate_element is used.
+            on quad element dimension perpendicular to stiffener direction and
+            desired aspect ratio.
         """
         y = self.element_size_perp_to_stiffeners(plate)
         des_x_val = y * self._des_plate_aspect_ratio  # Desired element dim
@@ -2162,6 +2175,24 @@ class MeshSize:
         dim_2 = dim[1][dim_id]
         return dim_1, dim_2
 
+    def split_quad_element(self, plate: Plate):
+        """
+        :param plate: Selected plating zone
+        :return: True if a plating quad element between stiffeners is split in
+            half by some Axis of Symmetry.
+        """
+        stiff_spacing = plate.get_stiffener_spacing() * 1000
+        stiff_dir = plate.stiff_dir
+        if stiff_dir == BeamDirection.LONGITUDINAL:
+            base_dim = self.get_base_dim_y(plate)
+        else:
+            base_dim = self.get_base_dim_x(plate)
+        n_elem = np.round(stiff_spacing / base_dim)
+        if np.mod(n_elem, 2) == 0:
+            return False
+        else:
+            return True
+
     def get_base_element_number(self, plate: Plate):
         """
         :param plate: Selected plating zone.
@@ -2194,8 +2225,24 @@ class MeshSize:
         dim_x_range = L - tr_el_dim_x1 - tr_el_dim_x2
         dim_y_range = B - tr_el_dim_y1 - tr_el_dim_y2
 
-        n_dim_x = np.round(dim_x_range / dim_x)  # Number of elements with dim_x
-        n_dim_y = np.round(dim_y_range / dim_y)  # Number of elements with dim_y
+        n_elem_x = dim_x_range / dim_x
+        n_elem_y = dim_y_range / dim_y
+
+        remainder_x = np.floor(dim_x_range / dim_x)
+        remainder_y = np.floor(dim_y_range / dim_y)
+
+        if np.isclose(n_elem_x - remainder_x, 0.5) \
+                and self.split_quad_element(plate):
+            n_dim_x = np.round(n_elem_x - 0.5)
+        else:
+            n_dim_x = np.round(n_elem_x)  # Number of elements with dim_x
+
+        if np.isclose(n_elem_y - remainder_y, 0.5) \
+                and self.split_quad_element(plate):
+            n_dim_y = np.round(n_elem_y - 0.5)
+        else:
+            n_dim_y = np.round(n_elem_y)  # Number of elements with dim_y
+
         return n_dim_x, n_dim_y
 
     def get_long_split_element_num(self, plate: Plate):
@@ -2406,69 +2453,44 @@ class MeshSize:
         else:
             return self._num_eaf, self._num_eaf
 
+    def transition_dim(self, base, plate_tr, fl_width):
+        if plate_tr == 0:
+            if base > fl_width:
+                flange_tr_dim = base - fl_width
+            else:
+                flange_tr_dim = 2 * base - fl_width
+        else:
+            if plate_tr > fl_width:
+                flange_tr_dim = plate_tr - fl_width
+            else:
+                flange_tr_dim = plate_tr + base - fl_width
+
+        if flange_tr_dim != 0:
+            ar = self.element_aspect_ratio(flange_tr_dim, fl_width)
+            if ar > self._flange_aspect_ratio and flange_tr_dim < fl_width:
+                flange_tr_dim += base
+
+        return flange_tr_dim
+
     def flange_transition_dim(self, segment: Segment):
         """
         :param segment: Selected segment.
         :return: Transition element dimensions for any segment on both ends.
         """
         direction = segment.primary_supp_mem.direction
-        fl_el_width_1, fl_el_width_2 = self.opposite_flange_width(segment)
+        el_width_1, el_width_2 = self.opposite_flange_width(segment)
         plate_list = self._grillage.segment_common_plates(segment)
         plate = plate_list[0]
 
         if direction == BeamDirection.LONGITUDINAL:
             base_dim = self.get_base_dim_x(plate)
-            perp_base_dim = self.get_base_dim_y(plate)
-            plate_tr_dim_1, plate_tr_dim_2 = self.get_tr_dim_x(plate)
+            plate_tr_1, plate_tr_2 = self.get_tr_dim_x(plate)
         else:
             base_dim = self.get_base_dim_y(plate)
-            perp_base_dim = self.get_base_dim_x(plate)
-            plate_tr_dim_1, plate_tr_dim_2 = self.get_tr_dim_y(plate)
+            plate_tr_1, plate_tr_2 = self.get_tr_dim_y(plate)
 
-        if plate_tr_dim_1 != 0:
-            remaining_dist1 = plate_tr_dim_1 - fl_el_width_1
-        else:
-            remaining_dist1 = base_dim - fl_el_width_1
-
-        if plate_tr_dim_2 != 0:
-            remaining_dist2 = plate_tr_dim_2 - fl_el_width_2
-        else:
-            remaining_dist2 = base_dim - fl_el_width_2
-
-        n_elem1 = np.floor(remaining_dist1 / base_dim)
-        n_elem2 = np.floor(remaining_dist2 / base_dim)
-
-        if n_elem1 == 0:
-            if plate_tr_dim_1 == 0:
-                fl_tr_1 = base_dim - fl_el_width_1
-            else:
-                fl_tr_1 = plate_tr_dim_1 - fl_el_width_1
-        else:
-            if plate_tr_dim_1 == 0:
-                fl_tr_1 = n_elem1 * base_dim - fl_el_width_1
-            else:
-                fl_tr_1 = plate_tr_dim_1 - n_elem1 * base_dim - fl_el_width_1
-
-        if n_elem2 == 0:
-            if plate_tr_dim_2 == 0:
-                fl_tr_2 = base_dim - fl_el_width_2
-            else:
-                fl_tr_2 = plate_tr_dim_2 - fl_el_width_2
-        else:
-            if plate_tr_dim_1 == 0:
-                fl_tr_2 = n_elem2 * base_dim - fl_el_width_2
-            else:
-                fl_tr_2 = plate_tr_dim_2 - n_elem2 * base_dim - fl_el_width_2
-
-        if fl_tr_1 != 0:
-            ar = self.element_aspect_ratio(fl_tr_1, perp_base_dim)
-            if ar > self._flange_aspect_ratio and remaining_dist1 > base_dim:
-                fl_tr_1 += base_dim
-
-        if fl_tr_2 != 0:
-            ar = self.element_aspect_ratio(fl_tr_2, perp_base_dim)
-            if ar > self._flange_aspect_ratio and remaining_dist2 > base_dim:
-                fl_tr_2 += base_dim
+        fl_tr_1 = self.transition_dim(base_dim, plate_tr_1, el_width_1)
+        fl_tr_2 = self.transition_dim(base_dim, plate_tr_2, el_width_2)
 
         return fl_tr_1, fl_tr_2
 
@@ -2789,8 +2811,24 @@ class ElementSizeV1(MeshSize):
         dim_x_range = L - tr_el_dim_x1 - tr_el_dim_x2 - fl_dim_x1 - fl_dim_x2
         dim_y_range = B - tr_el_dim_y1 - tr_el_dim_y2 - fl_dim_y1 - fl_dim_y2
 
-        n_dim_x = np.round(dim_x_range / dim_x)  # Number of elements with dim_x
-        n_dim_y = np.round(dim_y_range / dim_y)  # Number of elements with dim_y
+        n_elem_x = dim_x_range / dim_x
+        n_elem_y = dim_y_range / dim_y
+
+        remainder_x = np.floor(dim_x_range / dim_x)
+        remainder_y = np.floor(dim_y_range / dim_y)
+
+        if np.isclose(n_elem_x - remainder_x, 0.5) \
+                and self.split_quad_element(plate):
+            n_dim_x = np.round(n_elem_x - 0.5)
+        else:
+            n_dim_x = np.round(n_elem_x)  # Number of elements with dim_x
+
+        if np.isclose(n_elem_y - remainder_y, 0.5) \
+                and self.split_quad_element(plate):
+            n_dim_y = np.round(n_elem_y - 0.5)
+        else:
+            n_dim_y = np.round(n_elem_y)  # Number of elements with dim_y
+
         return n_dim_x, n_dim_y
 
     def get_long_split_element_num(self, plate: Plate):
@@ -2919,14 +2957,18 @@ class ElementSizeV2(MeshSize):
 
         Mesh variant V2 has a more uniform plating mesh with transition plate
         elements between edges of plating zones and base mesh elements.
-        Allows for different number of edge nodes along the top and bottom
-        row of segment web nodes. Creates a transition mesh on the segment web
-        using both quad and triangle elements.
+        Allows for different number of edge nodes along the top and bottom row
+        of segment web nodes by creating a transition mesh on the segment web
+        using both quad and triangle elements. Variant is not suitable for
+        fine mesh generation because of element size limitations.
+
+        Mesh variant V2 has the following limitations:
 
             1.) All primary supporting members need to have the same web height.
             2.) Flange element overlap has to be in the same plane.
             3.) Grillage plating can not be defined with any camber.
-            4.) Value of num_eaf can not be greater than 1. ???????????????
+            4.) Value of num_eaf can not be greater than 1.
+            5.) Limitation on finite element size
         """
         super().__init__(mesh_extent, min_num_ebs, min_num_eweb, num_eaf,
                          flange_aspect_ratio, plate_aspect_ratio, des_plate_aspect_ratio)
@@ -3363,11 +3405,6 @@ class SegmentMesh:
         p_row_limit = self.plate_node_row_number()             # Plate row limit
         f_row_limit = self.flange_node_row_number()            # Flange row limit
 
-        # print("column_limit_f:", f_column_limit, ", column_limit_p", p_column_limit,
-        #       ", plate row_limit:", p_row_limit, ", flange row_limit:", f_row_limit)
-        # total = p_column_limit * p_row_limit + f_column_limit * f_row_limit
-        # print("Total number of web nodes:", total)
-
         start_id = self._start_node_id
         for p_row in range(1, p_row_limit + 1):
             id_list = np.arange(start_id, start_id + p_column_limit, 1)
@@ -3550,7 +3587,6 @@ class SegmentMeshV1(SegmentMesh):
         id_list = np.arange(flange_start_node, flange_start_node + total, 1)
         id_array = np.reshape(id_list, [row_limit - 1, column_limit])
         flange_node_id_array = np.insert(id_array, n_eaf, last_web_node_row, axis=0)
-
         return flange_node_id_array
 
     def generate_flange_nodes(self, fem: GeoGrillageFEM,
@@ -3582,7 +3618,7 @@ class SegmentMeshV1(SegmentMesh):
         row_limit, column_limit = np.shape(ref_array)
         row_limit -= 1
         eaf = self._mesh_size.num_eaf
-        mesh_dim = self._edge_plate_nodes
+        edge_nodes = self._edge_plate_nodes
 
         ref_node1 = Segment.get_segment_node1(self._segment)
         ref_node2 = Segment.get_segment_node2(self._segment)
@@ -3606,7 +3642,7 @@ class SegmentMeshV1(SegmentMesh):
             dim_index = 1
             for column in range(0, column_limit):
                 if column > 0:
-                    long_spacing_vector += mesh_dim[dim_index] * unit_ref_vector
+                    long_spacing_vector += edge_nodes[dim_index] * unit_ref_vector
                     dim_index += 1
                 else:
                     long_spacing_vector = np.zeros(3)
@@ -3696,21 +3732,39 @@ class SegmentMeshV2(SegmentMesh):
 
         plate_edge_nodes = self._edge_plate_nodes
         flange_edge_nodes = self._edge_flange_nodes
-        model_check = self._mesh_extent.model_check
-        model_check.mesh_V2_feasibility(plate_edge_nodes, flange_edge_nodes)
+        if len(plate_edge_nodes) > 4:
+            model_check = self._mesh_extent.model_check
+            model_check.mesh_V2_feasibility(plate_edge_nodes, flange_edge_nodes)
 
-        p_end1 = plate_edge_nodes[1]
-        p_end2 = plate_edge_nodes[len(plate_edge_nodes)]
-        f_end1 = flange_edge_nodes[1]
-        f_end2 = flange_edge_nodes[len(flange_edge_nodes)]
+        p1_end1 = plate_edge_nodes[1]
+        p1_end2 = plate_edge_nodes[len(plate_edge_nodes)]
+        f1_end1 = flange_edge_nodes[1]
+        f1_end2 = flange_edge_nodes[len(flange_edge_nodes)]
 
-        if np.isclose(p_end1, f_end1) or f_end1 > p_end1:
+        # No triangle element if first element dimensions are equal
+        if np.isclose(p1_end1, f1_end1) or f1_end1 > p1_end1:
             n_tri1 = 0
-
-        if np.isclose(p_end2, f_end2) or f_end2 > p_end2:
+        if np.isclose(p1_end2, f1_end2) or f1_end2 > p1_end2:
             n_tri2 = 0
 
+        # No triangle no.2 if only half of the segment is to be meshed
         if segment in self._mesh_size.mesh_extent.half_segments.values():
+            n_tri2 = 0
+
+        p2_end1 = plate_edge_nodes[2]
+        p2_end2 = plate_edge_nodes[len(plate_edge_nodes) - 1]
+        f2_end1 = flange_edge_nodes[2]
+        f2_end2 = flange_edge_nodes[len(flange_edge_nodes) - 1]
+
+        plate_end1 = p1_end1 + p2_end1
+        plate_end2 = p1_end2 + p2_end2
+        flange_end1 = f1_end1 + f2_end1
+        flange_end2 = f1_end2 + f2_end2
+
+        # No triangle element if the sum of first two element dims are equal
+        if np.isclose(plate_end1, flange_end1):
+            n_tri1 = 0
+        if np.isclose(plate_end2, flange_end2):
             n_tri2 = 0
 
         return n_tri1, n_tri2
@@ -4087,7 +4141,6 @@ class SegmentMeshV2(SegmentMesh):
         row_limit, column_limit = np.shape(node_id_arr)
         flange_id_array = self.ref_flange_node_ID_array(flange_start_node)
         fem_prop_id = self.get_flange_element_property_id(fem)
-
         id_el_nodes = [None] * 4
         for row in range(0, row_limit - 1):
             for column in range(0, column_limit - 1):

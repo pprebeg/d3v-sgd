@@ -144,3 +144,21 @@ class MeshV2FeasibilityFail(Exception):
 
     def __str__(self):
         return self.message_string()
+
+
+class MeshV2FeasibilityFailGeneric(Exception):
+    def __init__(self):
+        super().__init__()
+
+    @staticmethod
+    def message_string():
+        line = str("Mesh V2 feasibility test failed!")
+        line += str(" Cannot generate FE mesh using Mesh Variant V2 with the "
+                    "given mesh control parameters because element size is too small.")
+        line += str(" Increase the maximum plating or flange aspect ratios")
+        line += str(" and try again, or select another meshing variant.")
+
+        return line
+
+    def __str__(self):
+        return self.message_string()

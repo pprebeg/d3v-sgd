@@ -71,8 +71,8 @@ class FEMCommand(Command):
         self._menuMain = QMenu("FEM")
         self._menuViewType = QMenu("&View Type")
         self._menuMain.addMenu(self._menuViewType)
-        self._menuResults = QMenu("&Results")
-        self._menuMain.addMenu(self._menuResults)
+        # self._menuResults = QMenu("&Results")
+        # self._menuMain.addMenu(self._menuResults)
         self._menuOOFEM = QMenu("&OOFEM")
         self._menuMain.addMenu(self._menuOOFEM)
         self._menuOOFEMresults = QMenu("&Analysis results")
@@ -145,7 +145,7 @@ class FEMCommand(Command):
         for g in geometries:
             if isinstance(g, GeoFEM):
                 self.femmdl = g
-                self.addViewTypeAndResulsMenus(self.femmdl,self._menuViewType, self._menuResults)
+                # self.addViewTypeAndResulsMenus(self.femmdl,self._menuViewType, self._menuResults)
                 break
             if isinstance(g, GeoOOFEM):
                 self._oofem_input_filepath = g._model.filename
@@ -207,6 +207,13 @@ class FEMCommand(Command):
             pass
 
     def on_analyse_oofem(self):
+        if isinstance(self.femmdl, GeoFEM):
+            eltypes = get_initial_element_types_dict()
+            dir_path = os.path.dirname(self.femmdl.get_input_file_path())
+            self._oofem_input_filepath = os.path.abspath(dir_path) + '\\' + 'oofem_run_file.in'
+            self._oofem_idset_outtypes = generate_OOFEM_input_file(self._oofem_input_filepath, self.femmdl, eltypes,
+                                                                       True)
+
         if os.path.exists(self._oofem_input_filepath):
             if False:
                 results = analyse_with_OOFEM(self._oofem_input_filepath, self._oofem_idset_outtypes, self.femmdl)

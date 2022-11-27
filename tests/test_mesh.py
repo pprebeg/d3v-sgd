@@ -15,7 +15,7 @@ os.chdir(dir_path)
 def generate_test_mesh_v1():
     start = timer()
 
-    hc_var = 4
+    hc_var = 1
     filename = str("../grillage savefiles/hc_var_") + str(hc_var) + str("_savefile.gin")
     hc_variant = GrillageModelData(filename).read_file()
     print("Testing FE mesh variant V1 for grillage variant", hc_var)
@@ -52,7 +52,7 @@ def generate_test_mesh_v2():
     eweb = 3    # Number of elements along the height of PSM web
     eaf = 1     # Number of elements across primary supporting member flange
     far = 8     # Maximum PSM flange aspect ratio
-    par = 3     # Maximum plate and PSM web aspect ratio
+    par = 4     # Maximum plate and PSM web aspect ratio
     dpar = 3    # Desired plating aspect ratio, less than the maximum
 
     grillage_mesh = MeshVariantV2(gril_var, aos_override)
@@ -70,12 +70,13 @@ def Test_edge_node_spacing():
     hc_var = 5
     filename = str("../grillage savefiles/hc_var_") + str(hc_var) + str("_savefile.gin")
     hc_variant = GrillageModelData(filename).read_file()
+    print("")
     print("Testing mesh dimensions for grillage variant", hc_var)
     aos_override = None
     ebs = 1     # Number of elements between stiffeners
     eweb = 3    # Number of elements along the height of PSM web
     eaf = 1     # Number of elements across primary supporting member flange
-    far = 5     # Maximum PSM flange aspect ratio
+    far = 2.2     # Maximum PSM flange aspect ratio
     par = 1     # Maximum plate and PSM web aspect ratio
     dpar = 1    # Desired plating aspect ratio, less than the maximum
     mesh_extent = MeshExtent(hc_variant, aos_override)
@@ -85,9 +86,12 @@ def Test_edge_node_spacing():
     for plate in test_mesh_size.mesh_extent.all_plating_zones.values():
         dim_x = test_mesh_size.plate_edge_node_spacing_x(plate)
         dim_y = test_mesh_size.plate_edge_node_spacing_y(plate)
+        n_elem_x = len(dim_x)
+        n_elem_y = len(dim_y)
+
         print("Plating zone ID", plate.id, ":")
-        print("     Distance between plating edge nodes (dim_x):", dim_x)
-        print("     Distance between plating edge nodes (dim_y):", dim_y)
+        print("     Number of elements", n_elem_x, ", edge node spacing (dim_x):", dim_x)
+        print("     Number of elements", n_elem_y, ", edge node spacing (dim_y):", dim_y, "\n")
 
     for segment in test_mesh_size.mesh_extent.all_segments.values():
         flange_spacing = test_mesh_size.flange_edge_node_spacing(segment)
@@ -95,9 +99,12 @@ def Test_edge_node_spacing():
         psm_id = segment.primary_supp_mem.id
         direct = segment.primary_supp_mem.direction.name
         psm_type = segment.beam_prop.beam_type.name
-        print("Jaki", direct, psm_type, "nosač broj", psm_id, ", segmenta broj", segment.id,
-              ", broj elemenata:", n_elem,
-              " , dimenzije razmaka rubnih čvorova prirubnice:")
-        print("   ", flange_spacing)
+        fl_tr_dim = test_mesh_size.flange_transition_dim(segment)
+        fl_tr_num = test_mesh_size.get_flange_transition_num(segment)
+
+        print(direct, psm_type, "PSM, ID:", psm_id, ", segment ID:", segment.id,
+              ", Number of elements:", n_elem, ", tr dim:", fl_tr_dim, ", tr num:", fl_tr_num, "total:", sum(flange_spacing.values()),
+              " , flange edge node spacing:")
+        print("   ", flange_spacing, "\n")
     end = timer()
     print("Test time:", end - start, "s")

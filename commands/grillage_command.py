@@ -146,7 +146,7 @@ class SGDCommand(Command):
         actionRunTest.triggered.connect(self.onActionGenerateTestMeshV2)
 
         actionRunTest = self.menuTests.addAction("&Test Edge Node Spacing")
-        actionRunTest.triggered.connect(self.onActionTestEdgeSpacing)
+        actionRunTest.triggered.connect(Test_edge_node_spacing)
 
         try:
             manager.selected_geometry_changed.connect(self.onSelectedGeometryChanged)
@@ -173,9 +173,6 @@ class SGDCommand(Command):
             manager.add_geometry([grill_fem])
             manager.show_geometry([grill_fem])
         pass
-
-    def onActionTestEdgeSpacing(self):
-        Test_edge_node_spacing()
 
     def onGenerateFEM(self):
         analysis_gui = GrillageAnalysisGUI(self.mainwin, self._grillgeo)

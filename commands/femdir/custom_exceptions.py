@@ -162,3 +162,24 @@ class MeshV2FeasibilityFailGeneric(Exception):
 
     def __str__(self):
         return self.message_string()
+
+
+class DifferentFlangeWidth(Exception):
+    def __init__(self, psm_id, direction):
+        super().__init__()
+        self._psm_id = psm_id
+        self._direction = direction
+
+    def message_string(self):
+        line = str("Mesh V1 feasibility test failed!")
+        line += str(" Cannot generate FE mesh using Mesh Variant V1 on the input "
+                    "grillage model because different flange width values have ")
+        line += str("been detected on the ")
+        line += str(self._direction)
+        line += str(" Primary Supporting Member number ")
+        line += str(self._psm_id)
+        line += str(".")
+        return line
+
+    def __str__(self):
+        return self.message_string()

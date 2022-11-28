@@ -322,7 +322,17 @@ class ModelCheck:
                                                   plate2.id, spacing1, spacing2)
 
     @staticmethod
-    def mesh_V2_feasibility(plate_edge_nodes, flange_edge_nodes):
+    def mesh_V2_tr_check(plate_edge_nodes, flange_edge_nodes):
+        """
+        Method checks transition row feasibility based on segment web finite
+        element dimensions at the top and bottom row of elements.
+
+        :param plate_edge_nodes: Distances between plate nodes.
+        :param flange_edge_nodes: Distances between flange nodes.
+        :return: Calls custom exception if grillage model can not be meshed using
+            MeshVariantV2 because the input mesh control parameters result in a
+            finite element mesh with elements that are too small.
+        """
         p1_end1 = plate_edge_nodes[1]
         p2_end1 = plate_edge_nodes[2]
         p_end1_total = p1_end1 + p2_end1
@@ -354,6 +364,31 @@ class ModelCheck:
 
             if np.isclose(f1_end2 + f2_end2, p_end2_total):
                 raise MeshV2FeasibilityFailGeneric()
+
+    def same_flange_width_test(self):
+        """
+        Method checks if Primary Supporting Members have different flange width
+        on their segments. Raises acustom exception for MeshVariantV1.
+        """
+        for member in self._grillage.longitudinal_members().values():
+            bf_set = set()
+            for segment in member.segments:
+                beam_type = segment.beam_prop.beam_type
+                if beam_type is BeamType.T or beam_type is BeamType.L:
+                    bf = segment.beam_prop.bf
+                    bf_set.add(bf)
+            if len(bf_set) > 1:
+                raise DifferentFlangeWidth(member.id, member.direction.name)
+
+        for member in self._grillage.transverse_members().values():
+            bf_set = set()
+            for segment in member.segments:
+                beam_type = segment.beam_prop.beam_type
+                if beam_type is BeamType.T or beam_type is BeamType.L:
+                    bf = segment.beam_prop.bf
+                    bf_set.add(bf)
+            if len(bf_set) > 1:
+                raise DifferentFlangeWidth(member.id, member.direction.name)
 
 
 class MeshExtent:
@@ -3418,10 +3453,10 @@ class SegmentMesh:
 
         return web_node_id_list
 
-    def generate_web_nodes(self, fem: GeoGrillageFEM):
+    def generate_web_nodes(self, fem: GeoGrillageFEM) -> int:
         pass
 
-    def generate_web_elements(self, fem: GeoGrillageFEM):
+    def generate_web_elements(self, fem: GeoGrillageFEM) -> int:
         pass
 
     def ref_flange_node_ID_array(self, flange_start_node):
@@ -3449,12 +3484,28 @@ class SegmentMesh:
         return flange_node_id_array
 
     def generate_flange_nodes(self, fem: GeoGrillageFEM,
-                              direction: FlangeDirection, start_node_id):
+                              direction: FlangeDirection, start_node_id) -> int:
         pass
 
-    def generate_flange_elements(self, fem: GeoGrillageFEM,
-                                 start_node_id, start_element_id):
-        pass
+    def generate_flange_elements(self, fem: GeoGrillageFEM, flange_start_node,
+                                 start_element_id):
+        element_id = start_element_id
+        node_id_arr = self.ref_flange_node_ID_array(flange_start_node)
+        row_limit, column_limit = np.shape(node_id_arr)
+        flange_id_array = self.ref_flange_node_ID_array(flange_start_node)
+        fem_prop_id = self.get_flange_element_property_id(fem)
+        id_el_nodes = [None] * 4
+
+        for row in range(0, row_limit - 1):
+            for column in range(0, column_limit - 1):
+                id_el_nodes[0] = flange_id_array[row, column]
+                id_el_nodes[1] = flange_id_array[row, column + 1]
+                id_el_nodes[2] = flange_id_array[row + 1, column + 1]
+                id_el_nodes[3] = flange_id_array[row + 1, column]
+                elem = fem.add_quad_element(fem_prop_id, id_el_nodes)
+                fem.add_element_to_element_overlaps(elem)
+                element_id += 1
+        return element_id
 
     def generate_mesh(self, fem: GeoGrillageFEM):
         """
@@ -3683,24 +3734,6 @@ class SegmentMeshV1(SegmentMesh):
 
         return element_id
 
-    def generate_flange_elements(self, fem: GeoGrillageFEM, flange_start_node, start_element_id):
-        element_id = start_element_id
-        row_limit, column_limit = np.shape(self.ref_flange_node_ID_array(flange_start_node))
-        flange_id_array = self.ref_flange_node_ID_array(flange_start_node)
-        fem_prop_id = self.get_flange_element_property_id(fem)
-
-        id_el_nodes = [None] * 4
-        for row in range(0, row_limit - 1):
-            for column in range(0, column_limit - 1):
-                id_el_nodes[0] = flange_id_array[row, column]
-                id_el_nodes[1] = flange_id_array[row, column + 1]
-                id_el_nodes[2] = flange_id_array[row + 1, column + 1]
-                id_el_nodes[3] = flange_id_array[row + 1, column]
-                elem = fem.add_quad_element(fem_prop_id, id_el_nodes)
-                fem.add_element_to_element_overlaps(elem)
-                element_id += 1
-        return element_id
-
 
 class SegmentMeshV2(SegmentMesh):
     def __init__(self, mesh_size: MeshSize, segment: Segment,
@@ -3734,7 +3767,7 @@ class SegmentMeshV2(SegmentMesh):
         flange_edge_nodes = self._edge_flange_nodes
         if len(plate_edge_nodes) > 4:
             model_check = self._mesh_extent.model_check
-            model_check.mesh_V2_feasibility(plate_edge_nodes, flange_edge_nodes)
+            model_check.mesh_V2_tr_check(plate_edge_nodes, flange_edge_nodes)
 
         p1_end1 = plate_edge_nodes[1]
         p1_end2 = plate_edge_nodes[len(plate_edge_nodes)]
@@ -4134,26 +4167,6 @@ class SegmentMeshV2(SegmentMesh):
 
         return end_id
 
-    def generate_flange_elements(self, fem: GeoGrillageFEM, flange_start_node,
-                                 start_element_id):
-        element_id = start_element_id
-        node_id_arr = self.ref_flange_node_ID_array(flange_start_node)
-        row_limit, column_limit = np.shape(node_id_arr)
-        flange_id_array = self.ref_flange_node_ID_array(flange_start_node)
-        fem_prop_id = self.get_flange_element_property_id(fem)
-        id_el_nodes = [None] * 4
-        for row in range(0, row_limit - 1):
-            for column in range(0, column_limit - 1):
-                id_el_nodes[0] = flange_id_array[row, column]
-                id_el_nodes[1] = flange_id_array[row, column + 1]
-                id_el_nodes[2] = flange_id_array[row + 1, column + 1]
-                id_el_nodes[3] = flange_id_array[row + 1, column]
-                elem = fem.add_quad_element(fem_prop_id, id_el_nodes)
-                fem.add_element_to_element_overlaps(elem)
-                element_id += 1
-
-        return element_id
-
 
 class GrillageMesh:
     def __init__(self, grillage: Grillage, axis_of_symm_override: AOS = None):
@@ -4311,6 +4324,8 @@ class MeshVariantV1(GrillageMesh):
         super().__init__(grillage, axis_of_symm_override)
 
     def generate_psm_mesh(self, size: MeshSize, fem: GeoGrillageFEM):
+        self.mesh_extent.model_check.same_flange_width_test()
+
         n_id = fem.id_node_count
         e_id = fem.id_element_count
 

@@ -906,11 +906,11 @@ class MeshExtent:
         else:
             return False
 
-    def identify_tran_split_elements(self):
+    def identify_tran_split_zones(self):
         """
         :return: Identifies Plate objects where transverse axis of symmetry
-            passes between stiffeners.
-            Stores identified zones in tran_e_split_zone dictionary.
+            passes between stiffeners. Stores all identified zones located on
+            the column of plating zones into tran_e_split_zone dictionary.
         """
         plating_zone_array = self.hc_plate_zone_ref_ID_array()
         for plate in self.tran_half_plate_zones.values():
@@ -921,11 +921,11 @@ class MeshExtent:
                     for j in i:
                         self.tran_e_split_zone[j] = self._grillage.plating()[j]
 
-    def identify_long_split_elements(self):
+    def identify_long_split_zones(self):
         """
         :return: Identifies Plate objects where longitudinal axis of symmetry
-            passes between stiffeners.
-            Stores identified zones in long_e_split_zone dictionary.
+            passes between stiffeners. Stores all identified zones located on
+            the row of plating zones into long_e_split_zone dictionary.
         """
         plating_zone_array = self.hc_plate_zone_ref_ID_array()
         for plate in self.long_half_plate_zones.values():
@@ -984,21 +984,21 @@ class MeshExtent:
             self.identify_long_full_plate_zones()
             self.identify_long_half_plate_zones()
             self.longitudinal_symm_plate_ref_array()
-            self.identify_long_split_elements()
+            self.identify_long_split_zones()
 
         elif self.axis_of_symm is AOS.TRANSVERSE:
             self.identify_tran_full_plate_zones()
             self.identify_tran_half_plate_zones()
             self.transverse_symm_plate_ref_array()
-            self.identify_tran_split_elements()
+            self.identify_tran_split_zones()
 
         elif self.axis_of_symm is AOS.BOTH:
             self.identify_both_full_plate_zones()
             self.identify_both_half_plate_zones()
             self.identify_quarter_plate_zone()
             self.both_symm_plate_ref_array()
-            self.identify_long_split_elements()
-            self.identify_tran_split_elements()
+            self.identify_long_split_zones()
+            self.identify_tran_split_zones()
 
         else:
             self.full_plate_zones = self._grillage.plating()
@@ -2210,23 +2210,37 @@ class MeshSize:
         dim_2 = dim[1][dim_id]
         return dim_1, dim_2
 
-    def split_quad_element(self, plate: Plate):
+    def long_split_element(self):
         """
-        :param plate: Selected plating zone
-        :return: True if a plating quad element between stiffeners is split in
-            half by some Axis of Symmetry.
+        :return: True if a quad element between stiffeners is split in half by a
+            longitudinal Axis of Symmetry on plating zones in long_e_split_zone
         """
-        stiff_spacing = plate.get_stiffener_spacing() * 1000
-        stiff_dir = plate.stiff_dir
-        if stiff_dir == BeamDirection.LONGITUDINAL:
+        for plate in self.mesh_extent.long_e_split_zone.values():
+            stiff_spacing = plate.get_stiffener_spacing() * 1000
             base_dim = self.get_base_dim_y(plate)
+            n_elem = np.round(stiff_spacing / base_dim)
+            if np.mod(n_elem, 2) != 0:
+                return True
+            else:
+                return False
         else:
-            base_dim = self.get_base_dim_x(plate)
-        n_elem = np.round(stiff_spacing / base_dim)
-        if np.mod(n_elem, 2) == 0:
             return False
+
+    def tran_split_element(self):
+        """
+        :return: True if a quad element between stiffeners is split in half by a
+            transverse Axis of Symmetry on plating zones in tran_e_split_zone.
+        """
+        for plate in self.mesh_extent.tran_e_split_zone.values():
+            stiff_spacing = plate.get_stiffener_spacing() * 1000
+            base_dim = self.get_base_dim_x(plate)
+            n_elem = np.round(stiff_spacing / base_dim)
+            if np.mod(n_elem, 2) != 0:
+                return True
+            else:
+                return False
         else:
-            return True
+            return False
 
     def get_base_element_number(self, plate: Plate):
         """
@@ -2263,17 +2277,14 @@ class MeshSize:
         n_elem_x = dim_x_range / dim_x
         n_elem_y = dim_y_range / dim_y
 
-        remainder_x = np.floor(dim_x_range / dim_x)
-        remainder_y = np.floor(dim_y_range / dim_y)
-
-        if np.isclose(n_elem_x - remainder_x, 0.5) \
-                and self.split_quad_element(plate):
+        if plate in self.mesh_extent.tran_e_split_zone.values() \
+                and self.tran_split_element():
             n_dim_x = np.round(n_elem_x - 0.5)
         else:
             n_dim_x = np.round(n_elem_x)  # Number of elements with dim_x
 
-        if np.isclose(n_elem_y - remainder_y, 0.5) \
-                and self.split_quad_element(plate):
+        if plate in self.mesh_extent.long_e_split_zone.values() \
+                and self.long_split_element():
             n_dim_y = np.round(n_elem_y - 0.5)
         else:
             n_dim_y = np.round(n_elem_y)  # Number of elements with dim_y
@@ -2286,18 +2297,9 @@ class MeshSize:
         :return: Number of base size elements being split in half by
             longitudinal Axis of Symmetry.
         """
-        if plate.id in self._mesh_extent.long_e_split_zone:
-            B = self._mesh_extent.get_tran_plate_dim(plate)
-            tr_el_dim_y1 = self.get_tr_dim_y(plate)[0]
-            dim_y = self.get_base_dim_y(plate)
-            n_dim_y = self.get_base_element_number(plate)[1]
-            remaining_dist = B - tr_el_dim_y1 - dim_y * n_dim_y
-            if remaining_dist == 0:
-                return 0
-            elif remaining_dist < dim_y:
-                return 1
-            else:
-                return 0
+        if plate in self._mesh_extent.long_e_split_zone.values() \
+                and self.long_split_element():
+            return 1
         else:
             return 0
 
@@ -2307,18 +2309,9 @@ class MeshSize:
         :return: Number of base size elements being split in half by
             transverse Axis of Symmetry.
         """
-        if plate.id in self._mesh_extent.tran_e_split_zone:
-            L = self._mesh_extent.get_long_plate_dim(plate)
-            tr_el_dim_x1 = self.get_tr_dim_x(plate)[0]
-            dim_x = self.get_base_dim_x(plate)
-            n_dim_x = self.get_base_element_number(plate)[0]
-            remaining_dist = L - tr_el_dim_x1 - dim_x * n_dim_x
-            if remaining_dist == 0:
-                return 0
-            elif remaining_dist < dim_x:
-                return 1
-            else:
-                return 0
+        if plate in self._mesh_extent.tran_e_split_zone.values() \
+                and self.tran_split_element():
+            return 1
         else:
             return 0
 
@@ -2849,66 +2842,19 @@ class ElementSizeV1(MeshSize):
         n_elem_x = dim_x_range / dim_x
         n_elem_y = dim_y_range / dim_y
 
-        remainder_x = np.floor(dim_x_range / dim_x)
-        remainder_y = np.floor(dim_y_range / dim_y)
-
-        if np.isclose(n_elem_x - remainder_x, 0.5) \
-                and self.split_quad_element(plate):
+        if plate in self.mesh_extent.tran_e_split_zone.values() \
+                and self.tran_split_element():
             n_dim_x = np.round(n_elem_x - 0.5)
         else:
             n_dim_x = np.round(n_elem_x)  # Number of elements with dim_x
 
-        if np.isclose(n_elem_y - remainder_y, 0.5) \
-                and self.split_quad_element(plate):
+        if plate in self.mesh_extent.long_e_split_zone.values() \
+                and self.long_split_element():
             n_dim_y = np.round(n_elem_y - 0.5)
         else:
             n_dim_y = np.round(n_elem_y)  # Number of elements with dim_y
 
         return n_dim_x, n_dim_y
-
-    def get_long_split_element_num(self, plate: Plate):
-        """
-        :param plate: Selected plating zone.
-        :return: Number of base size elements being split in half by
-            longitudinal Axis of Symmetry.
-        """
-        if plate.id in self._mesh_extent.long_e_split_zone:
-            B = self._mesh_extent.get_tran_plate_dim(plate)
-            fl_dim_y1 = self.get_flange_el_width(plate.long_seg1)
-            tr_el_dim_y1 = self.get_tr_dim_y(plate)[0]
-            dim_y = self.get_base_dim_y(plate)
-            n_dim_y = self.get_base_element_number(plate)[1]
-            remaining_dist = B - fl_dim_y1 - tr_el_dim_y1 - dim_y * n_dim_y
-            if remaining_dist == 0:
-                return 0
-            elif remaining_dist < dim_y:
-                return 1
-            else:
-                return 0
-        else:
-            return 0
-
-    def get_tran_split_element_num(self, plate: Plate):
-        """
-        :param plate: Selected plating zone.
-        :return: Number of base size elements being split in half by
-            transverse Axis of Symmetry.
-        """
-        if plate.id in self._mesh_extent.tran_e_split_zone:
-            L = self._mesh_extent.get_long_plate_dim(plate)
-            fl_dim_x1 = self.get_flange_el_width(plate.trans_seg1)
-            tr_el_dim_x1 = self.get_tr_dim_x(plate)[0]
-            dim_x = self.get_base_dim_x(plate)
-            n_dim_x = self.get_base_element_number(plate)[0]
-            remaining_dist = L - fl_dim_x1 - tr_el_dim_x1 - dim_x * n_dim_x
-            if remaining_dist == 0:
-                return 0
-            elif remaining_dist < dim_x:
-                return 1
-            else:
-                return 0
-        else:
-            return 0
 
     def plate_edge_node_spacing_x(self, plate: Plate):
         """
@@ -3022,12 +2968,13 @@ class ElementSizeV2(MeshSize):
         plate_list = self._grillage.segment_common_plates(segment)
         plate = plate_list[0]
         base_el_num = self.flange_base_element_num(segment)
+
         if direction == BeamDirection.LONGITUDINAL:
             base_dim = self.get_base_dim_x(plate)
+            split_element_number = self.get_tran_split_element_num(plate)
         else:
             base_dim = self.get_base_dim_y(plate)
-
-        split_element_number = self.get_tran_split_element_num(plate)
+            split_element_number = self.get_long_split_element_num(plate)
 
         if segment in self.mesh_extent.half_segments.values():
             fl_el_num2 = 0

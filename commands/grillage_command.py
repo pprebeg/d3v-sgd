@@ -2,7 +2,7 @@ from PySide6.QtWidgets import QApplication, QMenu
 from PySide6.QtWidgets import QDialog, QPushButton,QGridLayout,QToolTip,QCheckBox,QComboBox
 from PySide6.QtWidgets import QTreeView,QMainWindow,QVBoxLayout,QHBoxLayout,QSizePolicy
 from PySide6.QtWidgets import QTreeWidget,QTreeWidgetItem,QDockWidget,QWidget,QGroupBox
-from PySide6.QtWidgets import QLabel, QSpinBox, QLineEdit
+from PySide6.QtWidgets import QLabel, QSpinBox, QLineEdit, QDoubleSpinBox
 from PySide6.QtGui import QCursor
 
 
@@ -258,9 +258,9 @@ class GrillageAnalysisGUI(QDialog):
         self.ebs_input = QSpinBox(self)
         self.eweb_input = QSpinBox(self)
         self.eaf_input = QSpinBox(self)
-        self.far_input = QSpinBox(self)
-        self.par_input = QSpinBox(self)
-        self.dpar_input = QSpinBox(self)
+        self.far_input = QDoubleSpinBox(self)
+        self.par_input = QDoubleSpinBox(self)
+        self.dpar_input = QDoubleSpinBox(self)
 
     def grillage_mesh_variant(self):
         grill_var = self._grillgeo.grillage
@@ -344,14 +344,20 @@ class GrillageAnalysisGUI(QDialog):
     def ar_input_widgets(self):
         self.far_input.setMinimum(1)
         self.far_input.setValue(8)
+        self.far_input.setDecimals(1)
+        self.far_input.setSingleStep(0.1)
         self.main_layout.addWidget(self.far_input, 6, 1)
 
         self.par_input.setMinimum(1)
         self.par_input.setValue(4)
+        self.par_input.setDecimals(1)
+        self.par_input.setSingleStep(0.1)
         self.main_layout.addWidget(self.par_input, 7, 1)
 
         self.dpar_input.setMinimum(1)
         self.dpar_input.setValue(3)
+        self.dpar_input.setDecimals(1)
+        self.dpar_input.setSingleStep(0.1)
         self.main_layout.addWidget(self.dpar_input, 8, 1)
 
     def element_num_widgets(self):

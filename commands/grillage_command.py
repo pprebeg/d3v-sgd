@@ -343,19 +343,19 @@ class GrillageAnalysisGUI(QDialog):
 
     def ar_input_widgets(self):
         self.far_input.setMinimum(1)
-        self.far_input.setValue(8)
+        self.far_input.setValue(7)
         self.far_input.setDecimals(1)
         self.far_input.setSingleStep(0.1)
         self.main_layout.addWidget(self.far_input, 6, 1)
 
         self.par_input.setMinimum(1)
-        self.par_input.setValue(4)
+        self.par_input.setValue(3)
         self.par_input.setDecimals(1)
         self.par_input.setSingleStep(0.1)
         self.main_layout.addWidget(self.par_input, 7, 1)
 
         self.dpar_input.setMinimum(1)
-        self.dpar_input.setValue(3)
+        self.dpar_input.setValue(2)
         self.dpar_input.setDecimals(1)
         self.dpar_input.setSingleStep(0.1)
         self.main_layout.addWidget(self.dpar_input, 8, 1)

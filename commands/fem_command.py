@@ -90,6 +90,9 @@ class FEMCommand(Command):
         menuAnalysisResults = self._menuOOFEMresults.addAction("&Print displacements")
         menuAnalysisResults.triggered.connect(self.onPrintDisplacements)
 
+        menuAnalysisResults = self._menuOOFEMresults.addAction("&Maximum displacement")
+        menuAnalysisResults.triggered.connect(self.onPrintMaxDisplacement)
+
         mb.addMenu(self._menuMain)
         self._combo_lc = self.init_combo_lc()
         if self._show_oofem_analysis_menu:
@@ -120,6 +123,14 @@ class FEMCommand(Command):
         node_displacements = self.get_node_displacement()
         for key, val in node_displacements.items():
             print("Node ID:", key, ",nodal displacement:", val)
+
+    def onPrintMaxDisplacement(self):
+        node_displacements = self.get_node_displacement()
+        z_displacement = {}
+        for key, val in node_displacements.items():
+            z_displacement[key] = val[2]
+        max_displacement = min(z_displacement.values())
+        print("Maximum displacement:", "{:.2f}".format(max_displacement), "mm")
 
     def add_OOFEM_analysis_toolbars_and_menus(self):
         menu_anylyse_oofem = self._menuOOFEM.addAction("&Analyse")

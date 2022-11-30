@@ -51,7 +51,7 @@ hc_var_7.generate_segments(initial_longitudinal_beam, initial_transverse_beam, i
 hc_var_7.generate_plating(plateprop1, stifflayout1, stiff_dir)  # Generacija oplate
 
 # Spremanje generirane topologije
-GrillageModelData('../grillage savefiles/hc_var_7_savefile.gin').write_file(hc_var_7)
+GrillageModelData('../grillage savefiles/ro_ro_ramp_savefile.gin').write_file(hc_var_7)
 
 end = timer()
 print("***************************************************************************************************************")

@@ -322,6 +322,28 @@ class ModelCheck:
                                                   plate2.id, spacing1, spacing2)
 
     @staticmethod
+    def symmetry_override_check(discovered: AOS, override: AOS):
+        """
+        Method checks if grillage model is actually symmetric about the chosen
+            Axis of Symmetry override, based on automatically discovered AOS.
+        :return: Raises InvalidAxisOfSymmOverride custom exception.
+        """
+        if discovered is AOS.NONE:
+            invalid_overrides = [AOS.LONGITUDINAL, AOS.TRANSVERSE, AOS.BOTH]
+            if override in invalid_overrides:
+                raise InvalidAxisOfSymmOverride(discovered, override)
+
+        elif discovered is AOS.LONGITUDINAL:
+            invalid_overrides = [AOS.TRANSVERSE, AOS.BOTH]
+            if override in invalid_overrides:
+                raise InvalidAxisOfSymmOverride(discovered, override)
+
+        elif discovered is AOS.TRANSVERSE:
+            invalid_overrides = [AOS.LONGITUDINAL, AOS.BOTH]
+            if override in invalid_overrides:
+                raise InvalidAxisOfSymmOverride(discovered, override)
+
+    @staticmethod
     def mesh_V2_tr_check(plate_edge_nodes, flange_edge_nodes):
         """
         Method checks transition row feasibility based on segment web finite
@@ -913,8 +935,9 @@ class MeshExtent:
             the column of plating zones into tran_e_split_zone dictionary.
         """
         plating_zone_array = self.hc_plate_zone_ref_ID_array()
-        for plate in self.tran_half_plate_zones.values():
-            if self.aos_between_stiffeners(plate):
+        for plate in self.all_plating_zones.values():
+            if self.aos_between_stiffeners(plate) \
+                    and plate.stiff_dir == BeamDirection.TRANSVERSE:
                 column_id = np.where(plating_zone_array == plate.id)[1]
                 split_element_zones = plating_zone_array[:, column_id]
                 for i in split_element_zones:
@@ -928,8 +951,9 @@ class MeshExtent:
             the row of plating zones into long_e_split_zone dictionary.
         """
         plating_zone_array = self.hc_plate_zone_ref_ID_array()
-        for plate in self.long_half_plate_zones.values():
-            if self.aos_between_stiffeners(plate):
+        for plate in self.all_plating_zones.values():
+            if self.aos_between_stiffeners(plate) \
+                    and plate.stiff_dir == BeamDirection.LONGITUDINAL:
                 row_id = np.where(plating_zone_array == plate.id)[0]
                 split_element_zones = plating_zone_array[row_id, :]
                 for i in split_element_zones:
@@ -2597,20 +2621,22 @@ class MeshSize:
     def calculate_mesh_dimensions(self):
         """
         :return: Calculates all element dimensions and saves them to
-            dictionaries mesh_dim_x, mesh_dim_y.
-            These values need to be calculated only once and will be used
-            for all node and element generation.
+            dictionaries mesh_dim_x, mesh_dim_y. These values need to be
+            calculated only once and will be used for all node and element
+            generation. Contains check of chosen Axis of Symmetry override.
         """
+        discovered = self._mesh_extent.aos_input
+        override = self._mesh_extent.axis_of_symm_override
+        mc = self._mesh_extent.model_check
+        mc.symmetry_override_check(discovered, override)
 
-        if self._mesh_extent.axis_of_symm_override:
-            print("Selected Axis of Symmetry override:",
-                  self._mesh_extent.axis_of_symm_override.name)
+        if override:
+            print("Selected Axis of Symmetry override:", override.name)
             print("Automatic symmetry discovery would have selected:",
-                  self._mesh_extent.aos_input.name)
-
+                  discovered.name)
         else:
             print("Automatically discovered grillage model symmetry:",
-                  self._mesh_extent.aos_input.name)
+                  discovered.name)
 
         self._mesh_extent.grillage_mesh_extent()
         base_dim_x, base_dim_y = self.calc_element_base_size()

@@ -183,3 +183,22 @@ class DifferentFlangeWidth(Exception):
 
     def __str__(self):
         return self.message_string()
+
+
+class InvalidAxisOfSymmOverride(Exception):
+    def __init__(self, discovered, override):
+        super().__init__()
+        self._discovered = discovered
+        self._override = override
+
+    def message_string(self):
+        line = str("Grillage model can not be meshed with ")
+        line += str(self._override.name)
+        line += str(" axis of symmetry because automatic symmetry")
+        line += str(" discovery detected ")
+        line += str(self._discovered.name)
+        line += str(" axis of symmetry.")
+        return line
+
+    def __str__(self):
+        return self.message_string()

@@ -33,6 +33,8 @@ initial_longitudinal_beam = TBeamProperty(1, 1089, 10, 230, 16, ST24)       # in
 initial_transverse_beam = TBeamProperty(2, 1089, 10, 545, 40, ST24)         # inicijalni transverse T beam prop
 initial_edge_beam = LBeamProperty(3, 1089, 10, 150, 16, ST24)               # inicijalni rubni L beam prop
 initial_stiffener = BulbBeamProperty(4, 240, 10, AH36)               # inicijalna ukrepa
+# initial_stiffener = HatBeamProperty(4, 220, 6, 220, 80, AH36)               # inicijalna ukrepa
+
 
 hc_var_4.add_beam_prop(initial_longitudinal_beam)
 hc_var_4.add_beam_prop(initial_transverse_beam)
@@ -47,7 +49,7 @@ hc_var_4.add_plate_prop(plateprop1)
 # Stiffener layouts
 stifflayout1 = StiffenerLayout(1, initial_stiffener, DefinitionType.SPACING, 0.724)
 stifflayout2 = StiffenerLayout(2, initial_stiffener, DefinitionType.SPACING, 0.7)
-stifflayout3 = StiffenerLayout(3, initial_stiffener, DefinitionType.SPACING, 0.64)
+stifflayout3 = StiffenerLayout(3, initial_stiffener, DefinitionType.SPACING, 0.68)
 hc_var_4.add_stiffener_layout(stifflayout1)                                   # dodavanje stiffener layouta u dictionary
 hc_var_4.add_stiffener_layout(stifflayout2)
 hc_var_4.add_stiffener_layout(stifflayout3)

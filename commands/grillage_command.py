@@ -296,8 +296,13 @@ class GrillageAnalysisGUI(QDialog):
         mesh = self.grillage_mesh_variant()
         symmetry = mesh.mesh_extent.axis_of_symm
         grill_fem = mesh.generate_grillage_mesh(name, ebs, eweb, eaf, far, par, dpar)
-        pressure = 0.034
+
+        pressure = 0.0343    # N/mm2
         mesh.generate_loadcase(grill_fem, symmetry, pressure)
+
+        gravity = -9810.0    # mm/s2
+        weight_val = [0, 0, gravity, 0, 0, 0]
+        mesh.generate_self_weight(grill_fem, weight_val)
 
         grill_fem.regenerate()
         if grill_fem is not None:

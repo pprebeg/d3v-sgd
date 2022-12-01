@@ -17,10 +17,9 @@ start = timer()
 hc_var_5 = Grillage(18.54, 18.18, 4, 4)
 
 # Lista materijala
-ST24 = MaterialProperty(1, 210000, 0.3, 7850, 235, "ST24")
-AH32 = MaterialProperty(2, 210000, 0.3, 7850, 315, "AH32")
-AH36 = MaterialProperty(3, 210000, 0.3, 7850, 355, "AH36")
-
+ST24 = MaterialProperty(1, 210000, 0.3, 7.85 * 10**(-9), 235, "ST24")
+AH32 = MaterialProperty(2, 210000, 0.3, 7.85 * 10**(-9), 315, "AH32")
+AH36 = MaterialProperty(3, 210000, 0.3, 7.85 * 10**(-9), 355, "AH36")
 hc_var_5.add_material(ST24)
 hc_var_5.add_material(AH32)
 hc_var_5.add_material(AH36)
@@ -89,8 +88,8 @@ hc_var_5.plating()[5].stiff_dir = BeamDirection.LONGITUDINAL
 hc_var_5.set_plating_prop_symmetric(5, "stiff_layout", stifflayout3)
 
 # Simetricna izmjena svojstava segmenta - sira prirubnica za nosac 2 segment 2 - TEST ZA V2 *****************
-hc_var_5.set_long_symm_segment_beam_property(2, 2, t_1089x10x600x10)
-hc_var_5.set_tran_symm_segment_beam_property(2, 2, t_1089x10x800x10)
+# hc_var_5.set_long_symm_segment_beam_property(2, 2, t_1089x10x600x10)
+# hc_var_5.set_tran_symm_segment_beam_property(2, 2, t_1089x10x800x10)
 
 
 # Simetricna izmjena svojstava segmenta - FB za nosac 2 segment 2 - TEST ZA V2 *****************

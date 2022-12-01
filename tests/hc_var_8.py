@@ -13,9 +13,9 @@ start = timer()
 hc_var_8 = Grillage(18.5, 18.2, 4, 10)
 
 # Lista materijala
-ST24 = MaterialProperty(1, 210000, 0.3, 7850, 235, "ST24")
-AH32 = MaterialProperty(2, 210000, 0.3, 7850, 315, "AH32")
-AH36 = MaterialProperty(3, 210000, 0.3, 7850, 355, "AH36")
+ST24 = MaterialProperty(1, 210000, 0.3, 7.85 * 10**(-9), 235, "ST24")
+AH32 = MaterialProperty(2, 210000, 0.3, 7.85 * 10**(-9), 315, "AH32")
+AH36 = MaterialProperty(3, 210000, 0.3, 7.85 * 10**(-9), 355, "AH36")
 
 hc_var_8.add_material(ST24)
 hc_var_8.add_material(AH32)

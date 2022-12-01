@@ -450,3 +450,8 @@ class GeoGrillageFEM (GeoFEM):
         pressure_load = GroupPressureLoad(load_id, group, pressure, flip=True)
         self.addLoad(pressure_load)
         self.addLoadToLoadcase(lc_id, pressure_load)
+
+    def add_self_weight(self, load_id: int, lc_id: int, gravity_val):
+        self_weight = AccelerationLoad(load_id, gravity_val)
+        self.addLoad(self_weight)
+        self.addLoadToLoadcase(lc_id, self_weight)

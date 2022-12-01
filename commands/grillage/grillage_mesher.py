@@ -1415,10 +1415,10 @@ class MeshExtent:
         self.grillage_plate_extent()
         self.grillage_segment_extent()
 
-    def identify_boundary_coords(self):
+    def identify_both_psm_ends(self):
         """
-        :return: Identifies coordinates for pinned boundary conditions and
-            returns list of end_coords.
+        Identifies coordinates for pinned boundary conditions on both ends of
+        all Primary Supporting Members and returns list of end_coords.
         """
         symmetry = self.axis_of_symm
         end_coords = []
@@ -4178,13 +4178,13 @@ class GrillageMesh:
     def generate_psm_mesh(self, size: MeshSize, fem: GeoGrillageFEM):
         pass
 
-    def pinned_bc_node_group(self, fem: GeoGrillageFEM):
+    def vertical_bc_node_group(self, fem: GeoGrillageFEM):
         """
         Adds all nodes at the ends of primary supporting members to nodal group
         for pinned boundary conditions. Group ID = 1
         """
         nodes_dict = fem.nodes.values()
-        end_nodes = self.mesh_extent.identify_boundary_coords()
+        end_nodes = self.mesh_extent.identify_both_psm_ends()
         coords = [node.p for node in nodes_dict]
         id_list = [node.id for node in nodes_dict]
         coords_1 = np.expand_dims(coords, 0)
@@ -4198,13 +4198,36 @@ class GrillageMesh:
             node = fem.nodes[node_id]
             pinned_boundary_nodes[node.id] = node
 
-        fem.add_node_group(1, pinned_boundary_nodes)
+        group_id = 1
+        fem.add_node_group(group_id, pinned_boundary_nodes)
+
+    @staticmethod
+    def origin_bc_node(fem: GeoGrillageFEM):
+        """
+        Identifies node at origin and adds it to group for
+        translation boundary conditions along x and y axis. Group ID: 2
+        """
+        nodes_dict = fem.nodes.values()
+        coords = [node.p for node in nodes_dict]
+        id_list = [node.id for node in nodes_dict]
+        coords_1 = np.expand_dims(coords, 0)
+        coords_2 = np.array([0.0, 0.0, 0.0])
+        boolean_array = np.isclose(coords_1, coords_2).all(-1)
+        index_list = np.where(boolean_array)[1]
+
+        translation_node = {}
+        node_id = id_list[index_list[0]]
+        node = fem.nodes[node_id]
+        translation_node[node.id] = node
+
+        group_id = 2
+        fem.add_node_group(group_id, translation_node)
 
     @staticmethod
     def long_symm_bc_node_group(fem: GeoGrillageFEM):
         """
         :return: Dictionary of all nodes on the longitudinal Axis of Symmetry
-            for symmetry boundary conditions. Group ID = 2
+            for symmetry boundary conditions. Group ID = 4
         """
         nodes_dict = fem.nodes.values()
         y_coords = [node.p[1] for node in nodes_dict]
@@ -4221,13 +4244,14 @@ class GrillageMesh:
             node = fem.nodes[node_id]
             long_symm_nodes[node.id] = node
 
-        fem.add_node_group(2, long_symm_nodes)
+        group_id = 4
+        fem.add_node_group(group_id, long_symm_nodes)
 
     @staticmethod
     def tran_symm_bc_node_group(fem: GeoGrillageFEM):
         """
         :return: Dictionary of all nodes on the transverse Axis of Symmetry
-            for symmetry boundary conditions. Group ID = 3
+            for symmetry boundary conditions. Group ID = 5
         """
         nodes_dict = fem.nodes.values()
         x_coords = [node.p[0] for node in nodes_dict]
@@ -4244,49 +4268,100 @@ class GrillageMesh:
             node = fem.nodes[node_id]
             tran_symm_nodes[node.id] = node
 
-        fem.add_node_group(3, tran_symm_nodes)
+        group_id = 5
+        fem.add_node_group(group_id, tran_symm_nodes)
 
-    def generate_boundary_conditions(self, fem: GeoGrillageFEM, symmetry: AOS):
+    def generate_pinned_bc(self, fem: GeoGrillageFEM, symmetry: AOS):
         """
-        Method generates all nodal groups for loads and boundary conditions
-        based on Axis of Symmetry.
+        Method generates nodal groups and boundary conditions on the ends
+        of Primary Supporting Members based on Axis of Symmetry.
         """
-        self.pinned_bc_node_group(fem)
+        self.vertical_bc_node_group(fem)
+        bc_id = 1
         lc_id = 1
-        fem.add_boundary_condition(1, lc_id, [0], [3], 1)
+        dof = [3]       # z axis translation
+        dof_val = [0.0]
+        nodal_group = 1
+        fem.add_boundary_condition(bc_id, lc_id, dof_val, dof, nodal_group)
+
+        self.origin_bc_node(fem)
+        if symmetry is AOS.LONGITUDINAL:
+            bc_id = 2
+            dof = [1]       # x axis translation
+            dof_val = [0.0]
+            nodal_group = 2
+            fem.add_boundary_condition(bc_id, lc_id, dof_val, dof, nodal_group)
+
+        elif symmetry is AOS.TRANSVERSE:
+            bc_id = 2
+            dof = [2]       # y axis translation
+            dof_val = [0.0]
+            nodal_group = 2
+            fem.add_boundary_condition(bc_id, lc_id, dof_val, dof, nodal_group)
+
+        elif symmetry is AOS.NONE:
+            bc_id = 2
+            dof = [1, 2]       # x and y axis translation
+            dof_val = [0.0, 0.0]
+            nodal_group = 2
+            fem.add_boundary_condition(bc_id, lc_id, dof_val, dof, nodal_group)
+
+    def generate_symm_bc(self, fem: GeoGrillageFEM, symmetry: AOS):
+        """
+        Method generates nodal groups and symmetry boundary conditions based on
+        Axis of Symmetry.
+        """
+        lc_id = 1
 
         if symmetry is AOS.LONGITUDINAL:
             self.long_symm_bc_node_group(fem)
-            dof = [2, 4, 6]
+            bc_id = 4
+            nodal_group = 4
+            dof = [2, 4, 6]     # y axis translation, x and z axis rotation
             dof_val = [0.0, 0.0, 0.0]
-            fem.add_boundary_condition(2, lc_id, dof_val, dof, 2)
+            fem.add_boundary_condition(bc_id, lc_id, dof_val, dof, nodal_group)
 
         elif symmetry is AOS.TRANSVERSE:
             self.tran_symm_bc_node_group(fem)
-            dof = [1, 5, 6]
-            dof_val = [0, 0, 0]
-            fem.add_boundary_condition(3, lc_id, dof_val, dof, 3)
+            bc_id = 4
+            nodal_group = 5
+            dof = [1, 5, 6]     # x axis translation, y and z axis rotation
+            dof_val = [0.0, 0.0, 0.0]
+            fem.add_boundary_condition(bc_id, lc_id, dof_val, dof, nodal_group)
 
         elif symmetry is AOS.BOTH:
             self.long_symm_bc_node_group(fem)
             self.tran_symm_bc_node_group(fem)
-            dof = [2, 4, 6]
+
+            bc_id = 4
+            nodal_group = 4
+            dof = [2, 4, 6]     # y axis translation, x and z axis rotation
             dof_val = [0.0, 0.0, 0.0]
-            fem.add_boundary_condition(2, lc_id, dof_val, dof, 2)
-            dof = [1, 5, 6]
-            dof_val = [0, 0, 0]
-            fem.add_boundary_condition(3, lc_id, dof_val, dof, 3)
+            fem.add_boundary_condition(bc_id, lc_id, dof_val, dof, nodal_group)
+
+            bc_id = 5
+            nodal_group = 5
+            dof = [1, 5, 6]     # x axis translation, y and z axis rotation
+            dof_val = [0.0, 0.0, 0.0]
+            fem.add_boundary_condition(bc_id, lc_id, dof_val, dof, nodal_group)
 
     @staticmethod
     def generate_pressure_load(fem: GeoGrillageFEM, pressure):
         lc_id = 1
-        fem.addLoadCase(lc_id, "Pressure LoadCase")
-        fem.add_element_group(4, fem.plate_elements)
-        fem.add_pressure_load(1, lc_id, pressure, 4)
+        fem.addLoadCase(lc_id, "Pressure Load Case")
+        group_id = 6
+        fem.add_element_group(group_id, fem.plate_elements)
+        fem.add_pressure_load(1, lc_id, pressure, group_id)
 
     def generate_loadcase(self, fem: GeoGrillageFEM, symmetry, pressure):
-        self.generate_boundary_conditions(fem, symmetry)
+        self.generate_pinned_bc(fem, symmetry)
+        self.generate_symm_bc(fem, symmetry)
         self.generate_pressure_load(fem, pressure)
+
+    @staticmethod
+    def generate_self_weight(fem: GeoGrillageFEM, gravity):
+        lc_id = 1
+        fem.add_self_weight(2, lc_id, gravity)
 
     def generate_grillage_mesh(self, name, ebs, eweb, eaf, far, par, dpar):
         pass

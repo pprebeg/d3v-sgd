@@ -71,8 +71,6 @@ class FEMCommand(Command):
         self._menuMain = QMenu("FEM")
         self._menuViewType = QMenu("&View Type")
         self._menuMain.addMenu(self._menuViewType)
-        self._menuResults = QMenu("&Results")
-        self._menuViewType.addMenu(self._menuResults)
         self._menuOOFEM = QMenu("&OOFEM")
         self._menuMain.addMenu(self._menuOOFEM)
         self._menuOOFEMresults = QMenu("&Analysis results")
@@ -222,16 +220,15 @@ class FEMCommand(Command):
     def add_viewtype_and_results_menus(self):
         femmdl = self.femmdl
         menuViewType = self._menuViewType
-        menuResults = self._menuResults
+        menuResults = QMenu("&Results")
         menuViewType.clear()
-        menuResults.clear()
         menuResul = menuViewType.addAction("Element Type")
         menuResul.triggered.connect(self.onElementType)
         for key, atr in femmdl.attrib_val_functions.items():
             menuResul = menuViewType.addAction(key)
             menuResul.triggered.connect(self.onColorControlMenu)
         if len(femmdl.element_results) > 0:
-            self._menuViewType.addMenu(self._menuResults)
+            self._menuViewType.addMenu(menuResults)
         for key, res in femmdl.element_results.items():
             menuResul = menuResults.addAction(key)
             menuResul.triggered.connect(self.onColorControlMenu)

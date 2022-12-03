@@ -312,7 +312,10 @@ def generate_OOFEM_input_file(file_path:str, mdl:GeoFEM, eltypes:Dict[FEMElement
     iditems = []
     i = 0
     rg = oofemin.getRecordGroup(SetRecords.getkeyname())
+    id_gr_max=0
     for id in sorted(mdl.groups):
+        if id > id_gr_max:
+            id_gr_max = id
         idset = idgroup_to_idset[id]
         group= mdl.getGroup(id)
         iditems.clear()
@@ -328,16 +331,19 @@ def generate_OOFEM_input_file(file_path:str, mdl:GeoFEM, eltypes:Dict[FEMElement
         rg.setRecordDataNeutralFormat(i, data)
         i+=1
     #handle  generated sets for element outputs
+    dict_idgroup_outtypes={}
     for idset,outtype in dict_idset_outtypes.items():
         data = ('elements',idset,d_outtypes_idset_members[outtype])
         rg.setRecordDataNeutralFormat(i, data)
         group = ElementGroup()
-        group.init(idset, 'Element_group_' + str(idset))
+        id_gr_max+=1
+        group.init(id_gr_max, 'Element_group_' + str(id_gr_max))
         idelements = d_outtypes_idset_members[outtype]
         for idel in  idelements:
             el = mdl.getElement(idel)
             group.add_item(el)
-        mdl.addGroup(id, group)
+        mdl.addGroup(id_gr_max, group)
+        dict_idgroup_outtypes[id_gr_max]=outtype
         i += 1
     # add the set with all elements at the end
     data = ('allelements', id_all_el_set,[])
@@ -346,7 +352,7 @@ def generate_OOFEM_input_file(file_path:str, mdl:GeoFEM, eltypes:Dict[FEMElement
     #write file from records
     oofemin.write_from_records(file_path)
 
-    return dict_idset_outtypes
+    return dict_idset_outtypes,dict_idgroup_outtypes
 
     def addOOFEMElementGroup(self, id:int, idelements:List[int]):
         group= ElementGroup()
@@ -364,7 +370,7 @@ def assign_oofem_analysis_model(mdl:GeoFEM, eltypes:Dict[FEMElementType,str],
     mdl.oofem = OOFEMAnalysisModel(file_path,dict_idset_outtypes)
     pass
 
-def analyse_with_OOFEM(file_path,dict_idset_outtypes, mdl:GeoFEM=None):
+def analyse_with_OOFEM(file_path,dict_idset_outtypes, mdl:GeoFEM=None,dict_idgroup_outtypes=None):
     if file_path == '':
         print('Error, file path not set!')
     if not os.path.exists(file_path):
@@ -377,9 +383,9 @@ def analyse_with_OOFEM(file_path,dict_idset_outtypes, mdl:GeoFEM=None):
         cs.setPropertyValue(csp.CS_Thickness.value,0.15)
 
     node_out, shell_out, beam_out, react_out, node_id_out= oofem.analyse_all_loadcases(dict_idset_outtypes)
-    if mdl is not None:
+    if mdl is not None and dict_idgroup_outtypes is not  None:
         shell_group=None
-        for id_gr, outtype in dict_idset_outtypes.items():
+        for id_gr, outtype in dict_idgroup_outtypes.items():
             if outtype== OutputElementType.Shell:
                 shell_group= mdl.getGroup(id_gr)
         if shell_group is not None:

@@ -295,9 +295,9 @@ class FEMCommand(Command):
             eltypes = get_initial_element_types_dict()
             dir_path = os.path.dirname(self.femmdl.get_input_file_path())
             self._oofem_input_filepath = os.path.abspath(dir_path) + '\\' + 'oofem_run_file.in'
-            self._oofem_idset_outtypes = generate_OOFEM_input_file(self._oofem_input_filepath, self.femmdl, eltypes,
+            self._oofem_idset_outtypes,self._femmdl_idgroup_outtypes = generate_OOFEM_input_file(self._oofem_input_filepath, self.femmdl, eltypes,
                                                                        True)
-            results = analyse_with_OOFEM(self._oofem_input_filepath, self._oofem_idset_outtypes, self.femmdl)
+            results = analyse_with_OOFEM(self._oofem_input_filepath, self._oofem_idset_outtypes, self.femmdl,self._femmdl_idgroup_outtypes)
             self.analysis_output = results
             self.add_viewtype_and_results_menus()
 

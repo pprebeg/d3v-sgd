@@ -248,6 +248,8 @@ class GeoFEM(GeometryExtension):
         return floatColors
     def getContinuousColor(self, v, vmin, vmax):
         color = [1.0, 1.0, 1.0, 1.0]
+        if v is None:
+            return self.mc.getLowerTresholdColor()
         if v > self.mc.uppertreshold:
             return self.mc.getUpperTresholdColor()
         elif v < self.mc.lowertreshold:
@@ -276,6 +278,8 @@ class GeoFEM(GeometryExtension):
         return color
 
     def getColorFromList(self, v, vmin, vmax):
+        if v is None:
+            return self.mc.getLowerTresholdColor()
         if v > self.mc.uppertreshold:
             return self.mc.getUpperTresholdColor()
         elif v < self.mc.lowertreshold:
@@ -377,7 +381,8 @@ class GeoFEM(GeometryExtension):
             self.is_node_result = False
             for key, el in self.elements.items():
                 val = el.setFaceValueUsingElementID(result)
-                self.checkMinMax(val)
+                if val is not None:
+                    self.checkMinMax(val)
             return
 
         result = self.element_vertex_results.get(resultName)

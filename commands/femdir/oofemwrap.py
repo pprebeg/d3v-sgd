@@ -2,9 +2,10 @@ from femdir.oofemin import *
 import femdir.geofem
 from femdir.geofem import GeoFEM,PlateProperty,BeamProperty,RodProperty,GroupNodalBC,GroupDoffBasedLoad
 from femdir.geofem import NodeRigidArm,NodeGroup,ElementGroup,BeamElement,Node,BeamOrientationNode
-from femdir.geofem import AccelerationLoad,GroupPressureLoad
+from femdir.geofem import AccelerationLoad,GroupPressureLoad,ElementResult
 from typing import List,Dict
 from femdir.oofemenum import CrossSectionProperty as csp
+
 
 try:
     from femdir.oofemanalysis import OOFEMAnalysisModel
@@ -376,6 +377,47 @@ def analyse_with_OOFEM(file_path,dict_idset_outtypes, mdl:GeoFEM=None):
         cs.setPropertyValue(csp.CS_Thickness.value,0.15)
 
     node_out, shell_out, beam_out, react_out, node_id_out= oofem.analyse_all_loadcases(dict_idset_outtypes)
+    if mdl is not None:
+        shell_group=None
+        for id_gr, outtype in dict_idset_outtypes.items():
+            if outtype== OutputElementType.Shell:
+                shell_group= mdl.getGroup(id_gr)
+        if shell_group is not None:
+            sxx_top = ElementResult('Shell_CG_Sxx_Top')
+            sxx_bottom = ElementResult('Shell_CG_Sxx_Bottom')
+            syy_top = ElementResult('Shell_CG_Syy_Top')
+            syy_bottom = ElementResult('Shell_CG_Syy_Bottom')
+            txy_top = ElementResult('Shell_CG_Tau_xy_Top')
+            txy_bottom = ElementResult('Shell_CG_Tau_xy_Bottom')
+            mdl.add_element_results(sxx_top)
+            mdl.add_element_results(syy_top)
+            mdl.add_element_results(txy_top)
+            mdl.add_element_results(sxx_bottom)
+            mdl.add_element_results(syy_bottom)
+            mdl.add_element_results(txy_bottom)
+            ilc=0
+            for lcID in sorted(mdl.loadcases):
+                shell_out_lc = shell_out[ilc]
+                sxx_top_lc=sxx_top.add_feres(lcID)
+                syy_top_lc = syy_top.add_feres(lcID)
+                txy_top_lc = txy_top.add_feres(lcID)
+                sxx_bottom_lc = sxx_bottom.add_feres(lcID)
+                syy_bottom_lc = syy_bottom.add_feres(lcID)
+                txy_bottom_lc = txy_bottom.add_feres(lcID)
+                lcshellres = shell_out[ilc]
+                iel_res=0
+                for ent in shell_group.items:
+                    shell_res_el = lcshellres[iel_res]
+                    id=ent.id
+                    sxx_top_lc[id]=shell_res_el[0]
+                    syy_top_lc[id]=shell_res_el[1]
+                    txy_top_lc[id]=shell_res_el[2]
+                    sxx_bottom_lc[id]=shell_res_el[3]
+                    syy_bottom_lc[id]=shell_res_el[4]
+                    txy_bottom_lc[id]=shell_res_el[5]
+                    iel_res +=1
+
+                ilc+=1
     # print (node_out)
     # print(shell_out)
     # print(beam_out)

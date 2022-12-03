@@ -34,6 +34,85 @@ def get_float_list_from_string(line: str,delim:str = ' '):
 
     return flist
 
+class Result():
+    def __init__(self, name):
+        self.name = name
+        pass
+
+
+class GeneralResultsDictionary(Result):
+    def __init__(self, name):
+        super().__init__(name)
+        self.results = {}
+        pass
+
+    def appendValue(self, key, value):
+        resultList = self.results.setdefault(key, [])
+        resultList.append(value)
+
+    def addValues(self, key, values: []):
+        self.results[key] = values
+
+    def addValues2(self, key, values: list):
+        self.results[key] = values.copy()
+
+    def getValues(self, key):
+        return self.results[key]
+
+    def getValue(self, key, index: int):
+        return self.results[key][index]
+
+    def appdendListwithResultData(self, x: list, y: list, iresx: int, iresy: int):
+        for res in self.results.values():
+            x.append(res[iresx])
+            y.append(res[iresy])
+
+    def appdendListwithKeyPairedResultData(self, x: list, y: list, iresy: int):
+        for key, res in self.results:
+            x.append(key)
+            y.append(res[iresy])
+
+class GeneralResultsTableModel(Result):
+    def __init__(self, name):
+        super().__init__(name)
+        self.data =[]
+        self.column_names =[]
+        pass
+
+    def appendName(self, name: str):
+        self.column_names.append(name)
+
+    def addRow(self, values: list):
+        self.data.append(values)
+
+    def getRowValues(self, row_index):
+        return self.data[row_index]
+
+    def getValue(self, row_index, column_index: int):
+        return self.data[row_index][column_index]
+
+class ElementResult(Result):
+    def __init__(self, name):
+        super().__init__(name)
+        self._lc_feres:Dict[Dict[int, float]] = {}
+        pass
+
+    def get_feres(self,lcID)->Dict[int,float]:
+        return self._lc_feres.get(lcID)
+
+    def add_feres(self,lcID)->Dict[int,float]:
+        new_feres={}
+        self._lc_feres[lcID] = new_feres
+        return new_feres
+
+    def getValue(self, feID,lcID):
+        return self.get_feres(lcID).get(feID)
+
+    def setValue(self, feID,lcID, value):
+        self.get_feres(lcID)[feID]=value
+
+    def keyExist(self,feID,lcID):
+        return feID in self.get_feres(lcID)
 
 
 class GeoFEM(GeometryExtension):
@@ -53,7 +132,7 @@ class GeoFEM(GeometryExtension):
         self.units= Units()
         self.mc = MeshControl()
         self.mas = MaestroElementAssociation()
-        self.element_results= {}
+        self.element_results:Dict[str,ElementResult]= {}
         self.element_vertex_results = {}
         self.vertex_results = {}
         self.model_results = {}
@@ -133,7 +212,7 @@ class GeoFEM(GeometryExtension):
                         if fh != sfh:
                             si.allfaces.append(fh)
         pass
-    def prepareModelForVisualization(self,key):
+    def prepareModelForVisualization(self,key,id_lc):
         if __debug__:
             ts = time.perf_counter()
         self.minValue = float("inf")
@@ -144,7 +223,7 @@ class GeoFEM(GeometryExtension):
         fatrib= self.attrib_val_functions.get(key)
 
         if fatrib == None:
-            self.doResultValue(key)
+            self.doResultValue(key,id_lc)
         else:
             fatrib(key)
         self.mc.lowertreshold=self.minValue
@@ -259,8 +338,8 @@ class GeoFEM(GeometryExtension):
             self.checkMinMax(val)
 
 
-    def doResultValue(self,key):
-        self.setValueToItemResults(key)
+    def doResultValue(self,key,id_lc):
+        self.setValueToItemResults(key,id_lc)
 
     # endregion
 
@@ -291,13 +370,13 @@ class GeoFEM(GeometryExtension):
     def isNodeResult(self):
         return (not self.is_element_result) and self.is_node_result
 
-    def setValueToItemResults(self, resultName):
-        result = self.element_results.get(resultName)
+    def setValueToItemResults(self, resultName,id_lc):
+        result = self.element_results.get(resultName).get_feres(id_lc)
         if result != None:
             self.is_element_result= True
             self.is_node_result = False
             for key, el in self.elements.items():
-                val = el.setFaceValueUsingElementID(result.feres)
+                val = el.setFaceValueUsingElementID(result)
                 self.checkMinMax(val)
             return
 
@@ -422,6 +501,7 @@ class GeoFEM(GeometryExtension):
         return self.loads.get(id)
 
     def regenerate(self):
+        self.drawLegend = False
         if __debug__:
             ts = time.perf_counter()
         #mesh= om.TriMesh()
@@ -505,6 +585,7 @@ class GeoFEM(GeometryExtension):
                           minvalue=self.minValue, maxvalue=self.maxValue)
 
         self._allfegeo.mesh = mesh
+        self.mesh=self._allfegeo.mesh
 
 
         if __debug__:
@@ -527,6 +608,9 @@ class GeoFEM(GeometryExtension):
 
     def setResultValuesOnElements(self):
         pass
+
+    def add_element_results(self,el_res:ElementResult):
+        self.element_results[el_res.name] = el_res
 
 
 
@@ -570,288 +654,4 @@ class GeoFEM(GeometryExtension):
     #     pass
 
 
-class Result():
-    def __init__(self, name):
-        self.name = name
-        pass
 
-
-class GeneralResultsDictionary(Result):
-    def __init__(self, name):
-        super().__init__(name)
-        self.results = {}
-        pass
-
-    def appendValue(self, key, value):
-        resultList = self.results.setdefault(key, [])
-        resultList.append(value)
-
-    def addValues(self, key, values: []):
-        self.results[key] = values
-
-    def addValues2(self, key, values: list):
-        self.results[key] = values.copy()
-
-    def getValues(self, key):
-        return self.results[key]
-
-    def getValue(self, key, index: int):
-        return self.results[key][index]
-
-    def appdendListwithResultData(self, x: list, y: list, iresx: int, iresy: int):
-        for res in self.results.values():
-            x.append(res[iresx])
-            y.append(res[iresy])
-
-    def appdendListwithKeyPairedResultData(self, x: list, y: list, iresy: int):
-        for key, res in self.results:
-            x.append(key)
-            y.append(res[iresy])
-
-class GeneralResultsTableModel(Result):
-    def __init__(self, name):
-        super().__init__(name)
-        self.data =[]
-        self.column_names =[]
-        pass
-
-    def appendName(self, name: str):
-        self.column_names.append(name)
-
-    def addRow(self, values: list):
-        self.data.append(values)
-
-    def getRowValues(self, row_index):
-        return self.data[row_index]
-
-    def getValue(self, row_index, column_index: int):
-        return self.data[row_index][column_index]
-
-class ElementResult(Result):
-    def __init__(self, name):
-        super().__init__(name)
-        self.feres = {}
-        pass
-
-    def getValue(self, feID):
-        return self.feres.get(feID)
-
-    def setValue(self, feID, value):
-        self.feres[feID]=value
-
-    def keyExist(self,feID):
-        return feID in self.feres
-
-
-class FEMModelResults:
-    def __init__(self, name):
-        self.name = name
-        pass
-
-    def readOutput(self, path):
-        pass
-
-    def setResultsToModel(self, fem: GeoFEM):
-        pass
-
-
-class LusaResults(FEMModelResults):
-    def __init__(self, name, mas:MaestroElementAssociation):
-        super().__init__(name)
-        self.las = LusaElementAssociation()
-        self.mas=mas
-        self.lers = {} #Lusa element results
-        self.modres={}
-        pass
-
-    def readOutput(self, path):
-        abspath1 = '\\'.join(path.split('\\')[0:-1])
-        abspath2 = '/'.join(path.split('/')[0:-1])
-        if len(abspath2) > len(abspath1):
-            abspath=abspath2 + '/'
-        else:
-            abspath=abspath1 + '\\'
-
-        abspath_hoggCSD = abspath + 'LUSAhoggCSD.OUT'
-        abspath_saggCSD=  abspath + 'LUSAsaggCSD.OUT'
-
-        self.readCSDFile(abspath_hoggCSD,False)
-        self.readCSDFile(abspath_saggCSD,True)
-
-        abspath_hogg = abspath + 'LUSAhogg.OUT'
-        abspath_sagg = abspath + 'LUSAsagg.OUT'
-
-        iterationResults = GeneralResultsTableModel('Lusa iteration results Sagg')
-        self.modres[iterationResults.name]=iterationResults
-
-
-        iterationResults.appendName('CycleNo Sagg')
-        iterationResults.appendName('Moment Sagg, kNm')
-        iterationResults.appendName('Curvature Sagg, 1/m')
-        iterationResults.appendName('y_NA Sagg, m')
-
-        self.readMainLusaFile(abspath_sagg,True,iterationResults)
-
-        iterationResults = GeneralResultsTableModel('Lusa iteration results Hogg')
-        self.modres[iterationResults.name] = iterationResults
-        iterationResults.appendName('CycleNo Hogg')
-        iterationResults.appendName('Moment Hogg, kNm')
-        iterationResults.appendName('Curvature Hogg, 1/m')
-        iterationResults.appendName('y_NA Hogg, m')
-
-        self.readMainLusaFile(abspath_hogg, False, iterationResults)
-
-        pass
-
-    def readMainLusaFile(self, path, isSagg, tableResult:GeneralResultsTableModel):
-        file = pathlib.Path(path)
-        if not file.exists():
-            return
-        f = open(path, "_r")
-        nlines2skip = 0
-        isCycleData = False
-
-        for line in f:
-            if nlines2skip > 0:
-                nlines2skip = nlines2skip - 1
-                continue
-            line = ' '.join(line.split())
-            if line.startswith('*'):
-                continue
-            if line == "" or line == " ":
-                continue
-
-            if 'HULL MODULE RESPONSE DATA' in line:
-                nlines2skip = 4
-                isCycleData = True
-                continue
-            if 'ULTIMATE CAPACITY IS' in line:
-                f.close()
-#                if isSagg:
-#                    tableResult.data.reverse()
-                return
-            sline = line.split(" ")
-            if len(sline) == 0:
-                continue
-            if isCycleData:
-                if len(sline) == 4:
-                    rowValues=[0]*4
-                    rowValues[0]= int(sline[0])
-                    rowValues[1] = float(sline[1])
-                    rowValues[2] = float(sline[2])
-                    rowValues[3] = float(sline[3])
-                    tableResult.addRow(rowValues)
-
-        f.close()
-
-    def readCSDFile(self,path,isSagg):
-        file=pathlib.Path(path)
-        if not file.exists():
-            return
-        f = open(path, "_r")
-        nlines2skip=0
-        isSPCdata=False
-        isGPCdata = False
-        isHCdata = False
-        if isSagg:
-            collapse_stress = ElementResult('Collapse Stress Sagg')
-            collapse_mod = ElementResult('Collapse Mod Sagg')
-            collapse_cycle = ElementResult('Collapse Cycle Sagg')
-        else:
-            collapse_stress = ElementResult('Collapse Stress Hogg')
-            collapse_mod = ElementResult('Collapse Mod Hogg')
-            collapse_cycle = ElementResult('Collapse Cycle Hogg')
-
-        self.lers[collapse_stress.name]=collapse_stress
-        self.lers[collapse_mod.name] = collapse_mod
-        self.lers[collapse_cycle.name] = collapse_cycle
-        for line in f:
-            if  nlines2skip > 0:
-                nlines2skip=nlines2skip-1
-                continue
-            line = ' '.join(line.split())
-            if line.startswith('*'):
-                continue
-            if line == "" or line == " ":
-                continue
-
-            if 'Stiffener - Plate Combinations (SPCs)' in line:
-                nlines2skip=4
-                isSPCdata=True
-                continue
-            if 'Girder - Plate Combinations (GPCs)' in line:
-                nlines2skip=4
-                isGPCdata=True
-                isSPCdata=False
-                continue
-            if 'Hard Corners (HCs)' in line:
-                nlines2skip = 4
-                isGPCdata = False
-                isHCdata = True
-                continue
-            sline = line.split(" ")
-            if  len(sline)== 0:
-                continue
-            el_no_lusa=-1
-            if isSPCdata:
-                if len(sline) > 5:
-                    strakeNo    = int(sline[0])
-                    el_no_lusa        = int(sline[1])
-                    self.las.addPlate(el_no_lusa, strakeNo)
-
-                    elIDs=self.mas.getPlateElemForStrake(strakeNo)
-                    cc_new = int(sline[4])
-                    for id_el in elIDs:
-                        bAddNew=True
-                        cc_old= collapse_cycle.getValue(id_el)
-                        if cc_old != None and cc_old < cc_new:
-                            pass
-                        else:
-                            collapse_stress.setValue(id_el, float(sline[2]))
-                            collapse_mod.setValue(id_el, float(sline[3]))
-                            collapse_cycle.setValue(id_el, cc_new)
-            elif isGPCdata:
-                if len(sline) > 5:
-                    strakeNo    = int(sline[0])
-                    el_no_lusa        = int(sline[1])
-                    self.las.addSPC(el_no_lusa, strakeNo)
-
-                    elIDs = self.mas.getGirderBeamElemForStrake(strakeNo)
-                    elIDsPlate = self.mas.getPlateElemForStrake(strakeNo)
-                    if elIDs == None:
-                        elIDs = elIDsPlate
-                    elif elIDsPlate != None:
-                        for el in elIDsPlate:
-                            elIDs.append(el)
-                    cc_new = int(sline[4])
-                    for id_el in elIDs:
-                        bAddNew = True
-                        cc_old = collapse_cycle.getValue(id_el)
-                        if cc_old != None and cc_old < cc_new:
-                            pass
-                        else:
-                            collapse_stress.setValue(id_el, float(sline[2]))
-                            collapse_mod.setValue(id_el, float(sline[3]))
-                            collapse_cycle.setValue(id_el, cc_new)
-            elif isHCdata:
-                if len(sline) > 5:
-                    endPtNo    = int(sline[0])
-                    el_no_lusa        = int(sline[1])
-                    self.las.addHC(el_no_lusa, endPtNo)
-                    elIDs = self.mas.getPlateElsForEnpoint(endPtNo)
-                    cc_new = int(sline[4])
-                    for id_el in elIDs:
-                        bAddNew = True
-                        cc_old = collapse_cycle.getValue(id_el)
-                        if cc_old != None and cc_old < cc_new:
-                            pass
-                        else:
-                            collapse_stress.setValue(id_el, float(sline[2]))
-                            collapse_mod.setValue(id_el, float(sline[3]))
-                            collapse_cycle.setValue(id_el, cc_new)
-
-        f.close()
-        pass
-
-    def setResultsToModel(self, fem: GeoFEM):
-        pass

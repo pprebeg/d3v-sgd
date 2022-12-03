@@ -1347,7 +1347,7 @@ class Element(GeoEntity):
         return self.face_value
 
     def onMatID(self):
-        self.face_value = self.property.material._id
+        self.face_value = self.property.material.id
         return self.face_value
 
     def onPropID(self):

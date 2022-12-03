@@ -4,7 +4,7 @@ try:
     from PySide6.QtWidgets import QTreeView,QMainWindow,QVBoxLayout,QHBoxLayout,QSizePolicy
     from PySide6.QtWidgets import QTreeWidget,QTreeWidgetItem,QDockWidget,QWidget,QGroupBox
     from PySide6.QtWidgets import QInputDialog,QLineEdit,QFormLayout,QTextEdit
-    from PySide6.QtWidgets import QLabel, QSpinBox
+    from PySide6.QtWidgets import QLabel, QSpinBox,QToolBar
     from PySide6.QtGui import QCursor
     import importlib
 
@@ -17,7 +17,7 @@ try:
     from typing import Dict,List, Tuple
     from selinfo import SelectionInfo
     from core import Geometry
-
+    from mainwin import MainFrame
     from femdir.oofemwrap import *
 
     from femdir.geooofem import GeoOOFEM
@@ -37,7 +37,7 @@ class FEMCommand(Command):
         self._app = QApplication.instance()
         importer=FEMImporter()
         self.app.registerIOHandler(importer)
-
+        self.view_type_key = "Element Type"
         self.femmdl: GeoFEM = null
         self.si = 0
         self._curlc = null
@@ -71,8 +71,8 @@ class FEMCommand(Command):
         self._menuMain = QMenu("FEM")
         self._menuViewType = QMenu("&View Type")
         self._menuMain.addMenu(self._menuViewType)
-        # self._menuResults = QMenu("&Results")
-        # self._menuMain.addMenu(self._menuResults)
+        self._menuResults = QMenu("&Results")
+        self._menuViewType.addMenu(self._menuResults)
         self._menuOOFEM = QMenu("&OOFEM")
         self._menuMain.addMenu(self._menuOOFEM)
         self._menuOOFEMresults = QMenu("&Analysis results")
@@ -94,7 +94,7 @@ class FEMCommand(Command):
         menuAnalysisResults.triggered.connect(self.onPrintMaxDisplacement)
 
         mb.addMenu(self._menuMain)
-        self._combo_lc = self.init_combo_lc()
+        self.inittoolbar()
         if self._show_oofem_analysis_menu:
             self.add_OOFEM_analysis_toolbars_and_menus()
 
@@ -138,16 +138,66 @@ class FEMCommand(Command):
 
     def init_combo_lc(self)->QComboBox:
         combo = QComboBox()
-        if self.femmdl == None or self.femmdl.loadcases ==None:
-            return combo
-        for lc in self.femmdl.loadcases.values():
-            combo.addItem(str(lc.id)+': '+ lc.name,lc)
+        self.reset_combo_lc_items(combo)
         combo.currentIndexChanged.connect(self.loadcasechanged)
         return combo
+    def reset_combo_lc_items(self,combo:QComboBox):
+        combo.clear()
+        if self.femmdl == None or self.femmdl.loadcases ==None:
+            pass
+        else:
+            for lcID in sorted(self.femmdl.loadcases):
+                lc=self.femmdl.getLoadCase(lcID)
+                combo.addItem(str(lc.id)+': '+ lc.name,lc)
+            combo.setCurrentIndex(0)
+
+    def inittoolbar(self):
+        self._combo_lc = self.init_combo_lc()
+        #self.mainwin.addToolBarBreak(Qt.RightToolBarArea)
+        #self.mainwin.addToolBarBreak(Qt.TopToolBarArea)
+        path = "modules\\commands\\femdir\\images"
+        #Top toolbar
+        area = Qt.TopToolBarArea
+        tb = QToolBar()
+        self.mainwin.addToolBar(area, tb)
+        # add loadcase combo
+        tb.addWidget(QLabel("LC: "))
+        tb.addWidget(self._combo_lc)
+        return
+
+        imgpath =path+'\\test.svg'
+        act = QAction(QIcon(imgpath), 'TestT', mw)
+        act.setShortcut('Ctrl+T')
+        act.triggered.connect(self.testaction)
+        tb.addAction(act)
+
+        toolButton = QToolButton()
+        toolButton.setIcon(QIcon(imgpath))
+        toolButton.setCheckable(True)
+        toolButton.toggled.connect(self.testaction)
+        tb.addWidget(toolButton)
+
+
+        #tb = QToolBar()
+
+        #mw.addToolBar(area, tb)
+
+        #Right toolbar
+        area = Qt.RightToolBarArea
+        imgpath = path + '\\test.svg'
+        act = QAction(QIcon(imgpath), 'TestR', mw)
+        act.setShortcut('Ctrl+R')
+        act.triggered.connect(self.testaction)
+        tb = QToolBar()
+        tb.addAction(act)
+        self.mainwin.addToolBar(area, tb)
+        pass
     def loadcasechanged(self,index:int):
 
         text = self._combo_lc.itemText(index)
         self._curlc = self._combo_lc.itemData(index, Qt.UserRole)
+        if self._curlc is not None and self.view_type_key != "Element Type":
+            self.prep_for_visualization(self.view_type_key,self._curlc.id)
         pass
 
 
@@ -155,30 +205,56 @@ class FEMCommand(Command):
     def onGeometryCreated(self, geometries:List[Geometry]):
         for g in geometries:
             if isinstance(g, GeoFEM):
-                self.femmdl = g
-                # self.addViewTypeAndResulsMenus(self.femmdl,self._menuViewType, self._menuResults)
-                break
+                is_new_fem = self.femmdl is None
+                if not is_new_fem:
+                    if self.femmdl.guid is not g.guid:
+                        is_new_fem=True
+                if is_new_fem:
+                    self.femmdl = g
+                    self.reset_combo_lc_items(self._combo_lc)
+                    self.add_viewtype_and_results_menus()
+                    self.view_type_key = "Element Type"
+                    # self.addViewTypeAndResulsMenus(self.femmdl,self._menuViewType, self._menuResults)
+                    break
             if isinstance(g, GeoOOFEM):
-                self._oofem_input_filepath = g._model.filename
+                self._oofem_input_filepath = g.filename
 
-    def addViewTypeAndResulsMenus(self,femmdl:GeoFEM, menuViewType:QMenu, menuResults:QMenu):
+    def add_viewtype_and_results_menus(self):
+        femmdl = self.femmdl
+        menuViewType = self._menuViewType
+        menuResults = self._menuResults
         menuViewType.clear()
         menuResults.clear()
+        menuResul = menuViewType.addAction("Element Type")
+        menuResul.triggered.connect(self.onElementType)
         for key, atr in femmdl.attrib_val_functions.items():
             menuResul = menuViewType.addAction(key)
             menuResul.triggered.connect(self.onColorControlMenu)
+        if len(femmdl.element_results) > 0:
+            self._menuViewType.addMenu(self._menuResults)
         for key, res in femmdl.element_results.items():
             menuResul = menuResults.addAction(key)
             menuResul.triggered.connect(self.onColorControlMenu)
 
+    def onElementType(self):
+        self.femmdl.regenerate()
+        self.femmdl.emit_geometries_rebuild()
+        self.view_type_key="Element Type"
 
     def onColorControlMenu(self):
         action = QObject.sender(self)
         key = action.iconText()
-        self.femmdl.prepareModelForVisualization(key)
+        self.view_type_key = key
+        lcID=-1
+        if self._curlc is not None:
+            lcID = self._curlc.id
+        self.prep_for_visualization(key,lcID)
+        pass
+
+    def prep_for_visualization(self,view_key,lcID):
+        self.femmdl.prepareModelForVisualization(view_key, lcID)
         self.meshctrl.setCurrentGeoFEM(self.femmdl)
         self.femmdl.emit_geometries_rebuild()
-        pass
 
     @Slot()
     def registerSelection(self, si: SelectionInfo):
@@ -224,15 +300,9 @@ class FEMCommand(Command):
             self._oofem_input_filepath = os.path.abspath(dir_path) + '\\' + 'oofem_run_file.in'
             self._oofem_idset_outtypes = generate_OOFEM_input_file(self._oofem_input_filepath, self.femmdl, eltypes,
                                                                        True)
-
-        if os.path.exists(self._oofem_input_filepath):
-            if False:
-                results = analyse_with_OOFEM(self._oofem_input_filepath, self._oofem_idset_outtypes, self.femmdl)
-            else:
-                dict_idset_outtypes: Dict[OutputElementType, int] = {}  # output
-                dict_idset_outtypes[4] = OutputElementType.Shell
-                results = analyse_with_OOFEM(self._oofem_input_filepath, dict_idset_outtypes, self.femmdl)
+            results = analyse_with_OOFEM(self._oofem_input_filepath, self._oofem_idset_outtypes, self.femmdl)
             self.analysis_output = results
+            self.add_viewtype_and_results_menus()
 
     def get_selected_element(self):
         return self.femmdl.selected_entitiy

@@ -41,7 +41,7 @@ plateprop1 = PlateProperty(1, 10, AH36)                                 # inicij
 hc_var_7.add_plate_prop(plateprop1)
 
 # Stiffener layouts
-stifflayout1 = StiffenerLayout(1, initial_stiffener, DefinitionType.SPACING, 0.4)
+stifflayout1 = StiffenerLayout(1, initial_stiffener, DefinitionType.NUMBER, 6)
 hc_var_7.add_stiffener_layout(stifflayout1)                                   # dodavanje stiffener layouta u dictionary
 stiff_dir = BeamDirection.LONGITUDINAL                                        # inicijalna orijentacija ukrepa na svim zonama oplate
 

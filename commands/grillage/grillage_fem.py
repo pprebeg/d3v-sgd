@@ -6,8 +6,11 @@ from timeit import default_timer as timer
 class GeoGrillageFEM (GeoFEM):
     def __init__(self, name=''):
         """
-        :param name:
-        node_overlaps - Dictionary of nodes with expected overlaps.
+        Class for generating GeoFEM grillage FEM model.
+
+        plate_elements - All quad elements of the grillage plating.
+        initial_node_overlaps - Dictionary of nodes with expected overlaps.
+        flange_element_overlaps - Dictionary of elements with expected overlaps.
 
         Conversion dictionaries for Grillage model properties [key] into GeoFEM
         properties [value]:
@@ -306,8 +309,8 @@ class GeoGrillageFEM (GeoFEM):
                 overlap_list.append([node1.p, node1, node2])
 
         end = timer()
-        print("Coincident node identification complete, found", len(overlap_list),
-              "unique coordinates in", end - start, "s")
+        print("Coincident node identification complete, found",
+              len(overlap_list), "unique coordinates in", end - start, "s")
 
         return overlap_list
 
@@ -375,9 +378,10 @@ class GeoGrillageFEM (GeoFEM):
             del self.nodes[node.id]
 
         end = timer()
-        print("Node merge complete, deleted", len(delete_list), "nodes in", end - start, "s")
+        print("Node merge complete, deleted", len(delete_list),
+              "nodes in", end - start, "s")
         print("Total number of nodes:", self.num_nodes)
-        print("Total number of elements before element merge:", self.num_elements)
+        print("Total number of elements before merge:", self.num_elements)
 
     @staticmethod
     def check_element_overlap(element_dict):

@@ -1,5 +1,4 @@
 """
-Tool for Grillage Structure Analysis
 University of Zagreb, Faculty of Mechanical Engineering and Naval Architecture
 Department of Naval Architecture and Ocean Engineering
 
@@ -8,8 +7,8 @@ Master's thesis project
     Gordan Kos, univ.bacc.ing.nav.arch.
     Dr.sc. Pero Prebeg, dipl.ing.
 
-
-MODULE FOR GRILLAGE FINITE ELEMENT MESH GENERATION
+Module for grillage finite element mesh generation
+Design Visualizer for Ship Grillage Design d3v-sgd
 
 """
 import itertools
@@ -17,12 +16,10 @@ from grillage.grillage_model import *
 from femdir.custom_exceptions import *
 from grillage.grillage_fem import GeoGrillageFEM
 
-# np.set_printoptions(linewidth=600)
 
-
-# class MeshVariant(Enum):
-#     V1 = 1
-#     V2 = 2
+class MeshVariant(Enum):
+    V1 = 1
+    V2 = 2
 
 
 class ModelCheck:
@@ -296,8 +293,8 @@ class ModelCheck:
                 spacing1 = Plate.get_stiffener_spacing(plate1)
                 spacing2 = Plate.get_stiffener_spacing(plate2)
 
-                if plate1.stiff_dir == BeamDirection.LONGITUDINAL and \
-                        plate2.stiff_dir == BeamDirection.LONGITUDINAL and \
+                if plate1.stiff_dir is BeamDirection.LONGITUDINAL and \
+                        plate2.stiff_dir is BeamDirection.LONGITUDINAL and \
                         spacing1 != spacing2:
                     raise FeasibilityTestFailLong(psm_1.id, psm_2.id, plate1.id,
                                                   plate2.id, spacing1, spacing2)
@@ -315,8 +312,8 @@ class ModelCheck:
                 spacing1 = Plate.get_stiffener_spacing(plate1)
                 spacing2 = Plate.get_stiffener_spacing(plate2)
 
-                if plate1.stiff_dir == BeamDirection.TRANSVERSE and \
-                        plate2.stiff_dir == BeamDirection.TRANSVERSE and \
+                if plate1.stiff_dir is BeamDirection.TRANSVERSE and \
+                        plate2.stiff_dir is BeamDirection.TRANSVERSE and \
                         spacing1 != spacing2:
                     raise FeasibilityTestFailTran(psm_1.id, psm_2.id, plate1.id,
                                                   plate2.id, spacing1, spacing2)
@@ -504,8 +501,7 @@ class MeshExtent:
         """
         longitudinals = {}
 
-        if self.axis_of_symm is AOS.LONGITUDINAL or \
-                self.axis_of_symm is AOS.BOTH:
+        if self.axis_of_symm is AOS.LONGITUDINAL or self.axis_of_symm is AOS.BOTH:
             n_long = int(np.ceil(self._grillage.N_longitudinal / 2))
             for i in range(1, n_long + 1):
                 longitudinals[i] = self._grillage.longitudinal_members()[i]
@@ -871,13 +867,13 @@ class MeshExtent:
         if (plate.id in self.long_half_plate_zones or
             plate.id in self.quarter_plate_zone) and \
                 np.mod(stiff_num, 2) == 0 and \
-                plate.stiff_dir == BeamDirection.LONGITUDINAL:
+                plate.stiff_dir is BeamDirection.LONGITUDINAL:
             return True
 
         elif (plate.id in self.tran_half_plate_zones or
               plate.id in self.quarter_plate_zone) and \
                 np.mod(stiff_num, 2) == 0 and \
-                plate.stiff_dir == BeamDirection.TRANSVERSE:
+                plate.stiff_dir is BeamDirection.TRANSVERSE:
             return True
         else:
             return False
@@ -895,13 +891,13 @@ class MeshExtent:
         if (plate.id in self.long_half_plate_zones or
             plate.id in self.quarter_plate_zone) and \
                 np.mod(stiff_num, 2) != 0 and \
-                plate.stiff_dir == BeamDirection.LONGITUDINAL:
+                plate.stiff_dir is BeamDirection.LONGITUDINAL:
             return True
 
         elif (plate.id in self.tran_half_plate_zones or
               plate.id in self.quarter_plate_zone) and \
                 np.mod(stiff_num, 2) != 0 and \
-                plate.stiff_dir == BeamDirection.TRANSVERSE:
+                plate.stiff_dir is BeamDirection.TRANSVERSE:
             return True
         else:
             return False
@@ -916,13 +912,13 @@ class MeshExtent:
         rel_dist = segment.primary_supp_mem.rel_dist
         direction = segment.primary_supp_mem.direction
         aos = self.axis_of_symm
-        if (aos == AOS.LONGITUDINAL or aos == AOS.BOTH) and \
-                direction == BeamDirection.LONGITUDINAL and \
+        if (aos is AOS.LONGITUDINAL or aos is AOS.BOTH) and \
+                direction is BeamDirection.LONGITUDINAL and \
                 np.isclose(rel_dist, 0.5):
             return True
 
-        elif (aos == AOS.TRANSVERSE or aos == AOS.BOTH) and \
-                direction == BeamDirection.TRANSVERSE and \
+        elif (aos is AOS.TRANSVERSE or aos is AOS.BOTH) and \
+                direction is BeamDirection.TRANSVERSE and \
                 np.isclose(rel_dist, 0.5):
             return True
         else:
@@ -937,7 +933,7 @@ class MeshExtent:
         plating_zone_array = self.hc_plate_zone_ref_ID_array()
         for plate in self.all_plating_zones.values():
             if self.aos_between_stiffeners(plate) \
-                    and plate.stiff_dir == BeamDirection.TRANSVERSE:
+                    and plate.stiff_dir is BeamDirection.TRANSVERSE:
                 column_id = np.where(plating_zone_array == plate.id)[1]
                 split_element_zones = plating_zone_array[:, column_id]
                 for i in split_element_zones:
@@ -953,7 +949,7 @@ class MeshExtent:
         plating_zone_array = self.hc_plate_zone_ref_ID_array()
         for plate in self.all_plating_zones.values():
             if self.aos_between_stiffeners(plate) \
-                    and plate.stiff_dir == BeamDirection.LONGITUDINAL:
+                    and plate.stiff_dir is BeamDirection.LONGITUDINAL:
                 row_id = np.where(plating_zone_array == plate.id)[0]
                 split_element_zones = plating_zone_array[row_id, :]
                 for i in split_element_zones:
@@ -1061,7 +1057,7 @@ class MeshExtent:
         Checks for duplicate PlateProperty ID in plate_property_IDs.
         If no duplicate exists, a new GeoFEM plate property is created.
         :param prop: Grillage model PlateProperty object.
-        :param fem:
+        :param fem: Grillage FEM model.
         """
         corr_add = self._grillage.corrosion_addition()[1]
         gfe_prop_id = fem.id_prop_count
@@ -1078,7 +1074,7 @@ class MeshExtent:
         Checks for duplicate BeamProperty ID in web_property_IDs.
         If no duplicate exists, a new GeoFEM plate property is created.
         :param prop: Grillage model TBeamProperty object.
-        :param fem:
+        :param fem: Grillage FEM model.
         """
         corr_add = self._grillage.corrosion_addition()[1]
         gfe_prop_id = fem.id_prop_count
@@ -1095,7 +1091,7 @@ class MeshExtent:
         Checks for duplicate BeamProperty ID in half_web_property_IDs.
         If no duplicate exists, a new GeoFEM plate property is created.
         :param prop: Grillage model TBeamProperty object.
-        :param fem:
+        :param fem: Grillage FEM model.
         """
         corr_add = self._grillage.corrosion_addition()[1]
         gfe_prop_id = fem.id_prop_count
@@ -1112,7 +1108,7 @@ class MeshExtent:
         Checks for duplicate BeamProperty ID in flange_property_IDs.
         If no duplicate exists, a new GeoFEM plate property is created.
         :param prop: Grillage model TBeamProperty object.
-        :param fem:
+        :param fem: Grillage FEM model.
         """
         corr_add = self._grillage.corrosion_addition()[1]
         gfe_prop_id = fem.id_prop_count
@@ -1129,7 +1125,7 @@ class MeshExtent:
         Checks for duplicate BeamProperty ID in stiff_beam_prop_IDs.
         If no duplicate exists, a new GeoFEM Beam property is created.
         :param prop: Grillage model TBeamProperty object.
-        :param fem:
+        :param fem: Grillage FEM model.
         """
         corr_add = self._grillage.corrosion_addition()[1]
         gfe_prop_id = fem.id_prop_count
@@ -1151,7 +1147,7 @@ class MeshExtent:
         Checks for duplicate BeamProperty ID in stiff_beam_prop_IDs.
         If no duplicate exists, a new GeoFEM Beam property is created.
         :param prop: Grillage model TBeamProperty object.
-        :param fem:
+        :param fem: Grillage FEM model.
         """
         corr_add = self._grillage.corrosion_addition()[1]
         gfe_prop_id = fem.id_prop_count
@@ -1173,7 +1169,7 @@ class MeshExtent:
         Checks for duplicate BeamProperty ID in stiff_beam_prop_IDs.
         If no duplicate exists, a new GeoFEM Beam property is created.
         :param prop: Grillage model LBeamProperty object.
-        :param fem:
+        :param fem: Grillage FEM model.
         """
         corr_add = self._grillage.corrosion_addition()[1]
         gfe_prop_id = fem.id_prop_count
@@ -1195,7 +1191,7 @@ class MeshExtent:
         Checks for duplicate BeamProperty ID in stiff_beam_prop_IDs.
         If no duplicate exists, a new GeoFEM Beam property is created.
         :param prop: Grillage model LBeamProperty object.
-        :param fem:
+        :param fem: Grillage FEM model.
         """
         corr_add = self._grillage.corrosion_addition()[1]
         gfe_prop_id = fem.id_prop_count
@@ -1217,7 +1213,7 @@ class MeshExtent:
         Checks for duplicate BeamProperty ID in stiff_beam_prop_IDs.
         If no duplicate exists, a new GeoFEM Beam property is created.
         :param prop: Grillage model FBBeamProperty object.
-        :param fem:
+        :param fem: Grillage FEM model.
         """
         corr_add = self._grillage.corrosion_addition()[1]
         gfe_prop_id = fem.id_prop_count
@@ -1236,7 +1232,7 @@ class MeshExtent:
         Checks for duplicate BeamProperty ID in stiff_beam_prop_IDs.
         If no duplicate exists, a new GeoFEM Beam property is created.
         :param prop: Grillage model FBBeamProperty object.
-        :param fem:
+        :param fem: Grillage FEM model.
         """
         corr_add = self._grillage.corrosion_addition()[1]
         gfe_prop_id = fem.id_prop_count
@@ -1255,7 +1251,7 @@ class MeshExtent:
         Checks for duplicate BeamProperty ID in stiff_beam_prop_IDs.
         If no duplicate exists, a new GeoFEM Beam property is created.
         :param prop: Grillage model BulbBeamProperty object.
-        :param fem:
+        :param fem: Grillage FEM model.
         """
         corr_add = self._grillage.corrosion_addition()[1]
         gfe_prop_id = fem.id_prop_count
@@ -1276,7 +1272,7 @@ class MeshExtent:
         Checks for duplicate BeamProperty ID in stiff_beam_prop_IDs.
         If no duplicate exists, a new GeoFEM Beam property is created.
         :param prop: Grillage model BulbBeamProperty object.
-        :param fem:
+        :param fem: Grillage FEM model.
         """
         corr_add = self._grillage.corrosion_addition()[1]
         gfe_prop_id = fem.id_prop_count
@@ -1297,7 +1293,7 @@ class MeshExtent:
         Checks for duplicate BeamProperty ID in stiff_beam_prop_IDs.
         If no duplicate exists, a new GeoFEM Beam property is created.
         :param prop: Grillage model HatBeamProperty object.
-        :param fem:
+        :param fem: Grillage FEM model.
         """
         corr_add = self._grillage.corrosion_addition()[1]
         gfe_prop_id = fem.id_prop_count
@@ -1320,7 +1316,7 @@ class MeshExtent:
         Checks for duplicate BeamProperty ID in stiff_beam_prop_IDs.
         If no duplicate exists, a new GeoFEM Beam property is created.
         :param prop: Grillage model HatBeamProperty object.
-        :param fem:
+        :param fem: Grillage FEM model.
         """
         corr_add = self._grillage.corrosion_addition()[1]
         gfe_prop_id = fem.id_prop_count
@@ -1359,7 +1355,7 @@ class MeshExtent:
             else:
                 self.add_unique_web_prop(beam_prop, fem)
 
-            if beam_type == BeamType.T or beam_type == BeamType.L:
+            if beam_type is BeamType.T or beam_type is BeamType.L:
                 self.add_unique_flange_prop(beam_prop, fem)
 
     def generate_FEM_beam_property(self, fem: GeoGrillageFEM):
@@ -1494,7 +1490,7 @@ class MeshSize:
         self._mesh_dim_x = {}
         self._mesh_dim_y = {}
 
-        self.start_nodes = {}       # Dict of starting node ID for all meshed plating zones
+        self.start_nodes = {}
 
     @property
     def mesh_extent(self):
@@ -1731,13 +1727,13 @@ class MeshSize:
         corr_add = self._grillage.corrosion_addition()[1]
         bf_net = TBeamProperty.bf_net(segment.beam_prop, corr_add)
 
-        if segment.beam_prop.beam_type == BeamType.T:
+        if segment.beam_prop.beam_type is BeamType.T:
             return bf_net / (self._num_eaf * 2)
 
-        elif segment.beam_prop.beam_type == BeamType.L:
+        elif segment.beam_prop.beam_type is BeamType.L:
             return bf_net / self._num_eaf
 
-        elif segment.beam_prop.beam_type == BeamType.FB:
+        elif segment.beam_prop.beam_type is BeamType.FB:
             return 0
 
     def get_end1_max_flange_width(self, segment: Segment):
@@ -1858,7 +1854,7 @@ class MeshSize:
         """
         y = self.element_size_perp_to_stiffeners(plate)
 
-        if plate.stiff_dir == BeamDirection.LONGITUDINAL:
+        if plate.stiff_dir is BeamDirection.LONGITUDINAL:
             max_dim = self.get_min_fl_el_len(plate.trans_seg1, plate.trans_seg2)
         else:
             max_dim = self.get_min_fl_el_len(plate.long_seg1, plate.long_seg2)
@@ -1878,7 +1874,7 @@ class MeshSize:
                 2.) Maximum element dimension: method get_min_flange_el_length
         """
         x = self.element_size_para_to_stiffeners(plate, plate_dim)
-        if plate.stiff_dir == BeamDirection.LONGITUDINAL:
+        if plate.stiff_dir is BeamDirection.LONGITUDINAL:
             max_dim = self.get_min_fl_el_len(plate.long_seg1, plate.long_seg2)
         else:
             max_dim = self.get_min_fl_el_len(plate.trans_seg1, plate.trans_seg2)
@@ -1901,7 +1897,7 @@ class MeshSize:
             based on plate aspect ratio and flange dimensions,
             considering each plating zone individually.
         """
-        if plate.stiff_dir == BeamDirection.LONGITUDINAL:
+        if plate.stiff_dir is BeamDirection.LONGITUDINAL:
             dim_x = self.element_size_plating_zone_para(plate, plate_dim)
             dim_y = self.element_size_plating_zone_perp(plate)
         else:
@@ -1915,14 +1911,14 @@ class MeshSize:
             dim_x_limit = np.minimum(dim_xf, dim_y * self._plate_aspect_ratio)
             dim_y_limit = np.minimum(dim_yf, dim_x * self._plate_aspect_ratio)
 
-            if plate.stiff_dir == BeamDirection.LONGITUDINAL:
+            if plate.stiff_dir is BeamDirection.LONGITUDINAL:
                 if dim_y > dim_x:
                     stiff_spacing = plate.get_stiffener_spacing() * 1000
                     dim_y = self.refine_plate_element(stiff_spacing, dim_y_limit)
                 else:
                     dim_x = self.refine_plate_element(plate_dim, dim_x_limit)
 
-            elif plate.stiff_dir == BeamDirection.TRANSVERSE:
+            elif plate.stiff_dir is BeamDirection.TRANSVERSE:
                 if dim_y > dim_x:
                     dim_y = self.refine_plate_element(plate_dim, dim_y_limit)
                 else:
@@ -1978,7 +1974,7 @@ class MeshSize:
             final_mesh_dim_x[column] = dim_x
 
             for plate in plating_zones:
-                if plate.stiff_dir == BeamDirection.TRANSVERSE:
+                if plate.stiff_dir is BeamDirection.TRANSVERSE:
                     tran1 = self._grillage.transverse_members()[column]
                     tran2 = self._grillage.transverse_members()[column + 1]
                     max_x = self.get_min_fl_el_len_between_psm(tran1, tran2)
@@ -2021,7 +2017,7 @@ class MeshSize:
             final_mesh_dim_y[row] = dim_y
 
             for plate in plating_zones:
-                if plate.stiff_dir == BeamDirection.LONGITUDINAL:
+                if plate.stiff_dir is BeamDirection.LONGITUDINAL:
                     long1 = self._grillage.longitudinal_members()[row]
                     long2 = self._grillage.longitudinal_members()[row + 1]
                     max_y = self.get_min_fl_el_len_between_psm(long1, long2)
@@ -2089,7 +2085,7 @@ class MeshSize:
         """
         dim_tr_x = 0
 
-        if plate.stiff_dir == BeamDirection.TRANSVERSE:
+        if plate.stiff_dir is BeamDirection.TRANSVERSE:
             dim_x = self.get_base_dim_x(plate)
             dim_y = self.get_base_dim_y(plate)
             stiff_offset = plate.get_equal_stiffener_offset() * 1000
@@ -2125,7 +2121,7 @@ class MeshSize:
         """
         dim_tr_y = 0
 
-        if plate.stiff_dir == BeamDirection.LONGITUDINAL:
+        if plate.stiff_dir is BeamDirection.LONGITUDINAL:
             dim_x = self.get_base_dim_x(plate)
             dim_y = self.get_base_dim_y(plate)
             stiff_offset = plate.get_equal_stiffener_offset() * 1000
@@ -2168,7 +2164,7 @@ class MeshSize:
                 tr_dim_x1, tr_dim_x2 = self.transition_dim_x(plate)
                 tr_el_dim_x[0, column - 1] = tr_dim_x1
                 tr_el_dim_x[1, column - 1] = tr_dim_x2
-                if plate.stiff_dir == BeamDirection.TRANSVERSE:
+                if plate.stiff_dir is BeamDirection.TRANSVERSE:
                     break
 
         return tr_el_dim_x
@@ -2195,7 +2191,7 @@ class MeshSize:
                 tr_dim_y1, tr_dim_y2 = self.transition_dim_y(plate)
                 tr_el_dim_y[0, row - 1] = tr_dim_y1
                 tr_el_dim_y[1, row - 1] = tr_dim_y2
-                if plate.stiff_dir == BeamDirection.LONGITUDINAL:
+                if plate.stiff_dir is BeamDirection.LONGITUDINAL:
                     break
 
         return tr_el_dim_y
@@ -2534,7 +2530,7 @@ class MeshSize:
         plate_list = self._grillage.segment_common_plates(segment)
         plate = plate_list[0]
 
-        if direction == BeamDirection.LONGITUDINAL:
+        if direction is BeamDirection.LONGITUDINAL:
             base_dim = self.get_base_dim_x(plate)
             plate_tr_1, plate_tr_2 = self.get_tr_dim_x(plate)
         else:
@@ -2563,7 +2559,7 @@ class MeshSize:
         fl_tr_1, fl_tr_2 = self.flange_transition_dim(segment)
         fl_el_width_1, fl_el_width_2 = self.opposite_flange_width(segment)
 
-        if direction == BeamDirection.LONGITUDINAL:
+        if direction is BeamDirection.LONGITUDINAL:
             base_dim = self.get_base_dim_x(plate)
             split_num = self.get_tran_split_element_num(plate)
         else:
@@ -2675,14 +2671,14 @@ class ElementSizeV1(MeshSize):
             and flange width for mesh variant V1.
         """
         n_eaf = self._num_eaf
-        if plate.stiff_dir == BeamDirection.LONGITUDINAL:
+        if plate.stiff_dir is BeamDirection.LONGITUDINAL:
             L = plate.plate_longitudinal_dim() * 1000
             dim_xf1 = self.get_flange_el_width(plate.trans_seg1) * n_eaf
             dim_xf2 = self.get_flange_el_width(plate.trans_seg2) * n_eaf
             L_red = L - dim_xf1 - dim_xf2
             return L_red
 
-        elif plate.stiff_dir == BeamDirection.TRANSVERSE:
+        elif plate.stiff_dir is BeamDirection.TRANSVERSE:
             B = plate.plate_transverse_dim() * 1000
             dim_yf1 = self.get_flange_el_width(plate.long_seg1) * n_eaf
             dim_yf2 = self.get_flange_el_width(plate.long_seg2) * n_eaf
@@ -2728,7 +2724,7 @@ class ElementSizeV1(MeshSize):
         dim_tr_x1 = 0
         dim_tr_x2 = 0
 
-        if plate.stiff_dir == BeamDirection.TRANSVERSE:
+        if plate.stiff_dir is BeamDirection.TRANSVERSE:
             dim_x = self.get_base_dim_x(plate)
             dim_y = self.get_base_dim_y(plate)
             stiff_offset = plate.get_equal_stiffener_offset() * 1000
@@ -2784,7 +2780,7 @@ class ElementSizeV1(MeshSize):
         dim_tr_y1 = 0
         dim_tr_y2 = 0
 
-        if plate.stiff_dir == BeamDirection.LONGITUDINAL:
+        if plate.stiff_dir is BeamDirection.LONGITUDINAL:
             dim_x = self.get_base_dim_x(plate)
             dim_y = self.get_base_dim_y(plate)
             stiff_offset = plate.get_equal_stiffener_offset() * 1000
@@ -2995,7 +2991,7 @@ class ElementSizeV2(MeshSize):
         plate = plate_list[0]
         base_el_num = self.flange_base_element_num(segment)
 
-        if direction == BeamDirection.LONGITUDINAL:
+        if direction is BeamDirection.LONGITUDINAL:
             base_dim = self.get_base_dim_x(plate)
             split_element_number = self.get_tran_split_element_num(plate)
         else:
@@ -3173,7 +3169,7 @@ class PlateMesh:
         dist = 0
         stiff_counter = 0
         spacing = stiff_spacing
-        if self._plate.stiff_dir == BeamDirection.TRANSVERSE:
+        if self._plate.stiff_dir is BeamDirection.TRANSVERSE:
             edge_nodes = self._edge_nodes_x.items()
         else:
             edge_nodes = self._edge_nodes_y.items()
@@ -3210,7 +3206,7 @@ class PlateMesh:
         id_el_nodes = [None] * 2
         dir_vector = np.array([0, 0, -1])
 
-        if stiff_dir == BeamDirection.LONGITUDINAL:
+        if stiff_dir is BeamDirection.LONGITUDINAL:
             for index in range(0, len(node_id_index_list)):
                 if index == len(node_id_index_list) - 1 and aos_on_stiff:
                     prop_id = self.get_half_stiffener_beam_property(fem)
@@ -3288,7 +3284,7 @@ class SegmentMesh:
         for plate in self._mesh_extent.all_plating_zones.values():
             segment_defines_plate = plate.test_plate_segment(self._segment)
             if segment_defines_plate:
-                if direction == BeamDirection.LONGITUDINAL:
+                if direction is BeamDirection.LONGITUDINAL:
                     edge_nodes = self._mesh_size.plate_edge_node_spacing_x(plate)
                 else:
                     edge_nodes = self._mesh_size.plate_edge_node_spacing_y(plate)
@@ -3303,13 +3299,13 @@ class SegmentMesh:
         direction = self._segment.primary_supp_mem.direction
         rel_dist = self._segment.primary_supp_mem.rel_dist
 
-        if direction == BeamDirection.LONGITUDINAL:
+        if direction is BeamDirection.LONGITUDINAL:
             if rel_dist < 0.5:
                 return np.array((0, 1, 0))
             else:
                 return np.array((0, -1, 0))
 
-        if direction == BeamDirection.TRANSVERSE:
+        if direction is BeamDirection.TRANSVERSE:
             if rel_dist < 0.5:
                 return np.array((1, 0, 0))
             else:
@@ -3323,13 +3319,13 @@ class SegmentMesh:
         direction = self._segment.primary_supp_mem.direction
         rel_dist = self._segment.primary_supp_mem.rel_dist
 
-        if direction == BeamDirection.LONGITUDINAL:
+        if direction is BeamDirection.LONGITUDINAL:
             if rel_dist < 0.5:
                 return np.array((0, -1, 0))
             else:
                 return np.array((0, 1, 0))
 
-        if direction == BeamDirection.TRANSVERSE:
+        if direction is BeamDirection.TRANSVERSE:
             if rel_dist < 0.5:
                 return np.array((-1, 0, 0))
             else:
@@ -3496,11 +3492,13 @@ class SegmentMesh:
         if beam_type is BeamType.T:
             web_nodes = self.generate_web_nodes(fem)
             web_elements = self.generate_web_elements(fem)
-            flange_nodes = self.generate_flange_nodes(fem, FlangeDirection.INWARD, web_nodes)
+            direction = FlangeDirection.INWARD
+            flange_nodes = self.generate_flange_nodes(fem, direction, web_nodes)
             elements = self.generate_flange_elements(fem, web_nodes, web_elements)
 
             if not self._mesh_extent.aos_on_segment(self._segment):
-                nodes = self.generate_flange_nodes(fem, FlangeDirection.OUTWARD, flange_nodes)
+                direction = FlangeDirection.OUTWARD
+                nodes = self.generate_flange_nodes(fem, direction, flange_nodes)
                 elements = self.generate_flange_elements(fem, flange_nodes, elements)
             else:
                 nodes = flange_nodes
@@ -3616,7 +3614,7 @@ class SegmentMeshV1(SegmentMesh):
     def generate_flange_nodes(self, fem: GeoGrillageFEM,
                               direction: FlangeDirection, flange_start_node):
         """
-        :param fem:
+        :param fem: Grillage FEM model.
         :param direction: Selected flange direction for node generation.
         :param flange_start_node: Start flange node for continued node
             generation after web nodes.
@@ -3858,7 +3856,7 @@ class SegmentMeshV2(SegmentMesh):
     def generate_flange_nodes(self, fem: GeoGrillageFEM,
                               direction: FlangeDirection, flange_start_node):
         """
-        :param fem:
+        :param fem: Grillage FEM model.
         :param direction: Selected flange direction for node generation.
         :param flange_start_node: Start flange node for continued node
             generation after web nodes.
@@ -3940,7 +3938,7 @@ class SegmentMeshV2(SegmentMesh):
 
     def top_web_element_row(self, fem: GeoGrillageFEM, start_element_id):
         """
-        :param fem:
+        :param fem: Grillage FEM model.
         :param start_element_id: Starting element ID for the row.
         :return: Generates quad elements on the top row.
         """
@@ -3966,7 +3964,7 @@ class SegmentMeshV2(SegmentMesh):
 
     def add_first_quad_to_row(self, fem: GeoGrillageFEM, row1, row2, l_id, num):
         """
-        :param fem: Grillage mesh.
+        :param fem:  Grillage FEM model.
         :param row1: Input node ID list, upper row of nodes.
         :param row2: Input node ID list, lower row of nodes.
         :param l_id: Local ID of the element in the transition row.
@@ -4033,7 +4031,7 @@ class SegmentMeshV2(SegmentMesh):
 
     def tr_web_element_row(self, fem: GeoGrillageFEM, start_element_id):
         """
-        :param fem:
+        :param fem: Grillage FEM model.
         :param start_element_id: Starting element ID for the row.
         :return: Generates elements on the transition row using quads and tris.
 
@@ -4086,7 +4084,7 @@ class SegmentMeshV2(SegmentMesh):
 
     def bot_web_element_row(self, fem: GeoGrillageFEM, start_element_id):
         """
-        :param fem:
+        :param fem: Grillage FEM model.
         :param start_element_id: Starting element ID for the row.
         :return: Generates quad elements on the bottom row.
         """

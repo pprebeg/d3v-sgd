@@ -45,3 +45,4 @@ class GeometryExtension(Geometry):
     def emit_geometries_rebuild(self):
         manager.remove_geometry([self])
         manager.add_geometry([self])
+        manager.show_geometry([self])

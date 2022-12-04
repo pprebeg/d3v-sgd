@@ -3228,7 +3228,6 @@ class PlateMesh:
     def generate_mesh(self, fem: GeoGrillageFEM):
         """
         :return: Generates all nodes and elements on the selected plating zone.
-            Returns last node and element IDs to continue numeration.
         """
         self.generate_plate_nodes(fem)
         self.generate_plate_elements(fem)
@@ -3722,7 +3721,7 @@ class SegmentMeshV2(SegmentMesh):
         self._start_node_id = start_n_id
         self._start_element_id = start_e_id
 
-    def idenetify_num_of_tris(self, segment: Segment):
+    def identify_num_of_tris(self, segment: Segment):
         """
         :param segment: Selected segment.
         :return: Number of triangles at the start and end of transition row.
@@ -4054,7 +4053,7 @@ class SegmentMeshV2(SegmentMesh):
         tr_row1 = ref_node_list[p_row_limit - 1]
         tr_row2 = ref_node_list[p_row_limit]
 
-        n_tri1, n_tri2 = self.idenetify_num_of_tris(self._segment)
+        n_tri1, n_tri2 = self.identify_num_of_tris(self._segment)
         n_elem = len(flange_edge_nodes)
         n_nd_quad = n_elem - 2 * n_tri1 - 2 * n_tri2
         end_id = start_element_id + n_elem - 1

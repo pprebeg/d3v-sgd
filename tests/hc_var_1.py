@@ -28,8 +28,8 @@ hc_var_1.add_corrosion_addition(tc)
 # Beam property
 initial_longitudinal_beam = TBeamProperty(1, 1089, 10, 230, 16, ST24)       # inicijalni longitudinal T beam prop
 initial_transverse_beam = TBeamProperty(2, 1089, 10, 545, 40, ST24)         # inicijalni transverse T beam prop
-initial_edge_beam = LBeamProperty(3, 1089, 10, 150, 16, ST24)               # inicijalni rubni L beam prop
-initial_stiffener = HatBeamProperty(4, 150, 10, 200, 50, AH36)             # inicijalna ukrepa Hat
+initial_edge_beam = LBeamProperty(3, 1089, 12, 150, 16, ST24)               # inicijalni rubni L beam prop
+initial_stiffener = HatBeamProperty(4, 300, 6, 220, 80, AH36)             # inicijalna ukrepa Hat
 # initial_stiffener = BulbBeamProperty(4, 240, 10, AH36)                    # inicijalna ukrepa Bulb
 # initial_stiffener = TBeamProperty(4, 250, 8, 90, 12, ST24)                # inicijalna ukrepa T
 # initial_stiffener = FBBeamProperty(4, 250, 8, ST24)                       # inicijalna ukrepa FB
@@ -37,7 +37,12 @@ initial_stiffener = HatBeamProperty(4, 150, 10, 200, 50, AH36)             # ini
 
 
 center_girder = TBeamProperty(5, 1089, 10, 560, 40, AH32)
-FB_beam = FBBeamProperty(6, 1089, 10, ST24)
+center_longitudinal = TBeamProperty(6, 1089, 10, 305, 16, AH32)
+center_long_ends = TBeamProperty(7, 1089, 12, 305, 16, AH32)
+long_edge_beam = LBeamProperty(8, 1089, 10, 150, 16, ST24)               # inicijalni rubni L beam prop
+
+
+# FB_beam = FBBeamProperty(6, 1089, 10, ST24)
 
 # DRUGI SET - FB JAKI NOSAČI
 # initial_longitudinal_beam = FBBeamProperty(1, 1089, 10, ST24)
@@ -51,7 +56,11 @@ hc_var_1.add_beam_prop(initial_transverse_beam)
 hc_var_1.add_beam_prop(initial_edge_beam)
 hc_var_1.add_beam_prop(initial_stiffener)
 hc_var_1.add_beam_prop(center_girder)
-hc_var_1.add_beam_prop(FB_beam)
+hc_var_1.add_beam_prop(center_longitudinal)
+hc_var_1.add_beam_prop(center_long_ends)
+hc_var_1.add_beam_prop(long_edge_beam)
+
+# hc_var_1.add_beam_prop(FB_beam)
 # hc_var_1.add_beam_prop(stiffener2)
 
 # Plate property
@@ -116,7 +125,13 @@ Grillage.set_plating_prop_transversals(hc_var_1, 4, "stiff_layout", stifflayout2
 # hc_var_1.set_tran_member_beam_property(1, FB_beam)                            # Izmjena beam property za cijeli nosač
 
 # Izmjena svojstava nosaca
-Grillage.set_tran_member_beam_property(hc_var_1, 3, center_girder)
+hc_var_1.set_tran_member_beam_property(3, center_girder)
+hc_var_1.set_long_member_beam_property(3, center_longitudinal)
+hc_var_1.longitudinal_members()[3].segments[0].beam_prop = center_long_ends
+hc_var_1.longitudinal_members()[3].segments[3].beam_prop = center_long_ends
+hc_var_1.set_long_member_beam_property(1, long_edge_beam)
+hc_var_1.set_long_member_beam_property(5, long_edge_beam)
+
 
 # Spremanje generirane topologije
 GrillageModelData('../grillage savefiles/hc_var_1_savefile.gin').write_file(hc_var_1)

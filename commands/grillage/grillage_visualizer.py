@@ -8,7 +8,7 @@ from grillage.grillage_model import TBeamProperty,BulbBeamProperty,HatBeamProper
 from core.geometry import Geometry
 from typing import List,Dict
 
-
+inverter = np.array([1,1,-1])
 class Resolution_Value_Error(Exception):
     pass
 class Invalid_Segment_id_Error(Exception):
@@ -154,7 +154,7 @@ def get_Tshape_data(shape_prop, t, corr_add = None):
         [4,1,3],
         [3,1,2],
         ])
-    return (face_points, face_fvi)
+    return (face_points*inverter, face_fvi)
     
 
 def get_HPshape_data(shape_prop, t, corr_add = None):
@@ -196,7 +196,7 @@ def get_HPshape_data(shape_prop, t, corr_add = None):
         [5,2,4],
         ])
     
-    return (face_points, face_fvi) 
+    return (face_points*inverter, face_fvi)
 
 def get_HATshape_data(shape_prop, t, corr_add = None):
     if corr_add is None:
@@ -240,7 +240,7 @@ def get_HATshape_data(shape_prop, t, corr_add = None):
         ])
     
 
-    return (face_points, face_fvi) 
+    return (face_points*inverter, face_fvi)
 
 
 def get_Lshape_data(shape_prop, t, corr_add = None):
@@ -277,7 +277,7 @@ def get_Lshape_data(shape_prop, t, corr_add = None):
         ])
       
 
-    return (face_points, face_fvi)
+    return (face_points*inverter, face_fvi)
 
 def get_FBshape_data(shape_prop, t, corr_add = None):
     # /1000 because original is in [mm]      
@@ -305,7 +305,7 @@ def get_FBshape_data(shape_prop, t, corr_add = None):
         [5,2,4],
         [2,3,4],
         ])
-    return (face_points, face_fvi)
+    return (face_points*inverter, face_fvi)
 
 def extrude_shape(shape_prop, t, orientation, spacing, position, corr_add = None, L_flange_direction = None):
     if isinstance(shape_prop, TBeamProperty):

@@ -396,6 +396,8 @@ class ModelCheck:
                 if beam_type is BeamType.T or beam_type is BeamType.L:
                     bf = segment.beam_prop.bf
                     bf_set.add(bf)
+                if beam_type is BeamType.FB:
+                    bf_set.add(0)
             if len(bf_set) > 1:
                 raise DifferentFlangeWidth(member.id, member.direction.name)
 
@@ -406,6 +408,8 @@ class ModelCheck:
                 if beam_type is BeamType.T or beam_type is BeamType.L:
                     bf = segment.beam_prop.bf
                     bf_set.add(bf)
+                if beam_type is BeamType.FB:
+                    bf_set.add(0)
             if len(bf_set) > 1:
                 raise DifferentFlangeWidth(member.id, member.direction.name)
 

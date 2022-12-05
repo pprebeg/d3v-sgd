@@ -39,10 +39,8 @@ initial_stiffener = HatBeamProperty(4, 300, 6, 220, 80, AH36)             # inic
 center_girder = TBeamProperty(5, 1089, 10, 560, 40, AH32)
 center_longitudinal = TBeamProperty(6, 1089, 10, 305, 16, AH32)
 center_long_ends = TBeamProperty(7, 1089, 12, 305, 16, AH32)
-long_edge_beam = LBeamProperty(8, 1089, 10, 150, 16, ST24)               # inicijalni rubni L beam prop
-
-
-# FB_beam = FBBeamProperty(6, 1089, 10, ST24)
+long_edge_beam = LBeamProperty(8, 1089, 10, 150, 16, ST24)
+FB_beam = FBBeamProperty(9, 1089, 10, ST24)
 
 # DRUGI SET - FB JAKI NOSAČI
 # initial_longitudinal_beam = FBBeamProperty(1, 1089, 10, ST24)
@@ -59,8 +57,7 @@ hc_var_1.add_beam_prop(center_girder)
 hc_var_1.add_beam_prop(center_longitudinal)
 hc_var_1.add_beam_prop(center_long_ends)
 hc_var_1.add_beam_prop(long_edge_beam)
-
-# hc_var_1.add_beam_prop(FB_beam)
+hc_var_1.add_beam_prop(FB_beam)
 # hc_var_1.add_beam_prop(stiffener2)
 
 # Plate property
@@ -129,6 +126,8 @@ hc_var_1.set_tran_member_beam_property(3, center_girder)
 hc_var_1.set_long_member_beam_property(3, center_longitudinal)
 hc_var_1.longitudinal_members()[3].segments[0].beam_prop = center_long_ends
 hc_var_1.longitudinal_members()[3].segments[3].beam_prop = center_long_ends
+# hc_var_1.longitudinal_members()[3].segments[1].beam_prop = FB_beam        # test za mesh feasibility u slucaju da je jedan segment FB
+
 hc_var_1.set_long_member_beam_property(1, long_edge_beam)
 hc_var_1.set_long_member_beam_property(5, long_edge_beam)
 

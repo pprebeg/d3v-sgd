@@ -85,6 +85,9 @@ class FEMCommand(Command):
         menuAnalysisResults = self._menuOOFEMresults.addAction("&Show displacement...")
         menuAnalysisResults.triggered.connect(self.onShowDisplacement)
 
+        menuAnalysisResults = self._menuOOFEMresults.addAction("&Print element numbers")
+        menuAnalysisResults.triggered.connect(self.onPrintElementNumbers)
+
         menuAnalysisResults = self._menuOOFEMresults.addAction("&Print displacements")
         menuAnalysisResults.triggered.connect(self.onPrintDisplacements)
 
@@ -116,6 +119,23 @@ class FEMCommand(Command):
         displacement_gui = DialogShowDeformation(self.mainwin, self)
         displacement_gui.show_deformation_gui()
         displacement_gui.exec()
+
+    def onPrintElementNumbers(self):
+        num_quad = 0
+        num_beam = 0
+        num_tria = 0
+        num_total = self.femmdl.num_elements
+        for element in self.femmdl.elements.values():
+            if element.get_type() is FEMElementType.Quad:
+                num_quad += 1
+            elif element.get_type() is FEMElementType.Beam:
+                num_beam += 1
+            elif element.get_type() is FEMElementType.Tria:
+                num_tria += 1
+        print("Total number of elements:", num_total,
+              ", number of quads:", num_quad,
+              ", number of beams:", num_beam,
+              ", number of triangles:", num_tria)
 
     def onPrintDisplacements(self):
         node_displacements = self.get_node_displacement()

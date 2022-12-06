@@ -62,7 +62,7 @@ hc_var_1.add_beam_prop(FB_beam)
 
 # Plate property
 plateprop1 = PlateProperty(1, 10, ST24)     # inicijalni plate property za cijeli poklopac
-plateprop2 = PlateProperty(2, 10, AH32)
+plateprop2 = PlateProperty(2, 11, AH32)
 plateprop3 = PlateProperty(3, 9, ST24)
 plateprop4 = PlateProperty(4, 9, ST24)
 hc_var_1.add_plate_prop(plateprop1)
@@ -108,8 +108,10 @@ Grillage.set_all_longitudinal_PSM(hc_var_1, 4.5, 4.59, 4.59)
 Grillage.set_all_transverse_PSM(hc_var_1, 4.325, 4.935, 4.935)
 
 # Izmjene plating property - postavljanje drugačijih svojstava svim poljima oplate između poprečnih nosača koji definiraju polja oplate 1 i 4
-Grillage.set_plating_prop_transversals(hc_var_1, 1, "stiff_layout", stifflayout2)
-Grillage.set_plating_prop_transversals(hc_var_1, 4, "stiff_layout", stifflayout2)
+hc_var_1.set_plating_prop_transversals(1, "stiff_layout", stifflayout2)
+hc_var_1.set_plating_prop_transversals(4, "stiff_layout", stifflayout2)
+hc_var_1.set_plating_prop_transversals(2, "plate_prop", plateprop2)
+hc_var_1.set_plating_prop_transversals(3, "plate_prop", plateprop2)
 
 # Grillage.set_plating_prop_symmetric(hc_var_1, 1, "stiff_dir", BeamDirection.LONGITUDINAL)
 # hc_var_1.plating()[6].stiff_layout = stifflayout3                             # Unos drugacijeg layouta da mesh_feasibility javi gresku

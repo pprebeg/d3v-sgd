@@ -28,12 +28,14 @@ hc_var_7.add_corrosion_addition(tc)
 initial_longitudinal_beam = TBeamProperty(1, 900, 10, 230, 16, ST24)       # inicijalni longitudinal T beam prop
 initial_transverse_beam = TBeamProperty(2, 900, 10, 545, 40, ST24)         # inicijalni transverse T beam prop
 initial_edge_beam = LBeamProperty(3, 900, 10, 150, 16, ST24)               # inicijalni rubni L beam prop
-initial_stiffener = FBBeamProperty(4, 250, 8, ST24)                         # inicijalna ukrepa FB
+initial_stiffener = FBBeamProperty(4, 250, 10, AH36)                         # inicijalna ukrepa FB
+center_longitudinal = TBeamProperty(5, 900, 10, 305, 16, AH32)
 
 hc_var_7.add_beam_prop(initial_longitudinal_beam)
 hc_var_7.add_beam_prop(initial_transverse_beam)
 hc_var_7.add_beam_prop(initial_edge_beam)
 hc_var_7.add_beam_prop(initial_stiffener)
+hc_var_7.add_beam_prop(center_longitudinal)
 
 # Plate property
 plateprop1 = PlateProperty(1, 11, ST24)                                 # inicijalni plate property za cijeli poklopac
@@ -62,6 +64,8 @@ hc_var_7.assign_symmetric_segments()
 # Izmjena polozaja jakih nosaca
 hc_var_7.set_all_longitudinal_PSM(4.5, 4.59, 4.59)
 hc_var_7.set_all_transverse_PSM(6.335, 5.870)
+
+hc_var_7.set_long_member_beam_property(3, center_longitudinal)
 
 # Izmjene plating property
 hc_var_7.set_plating_prop_symmetric(4, "stiff_layout", stifflayout2)

@@ -32,15 +32,15 @@ hc_var_5.add_corrosion_addition(tc)
 initial_longitudinal_beam = TBeamProperty(1, 1089, 10, 230, 16, ST24)       # inicijalni longitudinal T beam prop
 initial_transverse_beam = TBeamProperty(2, 1089, 10, 545, 40, ST24)         # inicijalni transverse T beam prop
 initial_edge_beam = LBeamProperty(3, 1089, 10, 150, 16, ST24)               # inicijalni rubni L beam prop
-initial_stiffener = HatBeamProperty(4, 220, 6, 220, 80, AH36)               # inicijalna ukrepa
+initial_stiffener = HatBeamProperty(4, 300, 8, 220, 80, AH36)               # inicijalna ukrepa
 # initial_stiffener = FBBeamProperty(4, 250, 8, ST24)                       # inicijalna ukrepa FB
 
 # initial_stiffener = BulbBeamProperty(4, 240, 10, AH36)                    # inicijalna ukrepa Bulb
 # initial_stiffener = TBeamProperty(4, 250, 8, 90, 12, ST24)                # inicijalna ukrepa T
 # initial_stiffener = LBeamProperty(4, 250, 8, 90, 12, ST24)                # inicijalna ukrepa L
 # initial_stiffener = FBBeamProperty(4, 250, 8, ST24)                       # inicijalna ukrepa FB
-t_1089x10x600x10 = TBeamProperty(5, 1089, 10, 600, 20, ST24)
-t_1089x10x800x10 = TBeamProperty(6, 1089, 10, 800, 20, ST24)
+t_1089x10x600x20 = TBeamProperty(5, 1089, 10, 600, 20, ST24)
+t_1089x10x800x40 = TBeamProperty(6, 1089, 10, 800, 40, ST24)
 flatbar_property = FBBeamProperty(7, 1089, 8, ST24)
 l_1089x10x250x10 = LBeamProperty(8, 1089, 10, 250, 20, ST24)
 
@@ -49,8 +49,8 @@ hc_var_5.add_beam_prop(initial_longitudinal_beam)
 hc_var_5.add_beam_prop(initial_transverse_beam)
 hc_var_5.add_beam_prop(initial_edge_beam)
 hc_var_5.add_beam_prop(initial_stiffener)
-hc_var_5.add_beam_prop(t_1089x10x600x10)
-hc_var_5.add_beam_prop(t_1089x10x800x10)
+hc_var_5.add_beam_prop(t_1089x10x600x20)
+hc_var_5.add_beam_prop(t_1089x10x800x40)
 hc_var_5.add_beam_prop(flatbar_property)
 hc_var_5.add_beam_prop(l_1089x10x250x10)
 
@@ -88,8 +88,8 @@ hc_var_5.plating()[5].stiff_dir = BeamDirection.LONGITUDINAL
 hc_var_5.set_plating_prop_symmetric(5, "stiff_layout", stifflayout3)
 
 # Simetricna izmjena svojstava segmenta - sira prirubnica za nosac 2 segment 2 - TEST ZA V2 *****************
-# hc_var_5.set_long_symm_segment_beam_property(2, 2, t_1089x10x600x10)
-# hc_var_5.set_tran_symm_segment_beam_property(2, 2, t_1089x10x800x10)
+hc_var_5.set_long_symm_segment_beam_property(2, 2, t_1089x10x600x20)
+hc_var_5.set_tran_symm_segment_beam_property(2, 2, t_1089x10x800x40)
 
 
 # Simetricna izmjena svojstava segmenta - FB za nosac 2 segment 2 - TEST ZA V2 *****************

@@ -44,7 +44,9 @@ hc_var_2.add_beam_prop(center_girder)
 
 # Plate property
 plateprop1 = PlateProperty(1, 10, ST24)                                 # inicijalni plate property za cijeli poklopac
+plateprop2 = PlateProperty(2, 11, ST24)
 hc_var_2.add_plate_prop(plateprop1)
+hc_var_2.add_plate_prop(plateprop2)
 
 # Stiffener layouts
 stifflayout1 = StiffenerLayout(1, initial_stiffener, DefinitionType.SPACING, 0.935)  # Inicijalni stiffener layout
@@ -72,10 +74,12 @@ Grillage.set_all_longitudinal_PSM(hc_var_2, 4.5, 4.59, 4.59)
 Grillage.set_all_transverse_PSM(hc_var_2, 4.325, 4.935, 4.935)
 
 # Izmjene plating property
-Grillage.set_plating_prop_symmetric(hc_var_2, 2, "stiff_layout", stifflayout2)
-Grillage.set_plating_prop_symmetric(hc_var_2, 2, "stiff_dir", BeamDirection.LONGITUDINAL)
-Grillage.set_plating_prop_symmetric(hc_var_2, 6, "stiff_layout", stifflayout3)
-Grillage.set_plating_prop_symmetric(hc_var_2, 6, "stiff_dir", BeamDirection.LONGITUDINAL)
+hc_var_2.set_plating_prop_symmetric(2, "stiff_layout", stifflayout2)
+hc_var_2.set_plating_prop_symmetric(2, "stiff_dir", BeamDirection.LONGITUDINAL)
+hc_var_2.set_plating_prop_symmetric(6, "stiff_layout", stifflayout3)
+hc_var_2.set_plating_prop_symmetric(6, "stiff_dir", BeamDirection.LONGITUDINAL)
+hc_var_2.set_plating_prop_transversals(2, "plate_prop", plateprop2)
+hc_var_2.set_plating_prop_transversals(3, "plate_prop", plateprop2)
 
 # hc_var_2.plating()[5].stiff_layout = stifflayout3     # Unos drugacijeg layouta da hc_check javi gresku izmedu poprecnih nosaca
 # hc_var_2.plating()[6].stiff_layout = stifflayout2     # Unos drugacijeg layouta da hc_check javi gresku izmedu uzduznih nosaca

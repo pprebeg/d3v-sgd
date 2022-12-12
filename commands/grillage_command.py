@@ -398,7 +398,7 @@ class GenerateNewHC(QDialog):
         hc_variant.assign_symmetric_segments()
 
         self._sgdc.onNewHatchCover(hc_variant)
-
+        self._sgdc.onNewHatchCover(GrillageGeometry(hc_variant,"New hatch cover"))
     @staticmethod
     def default_materials():
         def_mats = [{"ID": 1, "E": 210000, "v": 0.3, "ro": 7.85 * 10**(-9), "Reh": 235, "name": "ST24"},
@@ -852,15 +852,18 @@ class SGDCommand(Command):
         pass
 
     def onNewHatchCover(self, grillage: Grillage):
-        QApplication.changeOverrideCursor(QCursor(Qt.WaitCursor))
-        old_grillgeo = self._grillgeo
-        self._grillgeo = GrillageGeometry(grillage, 'New hatch cover name')
-        if old_grillgeo is not None:
-            manager.remove_geometry([old_grillgeo])
-        if self._grillgeo is not None:
-            manager.add_geometry([self._grillgeo])
-            manager.show_geometry([self._grillgeo])
-        QApplication.restoreOverrideCursor()
+        if isinstance(grillage, GrillageGeometry):
+            QApplication.changeOverrideCursor(QCursor(Qt.WaitCursor))
+            old_grillgeo = self._grillgeo
+            self._grillgeo = GrillageGeometry(grillage, 'New hatch cover name')
+            if old_grillgeo is not None:
+                manager.remove_geometry([old_grillgeo])
+            if self._grillgeo is not None:
+                manager.add_geometry([self._grillgeo])
+                manager.show_geometry([self._grillgeo])
+            QApplication.restoreOverrideCursor()
+        else:
+            print("Warning: wrong geometry type added!")
 
     def onNewHatchCoverGUI(self):
         GenerateNewHC(self.mainwin, self)

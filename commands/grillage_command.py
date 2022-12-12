@@ -155,9 +155,20 @@ class GenerateNewHC(QDialog):
         self.hc_gui.btnGenerateGrillage.clicked.connect(self.generate_new_hc)
 
         self.load_materials_list(self.default_materials())
+        self.load_plate_property(self.default_plate_props())
+        self.load_beam_property(self.default_beam_props())
+        self.load_stiffener_layout(self.default_stiff_layouts())
+
         self.update_material_combobox()
+        self.update_plating_combobox()
+        self.update_stiffener_beam_combobox()
+        self.update_psm_beam_bombobox()
+        self.update_layouts_combobox()
+
         self.update_scantling_groupbox()
         self.update_layout_groupbox()
+
+        self.TEST_HC_Setup()
 
     def generate_material_property(self, grillage: Grillage):
         """
@@ -399,18 +410,50 @@ class GenerateNewHC(QDialog):
 
         self._sgdc.onNewHatchCover(hc_variant)
         self._sgdc.onNewHatchCover(GrillageGeometry(hc_variant,"New hatch cover"))
+
+    def TEST_HC_Setup(self):
+        # Za testiranje
+        self.hc_gui.lineEdit_GrillageLength.setText("20")
+        self.hc_gui.lineEdit_GrillageWidth.setText("18")
+        self.hc_gui.spinBox_GrillageNofLong.setValue(5)
+        self.hc_gui.spinBox_GrillageNofTran.setValue(5)
+        self.hc_gui.lineEdit_CorrosionAddition.setText("2")
+
     @staticmethod
     def default_materials():
         def_mats = [{"ID": 1, "E": 210000, "v": 0.3, "ro": 7.85 * 10**(-9), "Reh": 235, "name": "ST24"},
-                    {"ID": 1, "E": 210000, "v": 0.3, "ro": 7.85 * 10**(-9), "Reh": 315, "name": "AH32"},
+                    {"ID": 2, "E": 210000, "v": 0.3, "ro": 7.85 * 10**(-9), "Reh": 315, "name": "AH32"},
                     {"ID": 3, "E": 210000, "v": 0.3, "ro": 7.85 * 10**(-9), "Reh": 355, "name": "AH36"}]
         return def_mats
+
+    @staticmethod
+    def default_plate_props():
+        def_plate_props = [{"prop_id": 1, "name": "t=10mm", "tp": 10.0, "material": "ST24"},
+                           {"prop_id": 2, "name": "t=11mm", "tp": 11.0, "material": "ST24"},
+                           {"prop_id": 3, "name": "t=12mm", "tp": 12.0, "material": "ST24"}]
+        return def_plate_props
+
+    @staticmethod
+    def default_beam_props():
+        def_beam_props = [{"beam_id": 1, "name": "T_beam1", "type": "T", "dims": "900x10/200x20", "mat": "AH32"},
+                          {"beam_id": 2, "name": "L_beam1", "type": "L", "dims": "900x10/150x16", "mat": "AH32"},
+                          {"beam_id": 3, "name": "FB_beam1", "type": "FB", "dims": "900x10", "mat": "AH32"},
+                          {"beam_id": 4, "name": "Bulb_stiff1", "type": "Bulb", "dims": "240x12", "mat": "AH36"},
+                          {"beam_id": 5, "name": "Hat_stiff1", "type": "Hat", "dims": "220x8x250/80", "mat": "AH36"}]
+        return def_beam_props
+
+    @staticmethod
+    def default_stiff_layouts():
+        def_layouts = [{"layout_id": 1, "name": "Bulb_layout1", "beam_prop": "Bulb_stiff1", "def_type": "Number", "def_val": "6"},
+                       {"layout_id": 2, "name": "Hat_layout1", "beam_prop": "Hat_stiff1", "def_type": "Number", "def_val": "5"}]
+        return def_layouts
 
     def load_materials_list(self, default_material_list):
         """
         Load default materials list into table_materials.
         """
-        self.table_materials.setRowCount(3)
+        prop_count = len(default_material_list)
+        self.table_materials.setRowCount(prop_count)
         row_index = 0
         for material in default_material_list:
             ID = QTableWidgetItem(str(material["ID"]))
@@ -433,6 +476,85 @@ class GenerateNewHC(QDialog):
             self.table_materials.setItem(row_index, 3, v)
             self.table_materials.setItem(row_index, 4, Reh)
             self.table_materials.setItem(row_index, 5, ro)
+            row_index += 1
+
+    def load_plate_property(self, default_plate_prop_list):
+        """
+        Load default plate property list into table_plate.
+        """
+        prop_count = len(default_plate_prop_list)
+        self.table_plate.setRowCount(prop_count)
+        row_index = 0
+
+        for plate_property in default_plate_prop_list:
+            plate_id = QTableWidgetItem(str(plate_property["prop_id"]))
+            name = QTableWidgetItem(str(plate_property["name"]))
+            plate_tp = QTableWidgetItem(str(plate_property["tp"]))
+            mat = QTableWidgetItem(str(plate_property["material"]))
+
+            plate_id.setTextAlignment(Qt.AlignCenter)
+            name.setTextAlignment(Qt.AlignCenter)
+            plate_tp.setTextAlignment(Qt.AlignCenter)
+            mat.setTextAlignment(Qt.AlignCenter)
+
+            self.table_plate.setItem(row_index, 0, plate_id)
+            self.table_plate.setItem(row_index, 1, name)
+            self.table_plate.setItem(row_index, 2, plate_tp)
+            self.table_plate.setItem(row_index, 3, mat)
+            row_index += 1
+
+    def load_beam_property(self, default_beam_list):
+        """
+        Load default beam property list into table_beams.
+        """
+        prop_count = len(default_beam_list)
+        self.table_beams.setRowCount(prop_count)
+        row_index = 0
+        for beam_property in default_beam_list:
+            beam_id = QTableWidgetItem(str(beam_property["beam_id"]))
+            beam_name = QTableWidgetItem(str(beam_property["name"]))
+            beam_type = QTableWidgetItem(str(beam_property["type"]))
+            beam_dims = QTableWidgetItem(str(beam_property["dims"]))
+            beam_mat = QTableWidgetItem(str(beam_property["mat"]))
+
+            beam_id.setTextAlignment(Qt.AlignCenter)
+            beam_name.setTextAlignment(Qt.AlignCenter)
+            beam_type.setTextAlignment(Qt.AlignCenter)
+            beam_dims.setTextAlignment(Qt.AlignCenter)
+            beam_mat.setTextAlignment(Qt.AlignCenter)
+
+            self.table_beams.setItem(row_index, 0, beam_id)
+            self.table_beams.setItem(row_index, 1, beam_name)
+            self.table_beams.setItem(row_index, 2, beam_type)
+            self.table_beams.setItem(row_index, 3, beam_dims)
+            self.table_beams.setItem(row_index, 4, beam_mat)
+            row_index += 1
+
+    def load_stiffener_layout(self, default_layout_list):
+        """
+        Load default stiffener layout list into table_layouts.
+        """
+        prop_count = len(default_layout_list)
+        self.table_layouts.setRowCount(prop_count)
+        row_index = 0
+        for layout in default_layout_list:
+            layout_id = QTableWidgetItem(str(layout["layout_id"]))
+            layout_name = QTableWidgetItem(str(layout["name"]))
+            layout_beam = QTableWidgetItem(str(layout["beam_prop"]))
+            layout_type = QTableWidgetItem(str(layout["def_type"]))
+            layout_value = QTableWidgetItem(str(layout["def_val"]))
+
+            layout_id.setTextAlignment(Qt.AlignCenter)
+            layout_name.setTextAlignment(Qt.AlignCenter)
+            layout_beam.setTextAlignment(Qt.AlignCenter)
+            layout_type.setTextAlignment(Qt.AlignCenter)
+            layout_value.setTextAlignment(Qt.AlignCenter)
+
+            self.table_layouts.setItem(row_index, 0, layout_id)
+            self.table_layouts.setItem(row_index, 1, layout_name)
+            self.table_layouts.setItem(row_index, 2, layout_beam)
+            self.table_layouts.setItem(row_index, 3, layout_type)
+            self.table_layouts.setItem(row_index, 4, layout_value)
             row_index += 1
 
     def add_new_material_prop(self):

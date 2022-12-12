@@ -2050,6 +2050,58 @@
       </property>
      </widget>
     </widget>
+    <widget class="QGroupBox" name="groupBox_GrillageTests">
+     <property name="geometry">
+      <rect>
+       <x>0</x>
+       <y>290</y>
+       <width>501</width>
+       <height>101</height>
+      </rect>
+     </property>
+     <property name="title">
+      <string>GrillageTests</string>
+     </property>
+     <widget class="QPushButton" name="btnTestMaterials">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>20</y>
+        <width>141</width>
+        <height>31</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Test Material Property</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="btnTestPlate">
+      <property name="geometry">
+       <rect>
+        <x>160</x>
+        <y>20</y>
+        <width>141</width>
+        <height>31</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Test Plate</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="btnTestSegments">
+      <property name="geometry">
+       <rect>
+        <x>310</x>
+        <y>20</y>
+        <width>141</width>
+        <height>31</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Test Segments</string>
+      </property>
+     </widget>
+    </widget>
    </widget>
   </widget>
  </widget>

@@ -127,6 +127,7 @@ class GenerateNewHC(QDialog):
         ui_file.close()
         self.hc_gui.setWindowTitle("Generate New Grillage Structure")
         self.hc_gui.show()
+        self._grillage: Grillage = None
 
         self.table_materials = self.hc_gui.tableMaterials
         self.table_plate = self.hc_gui.tablePlate
@@ -168,7 +169,16 @@ class GenerateNewHC(QDialog):
         self.update_scantling_groupbox()
         self.update_layout_groupbox()
 
-        self.TEST_HC_Setup()
+        # Tests
+        self.hc_gui.btnTestMaterials.clicked.connect(self.Test_material_properties)
+        self.hc_gui.btnTestSegments.clicked.connect(self.Test_segments)
+        self.hc_gui.btnTestPlate.clicked.connect(self.Test_plating)
+
+        self.hc_gui.groupBox_GrillageTests.hide()
+        self.debugging_mode = True
+        if self.debugging_mode:
+            self.hc_gui.groupBox_GrillageTests.show()
+            self.TEST_HC_Setup()
 
     def generate_material_property(self, grillage: Grillage):
         """
@@ -177,7 +187,7 @@ class GenerateNewHC(QDialog):
         """
         row_count = self.table_materials.rowCount()
         for row in range(0, row_count):
-            mat_id = self.table_materials.item(row, 0).text()
+            mat_id = int(self.table_materials.item(row, 0).text())
             name = self.table_materials.item(row, 1).text()
             E = self.table_materials.item(row, 2).text()
             v = self.table_materials.item(row, 3).text()
@@ -187,95 +197,95 @@ class GenerateNewHC(QDialog):
             grillage.add_material(mat_prop)
 
     def generate_T_beam_property(self, grillage: Grillage, table_row):
-        beam_id = self.table_beams.item(table_row, 0).text()
+        beam_id = int(self.table_beams.item(table_row, 0).text())
         beam_dims = self.table_beams.item(table_row, 3).text()
         mat_name = self.table_beams.item(table_row, 4).text()
         material_item = self.table_materials.findItems(mat_name, Qt.MatchContains)
         material_row = material_item[0].row()
-        mat_id = self.table_materials.item(material_row, 0).text()
+        mat_id = int(self.table_materials.item(material_row, 0).text())
 
         x_pos1 = beam_dims.find("x")
         x_pos2 = beam_dims.rfind("x")
         fs_pos = beam_dims.find("/")
 
-        hw = beam_dims[:x_pos1]
-        tw = beam_dims[x_pos1 + 1:fs_pos]
-        bf = beam_dims[fs_pos + 1:x_pos2]
-        tf = beam_dims[x_pos2 + 1:]
+        hw = float(beam_dims[:x_pos1])
+        tw = float(beam_dims[x_pos1 + 1:fs_pos])
+        bf = float(beam_dims[fs_pos + 1:x_pos2])
+        tf = float(beam_dims[x_pos2 + 1:])
 
         mat_prop = grillage.material_props()[mat_id]
         beam_prop = TBeamProperty(beam_id, hw, tw, bf, tf, mat_prop)
         grillage.add_beam_prop(beam_prop)
 
     def generate_L_beam_property(self, grillage: Grillage, table_row):
-        beam_id = self.table_beams.item(table_row, 0).text()
+        beam_id = int(self.table_beams.item(table_row, 0).text())
         beam_dims = self.table_beams.item(table_row, 3).text()
         mat_name = self.table_beams.item(table_row, 4).text()
         material_item = self.table_materials.findItems(mat_name, Qt.MatchContains)
         material_row = material_item[0].row()
-        mat_id = self.table_materials.item(material_row, 0).text()
+        mat_id = int(self.table_materials.item(material_row, 0).text())
 
         x_pos1 = beam_dims.find("x")
         x_pos2 = beam_dims.rfind("x")
         fs_pos = beam_dims.find("/")
 
-        hw = beam_dims[:x_pos1]
-        tw = beam_dims[x_pos1 + 1:fs_pos]
-        bf = beam_dims[fs_pos + 1:x_pos2]
-        tf = beam_dims[x_pos2 + 1:]
+        hw = float(beam_dims[:x_pos1])
+        tw = float(beam_dims[x_pos1 + 1:fs_pos])
+        bf = float(beam_dims[fs_pos + 1:x_pos2])
+        tf = float(beam_dims[x_pos2 + 1:])
 
         mat_prop = grillage.material_props()[mat_id]
         beam_prop = LBeamProperty(beam_id, hw, tw, bf, tf, mat_prop)
         grillage.add_beam_prop(beam_prop)
 
     def generate_FB_beam_property(self, grillage: Grillage, table_row):
-        beam_id = self.table_beams.item(table_row, 0).text()
+        beam_id = int(self.table_beams.item(table_row, 0).text())
         beam_dims = self.table_beams.item(table_row, 3).text()
         mat_name = self.table_beams.item(table_row, 4).text()
         material_item = self.table_materials.findItems(mat_name, Qt.MatchContains)
         material_row = material_item[0].row()
-        mat_id = self.table_materials.item(material_row, 0).text()
+        mat_id = int(self.table_materials.item(material_row, 0).text())
 
         x_pos1 = beam_dims.find("x")
-        hw = beam_dims[:x_pos1]
-        tw = beam_dims[x_pos1 + 1:]
+        hw = float(beam_dims[:x_pos1])
+        tw = float(beam_dims[x_pos1 + 1:])
 
         mat_prop = grillage.material_props()[mat_id]
         beam_prop = FBBeamProperty(beam_id, hw, tw, mat_prop)
         grillage.add_beam_prop(beam_prop)
 
     def generate_Bulb_beam_property(self, grillage: Grillage, table_row):
-        beam_id = self.table_beams.item(table_row, 0).text()
+        beam_id = int(self.table_beams.item(table_row, 0).text())
         beam_dims = self.table_beams.item(table_row, 3).text()
         mat_name = self.table_beams.item(table_row, 4).text()
         material_item = self.table_materials.findItems(mat_name, Qt.MatchContains)
         material_row = material_item[0].row()
-        mat_id = self.table_materials.item(material_row, 0).text()
+        mat_id = int(self.table_materials.item(material_row, 0).text())
 
         x_pos1 = beam_dims.find("x")
-        hw = beam_dims[:x_pos1]
-        tw = beam_dims[x_pos1 + 1:]
+        hw = float(beam_dims[:x_pos1])
+        tw = float(beam_dims[x_pos1 + 1:])
 
         mat_prop = grillage.material_props()[mat_id]
         beam_prop = BulbBeamProperty(beam_id, hw, tw, mat_prop)
         grillage.add_beam_prop(beam_prop)
 
     def generate_Hat_beam_property(self, grillage: Grillage, table_row):
-        beam_id = self.table_beams.item(table_row, 0).text()
+        beam_id = int(self.table_beams.item(table_row, 0).text())
         beam_dims = self.table_beams.item(table_row, 3).text()
         mat_name = self.table_beams.item(table_row, 4).text()
         material_item = self.table_materials.findItems(mat_name, Qt.MatchContains)
         material_row = material_item[0].row()
-        mat_id = self.table_materials.item(material_row, 0).text()
+        mat_id = int(self.table_materials.item(material_row, 0).text())
 
         x_pos1 = beam_dims.find("x")
         x_pos2 = beam_dims.rfind("x")
         fs_pos = beam_dims.find("/")
 
-        h = beam_dims[:x_pos1]
-        t = beam_dims[x_pos1 + 1:x_pos2]
-        bf = beam_dims[x_pos2 + 1:fs_pos]
-        fi = beam_dims[fs_pos + 1:]
+        h = float(beam_dims[:x_pos1])
+        t = float(beam_dims[x_pos1 + 1:x_pos2])
+        bf = float(beam_dims[x_pos2 + 1:fs_pos])
+        fi = float(beam_dims[fs_pos + 1:])
 
         mat_prop = grillage.material_props()[mat_id]
         beam_prop = HatBeamProperty(beam_id, h, t, bf, fi, mat_prop)
@@ -308,12 +318,12 @@ class GenerateNewHC(QDialog):
         """
         row_count = self.table_plate.rowCount()
         for row in range(0, row_count):
-            plate_id = self.table_plate.item(row, 0).text()
-            tp = self.table_plate.item(row, 2).text()
+            plate_id = int(self.table_plate.item(row, 0).text())
+            tp = float(self.table_plate.item(row, 2).text())
             mat_name = self.table_plate.item(row, 3).text()
             material_item = self.table_materials.findItems(mat_name, Qt.MatchContains)
             material_row = material_item[0].row()
-            mat_id = self.table_materials.item(material_row, 0).text()
+            mat_id = int(self.table_materials.item(material_row, 0).text())
             mat_prop = grillage.material_props()[mat_id]
 
             plate_prop = PlateProperty(plate_id, tp, mat_prop)
@@ -326,10 +336,10 @@ class GenerateNewHC(QDialog):
         """
         row_count = self.table_layouts.rowCount()
         for row in range(0, row_count):
-            layout_id = self.table_layouts.item(row, 0).text()
+            layout_id = int(self.table_layouts.item(row, 0).text())
             layout_beam = self.table_layouts.item(row, 2).text()
             layout_type = self.table_layouts.item(row, 3).text()
-            layout_value = self.table_layouts.item(row, 4).text()
+            layout_value = float(self.table_layouts.item(row, 4).text())
 
             definition_type = None
             if layout_type == "Number":
@@ -339,15 +349,15 @@ class GenerateNewHC(QDialog):
 
             beam_item = self.table_beams.findItems(layout_beam, Qt.MatchContains)
             beam_row = beam_item[0].row()
-            beam_id = self.table_beams.item(beam_row, 0).text()
+            beam_id = int(self.table_beams.item(beam_row, 0).text())
             beam_prop = grillage.beam_props()[beam_id]
 
             stiff_layout = StiffenerLayout(layout_id, beam_prop, definition_type, layout_value)
             grillage.add_stiffener_layout(stiff_layout)
 
     def generate_new_hc(self):
-        grillage_L = self.hc_gui.lineEdit_GrillageLength.text()
-        grillage_B = self.hc_gui.lineEdit_GrillageWidth.text()
+        grillage_L = float(self.hc_gui.lineEdit_GrillageLength.text())
+        grillage_B = float(self.hc_gui.lineEdit_GrillageWidth.text())
         n_long = self.hc_gui.spinBox_GrillageNofLong.value()
         n_tran = self.hc_gui.spinBox_GrillageNofTran.value()
         hc_variant = Grillage(grillage_L, grillage_B, n_long, n_tran)
@@ -372,31 +382,31 @@ class GenerateNewHC(QDialog):
         initial_long_beam_name = self.cbox_long_beam.currentText()
         long_beam_item = self.table_beams.findItems(initial_long_beam_name, Qt.MatchContains)
         long_beam_row = long_beam_item[0].row()
-        long_beam_id = self.table_beams.item(long_beam_row, 0).text()
+        long_beam_id = int(self.table_beams.item(long_beam_row, 0).text())
         initial_long_beam = hc_variant.beam_props()[long_beam_id]
 
         initial_tran_beam_name = self.cbox_tran_beam.currentText()
         tran_beam_item = self.table_beams.findItems(initial_tran_beam_name, Qt.MatchContains)
         tran_beam_row = tran_beam_item[0].row()
-        tran_beam_id = self.table_beams.item(tran_beam_row, 0).text()
+        tran_beam_id = int(self.table_beams.item(tran_beam_row, 0).text())
         initial_tran_beam = hc_variant.beam_props()[tran_beam_id]
 
         initial_edge_beam_name = self.cbox_edge_beam.currentText()
         edge_beam_item = self.table_beams.findItems(initial_edge_beam_name, Qt.MatchContains)
         edge_beam_row = edge_beam_item[0].row()
-        edge_beam_id = self.table_beams.item(edge_beam_row, 0).text()
+        edge_beam_id = int(self.table_beams.item(edge_beam_row, 0).text())
         initial_edge_beam = hc_variant.beam_props()[edge_beam_id]
 
         initial_plate_prop_name = self.cbox_plate_prop.currentText()
         plate_prop_item = self.table_plate.findItems(initial_plate_prop_name, Qt.MatchContains)
         plate_prop_row = plate_prop_item[0].row()
-        plate_prop_id = self.table_plate.item(plate_prop_row, 0).text()
+        plate_prop_id = int(self.table_plate.item(plate_prop_row, 0).text())
         initial_plate_prop = hc_variant.plate_props()[plate_prop_id]
 
         initial_stiff_layout_name = self.cbox_stiff_layout.currentText()
         layout_item = self.table_layouts.findItems(initial_stiff_layout_name, Qt.MatchContains)
         layout_row = layout_item[0].row()
-        layout_id = self.table_layouts.item(layout_row, 0).text()
+        layout_id = int(self.table_layouts.item(layout_row, 0).text())
         initial_stiff_layout = hc_variant.stiffener_layouts()[layout_id]
 
         hc_variant.generate_prim_supp_members()
@@ -408,8 +418,9 @@ class GenerateNewHC(QDialog):
         hc_variant.assign_symmetric_plating()
         hc_variant.assign_symmetric_segments()
 
-        #self._sgdc.onNewHatchCover(hc_variant)
-        self._sgdc.onNewHatchCover(GrillageGeometry(hc_variant,"New hatch cover"))
+        # self._sgdc.onNewHatchCover(GrillageGeometry(hc_variant,"New hatch cover"))
+        self._sgdc.onNewHatchCover(hc_variant)
+        self._grillage = hc_variant
 
     def TEST_HC_Setup(self):
         # Za testiranje
@@ -418,6 +429,58 @@ class GenerateNewHC(QDialog):
         self.hc_gui.spinBox_GrillageNofLong.setValue(5)
         self.hc_gui.spinBox_GrillageNofTran.setValue(5)
         self.hc_gui.lineEdit_CorrosionAddition.setText("2")
+
+    def Test_material_properties(self):
+        for mat in self._grillage.material_props().values():
+            print(" Karakteristike unesenog materijala sa ID =", mat.id, type(mat.id))
+            print(" Naziv: ", mat.name, type(mat.name))
+            print(" Modul elasticnosti,     E = ", mat.E, "N/mm2", type(mat.E))
+            print(" Poissonov koeficijet,   v = ", mat.v, type(mat.v))
+            print(" Gustoca materijala,    ro = ", mat.ro, "t/mm3", type(mat.ro))
+            print(" Granica razvlacenja,  Reh = ", mat.Reh, "N/mm2", type(mat.Reh), "\n")
+
+    def Test_segments(self):
+        grillage = self._grillage
+        print("Duljina:", grillage.L_overall, type(grillage.L_overall))
+        print("Širina:", grillage.B_overall, type(grillage.B_overall))
+        print("Broj uzdužnih nosača:", grillage.N_longitudinal, type(grillage.N_longitudinal))
+        print("Broj poprečnih nosača:", grillage.N_transverse, type(grillage.N_transverse))
+
+        for i in self._grillage.longitudinal_members():
+            for i_segmenta in range(0, self._grillage.N_transverse - 1):
+                curr_segment = self._grillage.longitudinal_members()[i].segments[i_segmenta]
+                print("Jaki uzduzni nosac", i, ", ID segmenta:", curr_segment.id,
+                      " ,BeamProperty ID:", curr_segment.beam_prop.id,
+                      ", Wmin =", "{:.2f}".format(curr_segment.Wmin), "cm3",
+                      ", sunosivo oplocenje: bp =", "{:.1f}".format(Segment.get_attplate(curr_segment)[0]), "mm",
+                      ", tp =", Segment.get_attplate(curr_segment)[1], "mm",
+                      ", tip profila: ", curr_segment.beam_prop.beam_type)
+
+        for i in self._grillage.transverse_members():
+            for i_segmenta in range(0, self._grillage.N_longitudinal - 1):
+                curr_segment = self._grillage.transverse_members()[i].segments[i_segmenta]
+                print("Jaki poprecni nosac", i, ", ID segmenta:", curr_segment.id,
+                      ", BeamProperty ID:", curr_segment.beam_prop.id,
+                      ", Wmin =", "{:.2f}".format(curr_segment.Wmin), "cm3",
+                      ", sunosivo oplocenje: bp =", "{:.1f}".format(Segment.get_attplate(curr_segment)[0]), "mm",
+                      ", tp =", Segment.get_attplate(curr_segment)[1], "mm",
+                      ", tip profila: ", curr_segment.beam_prop.beam_type)
+
+    def Test_plating(self):
+        grillage = self._grillage
+        for plate_id in range(1, (grillage.N_longitudinal - 1) * (grillage.N_transverse - 1) + 1):
+            plate = grillage.plating()[plate_id]
+            print(" Polje oplate:", plate.id,
+                  ",  tp =", plate.plate_prop.tp, "mm", type(plate.plate_prop.tp),
+                  ", tp_net =", PlateProperty.tp_net(grillage.corrosion_addition()[1], plate.plate_prop.tp),
+                  ",  Reh =", plate.plate_prop.plate_mat.Reh,
+                  ", long seg1", grillage.plating()[plate_id].long_seg1.id, "psm", grillage.plating()[plate_id].long_seg1.primary_supp_mem.id,
+                  ", long seg2", grillage.plating()[plate_id].long_seg2.id, "psm", grillage.plating()[plate_id].long_seg2.primary_supp_mem.id,
+                  ", tran seg1", grillage.plating()[plate_id].trans_seg1.id, "psm", grillage.plating()[plate_id].trans_seg1.primary_supp_mem.id,
+                  ", tran seg2", grillage.plating()[plate_id].trans_seg2.id, "psm", grillage.plating()[plate_id].trans_seg2.primary_supp_mem.id,
+                  ", def type: ", plate.stiff_layout.definition_type,
+                  ", iznos: ", plate.stiff_layout.definition_value, type(plate.stiff_layout.definition_value),
+                  " ,", plate.stiff_dir, type(plate.stiff_dir))
 
     @staticmethod
     def default_materials():
@@ -974,7 +1037,7 @@ class SGDCommand(Command):
         pass
 
     def onNewHatchCover(self, grillage: Grillage):
-        if isinstance(grillage, GrillageGeometry):
+        if isinstance(grillage, Grillage):
             QApplication.changeOverrideCursor(QCursor(Qt.WaitCursor))
             old_grillgeo = self._grillgeo
             self._grillgeo = GrillageGeometry(grillage, 'New hatch cover name')

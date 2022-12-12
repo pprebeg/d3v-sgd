@@ -117,8 +117,9 @@ def tmp_fun_gen_hc_var1():
 
 # noinspection PyUnresolvedReferences
 class GenerateNewHC(QDialog):
-    def __init__(self, parent):
+    def __init__(self, parent, sgdc):
         super().__init__(parent)
+        self._sgdc: SGDCommand = sgdc
         loader = QtUiTools.QUiLoader()
         ui_file = QtCore.QFile("../commands/hc_GUI.ui")  # Qt designer ui file
         ui_file.open(QtCore.QFile.ReadOnly)
@@ -138,33 +139,265 @@ class GenerateNewHC(QDialog):
         self.cbox_layout_beam = self.hc_gui.cBox_LayoutBeamProp
         self.cbox_long_beam = self.hc_gui.cBox_LongitudinalBeamProp
         self.cbox_tran_beam = self.hc_gui.cBox_TransverseBeamProp
-        self.cbox_stiff_beam = self.hc_gui.cBox_StiffenerBeamProp
+        self.cbox_edge_beam = self.hc_gui.cBox_EdgeBeamProp
+        self.cbox_stiff_layout = self.hc_gui.cBox_StiffenerLayout
         self.cbox_layout_type = self.hc_gui.cBox_LayoutDefinitionType
+        self.cbox_plate_prop = self.hc_gui.cBox_PlatingProperty
+        self.cbox_stiff_dir = self.hc_gui.cBox_StiffenerDirection
 
-        self.cbox_beam_type.currentIndexChanged.connect(self.update_beam_combobox)
+        self.cbox_beam_type.currentIndexChanged.connect(self.update_scantling_groupbox)
+        self.cbox_layout_type.currentIndexChanged.connect(self.update_layout_groupbox)
 
         self.hc_gui.btnAddNewMaterial.clicked.connect(self.add_new_material_prop)
         self.hc_gui.btnAddNewPlate.clicked.connect(self.add_new_plate_prop)
         self.hc_gui.btnAddNewBeam.clicked.connect(self.add_new_beam)
         self.hc_gui.btnAddNewLayout.clicked.connect(self.add_new_layout)
-        self.hc_gui.btnGenerateGrillage.clicked.connect(self.gnerate_new_hc)
+        self.hc_gui.btnGenerateGrillage.clicked.connect(self.generate_new_hc)
 
         self.load_materials_list(self.default_materials())
         self.update_material_combobox()
-        self.update_beam_combobox()
+        self.update_scantling_groupbox()
+        self.update_layout_groupbox()
 
-    def gnerate_new_hc(self):
-        # row_count = self.table_materials.rowCount()
-        # for row in range(0, row_count):
-        #     mat_id = int(self.table_materials.item(row, 0).text())
-        #     name = self.table_materials.item(row, 1).text()
-        #     E = float(self.table_materials.item(row, 2).text())
-        #     v = float(self.table_materials.item(row, 3).text())
-        #     Reh = float(self.table_materials.item(row, 4).text())
-        #     ro = float(self.table_materials.item(row, 5).text())
-        #
-        # return hc_variant
-        pass
+    def generate_material_property(self, grillage: Grillage):
+        """
+        Generates MaterialProperty objects based on data in table_materials.
+        :param grillage: Grillage model.
+        """
+        row_count = self.table_materials.rowCount()
+        for row in range(0, row_count):
+            mat_id = self.table_materials.item(row, 0).text()
+            name = self.table_materials.item(row, 1).text()
+            E = self.table_materials.item(row, 2).text()
+            v = self.table_materials.item(row, 3).text()
+            Reh = self.table_materials.item(row, 4).text()
+            ro = self.table_materials.item(row, 5).text()
+            mat_prop = MaterialProperty(mat_id, E, v, ro, Reh, name)
+            grillage.add_material(mat_prop)
+
+    def generate_T_beam_property(self, grillage: Grillage, table_row):
+        beam_id = self.table_beams.item(table_row, 0).text()
+        beam_dims = self.table_beams.item(table_row, 3).text()
+        mat_name = self.table_beams.item(table_row, 4).text()
+        material_item = self.table_materials.findItems(mat_name, Qt.MatchContains)
+        material_row = material_item[0].row()
+        mat_id = self.table_materials.item(material_row, 0).text()
+
+        x_pos1 = beam_dims.find("x")
+        x_pos2 = beam_dims.rfind("x")
+        fs_pos = beam_dims.find("/")
+
+        hw = beam_dims[:x_pos1]
+        tw = beam_dims[x_pos1 + 1:fs_pos]
+        bf = beam_dims[fs_pos + 1:x_pos2]
+        tf = beam_dims[x_pos2 + 1:]
+
+        mat_prop = grillage.material_props()[mat_id]
+        beam_prop = TBeamProperty(beam_id, hw, tw, bf, tf, mat_prop)
+        grillage.add_beam_prop(beam_prop)
+
+    def generate_L_beam_property(self, grillage: Grillage, table_row):
+        beam_id = self.table_beams.item(table_row, 0).text()
+        beam_dims = self.table_beams.item(table_row, 3).text()
+        mat_name = self.table_beams.item(table_row, 4).text()
+        material_item = self.table_materials.findItems(mat_name, Qt.MatchContains)
+        material_row = material_item[0].row()
+        mat_id = self.table_materials.item(material_row, 0).text()
+
+        x_pos1 = beam_dims.find("x")
+        x_pos2 = beam_dims.rfind("x")
+        fs_pos = beam_dims.find("/")
+
+        hw = beam_dims[:x_pos1]
+        tw = beam_dims[x_pos1 + 1:fs_pos]
+        bf = beam_dims[fs_pos + 1:x_pos2]
+        tf = beam_dims[x_pos2 + 1:]
+
+        mat_prop = grillage.material_props()[mat_id]
+        beam_prop = LBeamProperty(beam_id, hw, tw, bf, tf, mat_prop)
+        grillage.add_beam_prop(beam_prop)
+
+    def generate_FB_beam_property(self, grillage: Grillage, table_row):
+        beam_id = self.table_beams.item(table_row, 0).text()
+        beam_dims = self.table_beams.item(table_row, 3).text()
+        mat_name = self.table_beams.item(table_row, 4).text()
+        material_item = self.table_materials.findItems(mat_name, Qt.MatchContains)
+        material_row = material_item[0].row()
+        mat_id = self.table_materials.item(material_row, 0).text()
+
+        x_pos1 = beam_dims.find("x")
+        hw = beam_dims[:x_pos1]
+        tw = beam_dims[x_pos1 + 1:]
+
+        mat_prop = grillage.material_props()[mat_id]
+        beam_prop = FBBeamProperty(beam_id, hw, tw, mat_prop)
+        grillage.add_beam_prop(beam_prop)
+
+    def generate_Bulb_beam_property(self, grillage: Grillage, table_row):
+        beam_id = self.table_beams.item(table_row, 0).text()
+        beam_dims = self.table_beams.item(table_row, 3).text()
+        mat_name = self.table_beams.item(table_row, 4).text()
+        material_item = self.table_materials.findItems(mat_name, Qt.MatchContains)
+        material_row = material_item[0].row()
+        mat_id = self.table_materials.item(material_row, 0).text()
+
+        x_pos1 = beam_dims.find("x")
+        hw = beam_dims[:x_pos1]
+        tw = beam_dims[x_pos1 + 1:]
+
+        mat_prop = grillage.material_props()[mat_id]
+        beam_prop = BulbBeamProperty(beam_id, hw, tw, mat_prop)
+        grillage.add_beam_prop(beam_prop)
+
+    def generate_Hat_beam_property(self, grillage: Grillage, table_row):
+        beam_id = self.table_beams.item(table_row, 0).text()
+        beam_dims = self.table_beams.item(table_row, 3).text()
+        mat_name = self.table_beams.item(table_row, 4).text()
+        material_item = self.table_materials.findItems(mat_name, Qt.MatchContains)
+        material_row = material_item[0].row()
+        mat_id = self.table_materials.item(material_row, 0).text()
+
+        x_pos1 = beam_dims.find("x")
+        x_pos2 = beam_dims.rfind("x")
+        fs_pos = beam_dims.find("/")
+
+        h = beam_dims[:x_pos1]
+        t = beam_dims[x_pos1 + 1:x_pos2]
+        bf = beam_dims[x_pos2 + 1:fs_pos]
+        fi = beam_dims[fs_pos + 1:]
+
+        mat_prop = grillage.material_props()[mat_id]
+        beam_prop = HatBeamProperty(beam_id, h, t, bf, fi, mat_prop)
+        grillage.add_beam_prop(beam_prop)
+
+    def generate_beam_properties(self, grillage: Grillage):
+        """
+        Generates BeamProperty objects based on data in table_beams.
+        :param grillage: Grillage model.
+        """
+        row_count = self.table_beams.rowCount()
+        for row in range(0, row_count):
+            beam_type = self.table_beams.item(row, 2).text()
+
+            if beam_type == "T":
+                self.generate_T_beam_property(grillage, row)
+            elif beam_type == "L":
+                self.generate_L_beam_property(grillage, row)
+            elif beam_type == "FB":
+                self.generate_FB_beam_property(grillage, row)
+            elif beam_type == "Bulb":
+                self.generate_Bulb_beam_property(grillage, row)
+            elif beam_type == "Hat":
+                self.generate_Hat_beam_property(grillage, row)
+
+    def generate_plate_property(self, grillage: Grillage):
+        """
+        Generates PlateProperty objects based on data in table_plate.
+        :param grillage: Grillage model.
+        """
+        row_count = self.table_plate.rowCount()
+        for row in range(0, row_count):
+            plate_id = self.table_plate.item(row, 0).text()
+            tp = self.table_plate.item(row, 2).text()
+            mat_name = self.table_plate.item(row, 3).text()
+            material_item = self.table_materials.findItems(mat_name, Qt.MatchContains)
+            material_row = material_item[0].row()
+            mat_id = self.table_materials.item(material_row, 0).text()
+            mat_prop = grillage.material_props()[mat_id]
+
+            plate_prop = PlateProperty(plate_id, tp, mat_prop)
+            grillage.add_plate_prop(plate_prop)
+
+    def generate_stiffener_layout(self, grillage: Grillage):
+        """
+        Generates StiffenerLayout objects based on data in table_layouts.
+        :param grillage: Grillage model.
+        """
+        row_count = self.table_layouts.rowCount()
+        for row in range(0, row_count):
+            layout_id = self.table_layouts.item(row, 0).text()
+            layout_beam = self.table_layouts.item(row, 2).text()
+            layout_type = self.table_layouts.item(row, 3).text()
+            layout_value = self.table_layouts.item(row, 4).text()
+
+            definition_type = None
+            if layout_type == "Number":
+                definition_type = DefinitionType.NUMBER
+            elif layout_type == "Spacing":
+                definition_type = DefinitionType.SPACING
+
+            beam_item = self.table_beams.findItems(layout_beam, Qt.MatchContains)
+            beam_row = beam_item[0].row()
+            beam_id = self.table_beams.item(beam_row, 0).text()
+            beam_prop = grillage.beam_props()[beam_id]
+
+            stiff_layout = StiffenerLayout(layout_id, beam_prop, definition_type, layout_value)
+            grillage.add_stiffener_layout(stiff_layout)
+
+    def generate_new_hc(self):
+        grillage_L = self.hc_gui.lineEdit_GrillageLength.text()
+        grillage_B = self.hc_gui.lineEdit_GrillageWidth.text()
+        n_long = self.hc_gui.spinBox_GrillageNofLong.value()
+        n_tran = self.hc_gui.spinBox_GrillageNofTran.value()
+        hc_variant = Grillage(grillage_L, grillage_B, n_long, n_tran)
+
+        tc_input_val = self.hc_gui.lineEdit_CorrosionAddition.text()
+        tc_input_ID = 1
+        tc = CorrosionAddition(tc_input_ID, tc_input_val)
+        hc_variant.add_corrosion_addition(tc)
+
+        self.generate_material_property(hc_variant)
+        self.generate_beam_properties(hc_variant)
+        self.generate_plate_property(hc_variant)
+        self.generate_stiffener_layout(hc_variant)
+
+        stiff_dir_input = self.cbox_stiff_dir.currentText()
+        stiff_dir = None
+        if stiff_dir_input == "Longitudinal":
+            stiff_dir = BeamDirection.LONGITUDINAL
+        elif stiff_dir_input == "Transverse":
+            stiff_dir = BeamDirection.TRANSVERSE
+
+        initial_long_beam_name = self.cbox_long_beam.currentText()
+        long_beam_item = self.table_beams.findItems(initial_long_beam_name, Qt.MatchContains)
+        long_beam_row = long_beam_item[0].row()
+        long_beam_id = self.table_beams.item(long_beam_row, 0).text()
+        initial_long_beam = hc_variant.beam_props()[long_beam_id]
+
+        initial_tran_beam_name = self.cbox_tran_beam.currentText()
+        tran_beam_item = self.table_beams.findItems(initial_tran_beam_name, Qt.MatchContains)
+        tran_beam_row = tran_beam_item[0].row()
+        tran_beam_id = self.table_beams.item(tran_beam_row, 0).text()
+        initial_tran_beam = hc_variant.beam_props()[tran_beam_id]
+
+        initial_edge_beam_name = self.cbox_edge_beam.currentText()
+        edge_beam_item = self.table_beams.findItems(initial_edge_beam_name, Qt.MatchContains)
+        edge_beam_row = edge_beam_item[0].row()
+        edge_beam_id = self.table_beams.item(edge_beam_row, 0).text()
+        initial_edge_beam = hc_variant.beam_props()[edge_beam_id]
+
+        initial_plate_prop_name = self.cbox_plate_prop.currentText()
+        plate_prop_item = self.table_plate.findItems(initial_plate_prop_name, Qt.MatchContains)
+        plate_prop_row = plate_prop_item[0].row()
+        plate_prop_id = self.table_plate.item(plate_prop_row, 0).text()
+        initial_plate_prop = hc_variant.plate_props()[plate_prop_id]
+
+        initial_stiff_layout_name = self.cbox_stiff_layout.currentText()
+        layout_item = self.table_layouts.findItems(initial_stiff_layout_name, Qt.MatchContains)
+        layout_row = layout_item[0].row()
+        layout_id = self.table_layouts.item(layout_row, 0).text()
+        initial_stiff_layout = hc_variant.stiffener_layouts()[layout_id]
+
+        hc_variant.generate_prim_supp_members()
+        hc_variant.generate_segments(initial_long_beam, initial_tran_beam, initial_edge_beam)
+        hc_variant.generate_plating(initial_plate_prop, initial_stiff_layout, stiff_dir)
+        hc_variant.generate_elementary_plate_panels()
+
+        hc_variant.assign_symmetric_members()
+        hc_variant.assign_symmetric_plating()
+        hc_variant.assign_symmetric_segments()
+
+        self._sgdc.onNewHatchCover(hc_variant)
 
     @staticmethod
     def default_materials():
@@ -262,9 +495,43 @@ class GenerateNewHC(QDialog):
         Updates stiffener beam combobox for new layout and grillage generation.
         """
         self.cbox_layout_beam.clear()
-        self.cbox_stiff_beam.clear()
         self.cbox_layout_beam.addItems(self.get_beam_list())
-        self.cbox_stiff_beam.addItems(self.get_beam_list())
+
+    def update_psm_beam_bombobox(self):
+        """
+        Updates psm beam combobox for new grillage generation.
+        """
+        self.cbox_long_beam.clear()
+        self.cbox_tran_beam.clear()
+        self.cbox_edge_beam.clear()
+        self.cbox_long_beam.addItems(self.get_psm_beam_list())
+        self.cbox_tran_beam.addItems(self.get_psm_beam_list())
+        self.cbox_edge_beam.addItems(self.get_psm_beam_list())
+
+    def update_plating_combobox(self):
+        """
+        Updates plate combobox for new grillage generation.
+        """
+        self.cbox_plate_prop.clear()
+        self.cbox_plate_prop.addItems(self.get_plate_prop_list())
+
+    def update_layouts_combobox(self):
+        """
+        Updates stiffener layout combobox for new grillage generation.
+        """
+        self.cbox_stiff_layout.clear()
+        self.cbox_stiff_layout.addItems(self.get_layout_list())
+
+    def get_plate_prop_list(self):
+        """
+        :return: List of plate names entered into table_plate.
+        """
+        row_count = self.table_plate.rowCount()
+        plate_list = [None] * row_count
+        for row in range(0, row_count):
+            name = self.table_plate.item(row, 1).text()
+            plate_list[row] = name
+        return plate_list
 
     def add_new_plate_prop(self):
         """
@@ -291,6 +558,8 @@ class GenerateNewHC(QDialog):
         self.table_plate.setItem(row_count, 1, plate_name)
         self.table_plate.setItem(row_count, 2, tp)
         self.table_plate.setItem(row_count, 3, plate_mat)
+
+        self.update_plating_combobox()
 
     def get_T_beam_dims(self):
         """
@@ -336,17 +605,20 @@ class GenerateNewHC(QDialog):
 
     def get_Hat_beam_dims(self):
         """
-        :return: L beam dimensions string.
+        :return: Hat beam dimensions string.
         """
         h = self.hc_gui.lineEdit_h_Hat.text()
         t = self.hc_gui.lineEdit_t_Hat.text()
         bf = self.hc_gui.lineEdit_bf_Hat.text()
         fi = self.hc_gui.lineEdit_fi_Hat.text()
         dim_str = h + "x" + t + "x"
-        dim_str += bf + "x" + fi
+        dim_str += bf + "/" + fi
         return dim_str
 
     def get_beam_dimensions(self):
+        """
+        :return: Beam dimensions string for table_beams.
+        """
         beam_type = self.cbox_beam_type.currentText()
         dim_str = None
         if beam_type == "T":
@@ -390,15 +662,45 @@ class GenerateNewHC(QDialog):
         self.table_beams.setItem(row_count, 2, beam_type)
         self.table_beams.setItem(row_count, 3, beam_dims)
         self.table_beams.setItem(row_count, 4, beam_mat)
+
         self.update_stiffener_beam_combobox()
+        self.update_psm_beam_bombobox()
 
     def get_beam_list(self):
+        """
+        :return: List of beam names entered into table_beams.
+        """
         row_count = self.table_beams.rowCount()
         beam_list = [None] * row_count
         for row in range(0, row_count):
             name = self.table_beams.item(row, 1).text()
             beam_list[row] = name
         return beam_list
+
+    def get_psm_beam_list(self):
+        """
+         :return: List of beam names for Primary Supporting Members entered into table_beams.
+         """
+        row_count = self.table_beams.rowCount()
+        psm_beam_list = []
+        for row in range(0, row_count):
+            name = self.table_beams.item(row, 1).text()
+            beam_type = self.table_beams.item(row, 2).text()
+            psm_beams = ["T", "L", "FB"]
+            if beam_type in psm_beams:
+                psm_beam_list.append(name)
+        return psm_beam_list
+
+    def get_layout_list(self):
+        """
+        :return: List of stiffener layout names entered into table_layouts.
+        """
+        row_count = self.table_layouts.rowCount()
+        layout_list = [None] * row_count
+        for row in range(0, row_count):
+            name = self.table_layouts.item(row, 1).text()
+            layout_list[row] = name
+        return layout_list
 
     def add_new_layout(self):
         """
@@ -408,7 +710,11 @@ class GenerateNewHC(QDialog):
         layout_name_input = self.hc_gui.lineEdit_LayoutName.text()
         layout_beam_input = self.cbox_layout_beam.currentText()
         layout_type_input = self.cbox_layout_type.currentText()
-        layout_value_input = self.hc_gui.lineEdit_LayoutValue.text()
+        layout_value_input = None
+        if layout_type_input == "Number":
+            layout_value_input = self.hc_gui.lineEdit_LayoutNumOfStiffeners.text()
+        elif layout_type_input == "Spacing":
+            layout_value_input = self.hc_gui.lineEdit_LayoutStiffenerSpacing.text()
 
         layout_id = QTableWidgetItem(layout_id_input)
         layout_name = QTableWidgetItem(layout_name_input)
@@ -430,9 +736,11 @@ class GenerateNewHC(QDialog):
         self.table_layouts.setItem(row_count, 3, layout_type)
         self.table_layouts.setItem(row_count, 4, layout_value)
 
-    def update_beam_combobox(self):
+        self.update_layouts_combobox()
+
+    def update_scantling_groupbox(self):
         """
-        Hides all overlapping group boxes (gb) and shows the selected one.
+        Hides all overlapping scantling group boxes (gb) and shows the selected one.
         """
         beam_type = self.cbox_beam_type.currentText()
         gb_T = self.hc_gui.groupBox_T_Scantlings
@@ -457,6 +765,22 @@ class GenerateNewHC(QDialog):
             gb_Bulb.show()
         elif beam_type == "Hat":
             gb_Hat.show()
+
+    def update_layout_groupbox(self):
+        """
+        Hides overlapping layout group boxes (gb) and shows the selected one.
+        """
+        definition_type = self.cbox_layout_type.currentText()
+        gb_number = self.hc_gui.groupBox_NumberDefinition
+        gb_spacing = self.hc_gui.groupBox_SpacingDefinition
+
+        gb_number.hide()
+        gb_spacing.hide()
+
+        if definition_type == "Number":
+            gb_number.show()
+        elif definition_type == "Spacing":
+            gb_spacing.show()
 
 
 class SGDCommand(Command):
@@ -527,11 +851,10 @@ class SGDCommand(Command):
         analysis_gui.exec()
         pass
 
-    def onNewHatchCover(self):
+    def onNewHatchCover(self, grillage: Grillage):
         QApplication.changeOverrideCursor(QCursor(Qt.WaitCursor))
         old_grillgeo = self._grillgeo
-        grill= tmp_fun_gen_hc_var1()
-        self._grillgeo = GrillageGeometry(grill,'New hatch cover name')
+        self._grillgeo = GrillageGeometry(grillage, 'New hatch cover name')
         if old_grillgeo is not None:
             manager.remove_geometry([old_grillgeo])
         if self._grillgeo is not None:
@@ -540,8 +863,7 @@ class SGDCommand(Command):
         QApplication.restoreOverrideCursor()
 
     def onNewHatchCoverGUI(self):
-        new_hc = GenerateNewHC(self.mainwin)
-        return new_hc
+        GenerateNewHC(self.mainwin, self)
 
     @Slot()
     def onGeometryCreated(self, geometries: List[Geometry]):

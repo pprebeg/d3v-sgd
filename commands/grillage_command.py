@@ -397,7 +397,7 @@ class GenerateNewHC(QDialog):
         hc_variant.assign_symmetric_plating()
         hc_variant.assign_symmetric_segments()
 
-        self._sgdc.onNewHatchCover(hc_variant)
+        #self._sgdc.onNewHatchCover(hc_variant)
         self._sgdc.onNewHatchCover(GrillageGeometry(hc_variant,"New hatch cover"))
     @staticmethod
     def default_materials():

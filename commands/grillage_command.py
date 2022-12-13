@@ -154,28 +154,21 @@ class GenerateNewHC(QDialog):
         self.hc_gui.btnAddNewBeam.clicked.connect(self.add_new_beam)
         self.hc_gui.btnAddNewLayout.clicked.connect(self.add_new_layout)
         self.hc_gui.btnGenerateGrillage.clicked.connect(self.generate_new_hc)
+        self.hc_gui.btnSaveGrillage.clicked.connect(self.save_new_hc)
 
-        self.load_materials_list(self.default_materials())
-        self.load_plate_property(self.default_plate_props())
-        self.load_beam_property(self.default_beam_props())
-        self.load_stiffener_layout(self.default_stiff_layouts())
-
-        self.update_material_combobox()
-        self.update_plating_combobox()
-        self.update_stiffener_beam_combobox()
-        self.update_psm_beam_bombobox()
-        self.update_layouts_combobox()
-
+        self.load_initial_properties()
+        self.initial_combobox_update()
         self.update_scantling_groupbox()
         self.update_layout_groupbox()
+        self.resize_columns()
+        self.initial_grillage_values()
 
         # Tests
         self.hc_gui.btnTestMaterials.clicked.connect(self.Test_material_properties)
         self.hc_gui.btnTestSegments.clicked.connect(self.Test_segments)
         self.hc_gui.btnTestPlate.clicked.connect(self.Test_plating)
-
         self.hc_gui.groupBox_GrillageTests.hide()
-        self.debugging_mode = True
+        self.debugging_mode = False
         if self.debugging_mode:
             self.hc_gui.groupBox_GrillageTests.show()
             self.TEST_HC_Setup()
@@ -362,7 +355,7 @@ class GenerateNewHC(QDialog):
         n_tran = self.hc_gui.spinBox_GrillageNofTran.value()
         hc_variant = Grillage(grillage_L, grillage_B, n_long, n_tran)
 
-        tc_input_val = self.hc_gui.lineEdit_CorrosionAddition.text()
+        tc_input_val = float(self.hc_gui.lineEdit_CorrosionAddition.text())
         tc_input_ID = 1
         tc = CorrosionAddition(tc_input_ID, tc_input_val)
         hc_variant.add_corrosion_addition(tc)
@@ -418,69 +411,37 @@ class GenerateNewHC(QDialog):
         hc_variant.assign_symmetric_plating()
         hc_variant.assign_symmetric_segments()
 
-        # self._sgdc.onNewHatchCover(GrillageGeometry(hc_variant,"New hatch cover"))
-        self._sgdc.onNewHatchCover(hc_variant)
+        grillage_name = self.hc_gui.lineEdit_GrillageName.text()
+        self._sgdc.onNewHatchCover(GrillageGeometry(hc_variant, grillage_name))
         self._grillage = hc_variant
 
-    def TEST_HC_Setup(self):
-        # Za testiranje
-        self.hc_gui.lineEdit_GrillageLength.setText("20")
-        self.hc_gui.lineEdit_GrillageWidth.setText("18")
-        self.hc_gui.spinBox_GrillageNofLong.setValue(5)
-        self.hc_gui.spinBox_GrillageNofTran.setValue(5)
+    def save_new_hc(self):
+        grillage = self._grillage
+        savefile_name = self.hc_gui.lineEdit_GrillageSavefile.text()
+        filename = "../grillage savefiles/" + str(savefile_name)
+        GrillageModelData(filename).write_file(grillage)
+        print("Saved grillage model data to file ", savefile_name)
+
+    def resize_columns(self):
+        self.table_materials.setColumnWidth(0, 20)
+        self.table_plate.setColumnWidth(0, 20)
+        self.table_beams.setColumnWidth(0, 20)
+        self.table_layouts.setColumnWidth(0, 20)
+
+    def initial_combobox_update(self):
+        self.update_material_combobox()
+        self.update_plating_combobox()
+        self.update_stiffener_beam_combobox()
+        self.update_psm_beam_bombobox()
+        self.update_layouts_combobox()
+
+    def initial_grillage_values(self):
+        """
+        Sets initial names and values for new hatch cover generation.
+        """
+        self.hc_gui.lineEdit_GrillageName.setText("New hatch cover")
+        self.hc_gui.lineEdit_GrillageSavefile.setText("hc_variant_savefile.gin")
         self.hc_gui.lineEdit_CorrosionAddition.setText("2")
-
-    def Test_material_properties(self):
-        for mat in self._grillage.material_props().values():
-            print(" Karakteristike unesenog materijala sa ID =", mat.id, type(mat.id))
-            print(" Naziv: ", mat.name, type(mat.name))
-            print(" Modul elasticnosti,     E = ", mat.E, "N/mm2", type(mat.E))
-            print(" Poissonov koeficijet,   v = ", mat.v, type(mat.v))
-            print(" Gustoca materijala,    ro = ", mat.ro, "t/mm3", type(mat.ro))
-            print(" Granica razvlacenja,  Reh = ", mat.Reh, "N/mm2", type(mat.Reh), "\n")
-
-    def Test_segments(self):
-        grillage = self._grillage
-        print("Duljina:", grillage.L_overall, type(grillage.L_overall))
-        print("Širina:", grillage.B_overall, type(grillage.B_overall))
-        print("Broj uzdužnih nosača:", grillage.N_longitudinal, type(grillage.N_longitudinal))
-        print("Broj poprečnih nosača:", grillage.N_transverse, type(grillage.N_transverse))
-
-        for i in self._grillage.longitudinal_members():
-            for i_segmenta in range(0, self._grillage.N_transverse - 1):
-                curr_segment = self._grillage.longitudinal_members()[i].segments[i_segmenta]
-                print("Jaki uzduzni nosac", i, ", ID segmenta:", curr_segment.id,
-                      " ,BeamProperty ID:", curr_segment.beam_prop.id,
-                      ", Wmin =", "{:.2f}".format(curr_segment.Wmin), "cm3",
-                      ", sunosivo oplocenje: bp =", "{:.1f}".format(Segment.get_attplate(curr_segment)[0]), "mm",
-                      ", tp =", Segment.get_attplate(curr_segment)[1], "mm",
-                      ", tip profila: ", curr_segment.beam_prop.beam_type)
-
-        for i in self._grillage.transverse_members():
-            for i_segmenta in range(0, self._grillage.N_longitudinal - 1):
-                curr_segment = self._grillage.transverse_members()[i].segments[i_segmenta]
-                print("Jaki poprecni nosac", i, ", ID segmenta:", curr_segment.id,
-                      ", BeamProperty ID:", curr_segment.beam_prop.id,
-                      ", Wmin =", "{:.2f}".format(curr_segment.Wmin), "cm3",
-                      ", sunosivo oplocenje: bp =", "{:.1f}".format(Segment.get_attplate(curr_segment)[0]), "mm",
-                      ", tp =", Segment.get_attplate(curr_segment)[1], "mm",
-                      ", tip profila: ", curr_segment.beam_prop.beam_type)
-
-    def Test_plating(self):
-        grillage = self._grillage
-        for plate_id in range(1, (grillage.N_longitudinal - 1) * (grillage.N_transverse - 1) + 1):
-            plate = grillage.plating()[plate_id]
-            print(" Polje oplate:", plate.id,
-                  ",  tp =", plate.plate_prop.tp, "mm", type(plate.plate_prop.tp),
-                  ", tp_net =", PlateProperty.tp_net(grillage.corrosion_addition()[1], plate.plate_prop.tp),
-                  ",  Reh =", plate.plate_prop.plate_mat.Reh,
-                  ", long seg1", grillage.plating()[plate_id].long_seg1.id, "psm", grillage.plating()[plate_id].long_seg1.primary_supp_mem.id,
-                  ", long seg2", grillage.plating()[plate_id].long_seg2.id, "psm", grillage.plating()[plate_id].long_seg2.primary_supp_mem.id,
-                  ", tran seg1", grillage.plating()[plate_id].trans_seg1.id, "psm", grillage.plating()[plate_id].trans_seg1.primary_supp_mem.id,
-                  ", tran seg2", grillage.plating()[plate_id].trans_seg2.id, "psm", grillage.plating()[plate_id].trans_seg2.primary_supp_mem.id,
-                  ", def type: ", plate.stiff_layout.definition_type,
-                  ", iznos: ", plate.stiff_layout.definition_value, type(plate.stiff_layout.definition_value),
-                  " ,", plate.stiff_dir, type(plate.stiff_dir))
 
     @staticmethod
     def default_materials():
@@ -508,7 +469,9 @@ class GenerateNewHC(QDialog):
     @staticmethod
     def default_stiff_layouts():
         def_layouts = [{"layout_id": 1, "name": "Bulb_layout1", "beam_prop": "Bulb_stiff1", "def_type": "Number", "def_val": "6"},
-                       {"layout_id": 2, "name": "Hat_layout1", "beam_prop": "Hat_stiff1", "def_type": "Number", "def_val": "5"}]
+                       {"layout_id": 2, "name": "Hat_layout1", "beam_prop": "Hat_stiff1", "def_type": "Number", "def_val": "5"},
+                       {"layout_id": 3, "name": "Bulb_layout2", "beam_prop": "Bulb_stiff1", "def_type": "Spacing", "def_val": "0.75"},
+                       {"layout_id": 4, "name": "Hat_layout2", "beam_prop": "Hat_stiff1", "def_type": "Spacing", "def_val": "0.85"}]
         return def_layouts
 
     def load_materials_list(self, default_material_list):
@@ -619,6 +582,12 @@ class GenerateNewHC(QDialog):
             self.table_layouts.setItem(row_index, 3, layout_type)
             self.table_layouts.setItem(row_index, 4, layout_value)
             row_index += 1
+
+    def load_initial_properties(self):
+        self.load_materials_list(self.default_materials())
+        self.load_plate_property(self.default_plate_props())
+        self.load_beam_property(self.default_beam_props())
+        self.load_stiffener_layout(self.default_stiff_layouts())
 
     def add_new_material_prop(self):
         """
@@ -967,6 +936,65 @@ class GenerateNewHC(QDialog):
         elif definition_type == "Spacing":
             gb_spacing.show()
 
+    def TEST_HC_Setup(self):
+        self.hc_gui.lineEdit_GrillageLength.setText("20")
+        self.hc_gui.lineEdit_GrillageWidth.setText("18")
+        self.hc_gui.spinBox_GrillageNofLong.setValue(5)
+        self.hc_gui.spinBox_GrillageNofTran.setValue(5)
+        self.hc_gui.lineEdit_CorrosionAddition.setText("2")
+
+    def Test_material_properties(self):
+        for mat in self._grillage.material_props().values():
+            print(" Karakteristike unesenog materijala sa ID =", mat.id, type(mat.id))
+            print(" Naziv: ", mat.name, type(mat.name))
+            print(" Modul elasticnosti,     E = ", mat.E, "N/mm2", type(mat.E))
+            print(" Poissonov koeficijet,   v = ", mat.v, type(mat.v))
+            print(" Gustoca materijala,    ro = ", mat.ro, "t/mm3", type(mat.ro))
+            print(" Granica razvlacenja,  Reh = ", mat.Reh, "N/mm2", type(mat.Reh), "\n")
+
+    def Test_segments(self):
+        grillage = self._grillage
+        print("Duljina:", grillage.L_overall, type(grillage.L_overall))
+        print("Širina:", grillage.B_overall, type(grillage.B_overall))
+        print("Broj uzdužnih nosača:", grillage.N_longitudinal, type(grillage.N_longitudinal))
+        print("Broj poprečnih nosača:", grillage.N_transverse, type(grillage.N_transverse))
+
+        for i in self._grillage.longitudinal_members():
+            for i_segmenta in range(0, self._grillage.N_transverse - 1):
+                curr_segment = self._grillage.longitudinal_members()[i].segments[i_segmenta]
+                print("Jaki uzduzni nosac", i, ", ID segmenta:", curr_segment.id,
+                      " ,BeamProperty ID:", curr_segment.beam_prop.id,
+                      ", Wmin =", "{:.2f}".format(curr_segment.Wmin), "cm3",
+                      ", sunosivo oplocenje: bp =", "{:.1f}".format(Segment.get_attplate(curr_segment)[0]), "mm",
+                      ", tp =", Segment.get_attplate(curr_segment)[1], "mm",
+                      ", tip profila: ", curr_segment.beam_prop.beam_type)
+
+        for i in self._grillage.transverse_members():
+            for i_segmenta in range(0, self._grillage.N_longitudinal - 1):
+                curr_segment = self._grillage.transverse_members()[i].segments[i_segmenta]
+                print("Jaki poprecni nosac", i, ", ID segmenta:", curr_segment.id,
+                      ", BeamProperty ID:", curr_segment.beam_prop.id,
+                      ", Wmin =", "{:.2f}".format(curr_segment.Wmin), "cm3",
+                      ", sunosivo oplocenje: bp =", "{:.1f}".format(Segment.get_attplate(curr_segment)[0]), "mm",
+                      ", tp =", Segment.get_attplate(curr_segment)[1], "mm",
+                      ", tip profila: ", curr_segment.beam_prop.beam_type)
+
+    def Test_plating(self):
+        grillage = self._grillage
+        for plate_id in range(1, (grillage.N_longitudinal - 1) * (grillage.N_transverse - 1) + 1):
+            plate = grillage.plating()[plate_id]
+            print(" Polje oplate:", plate.id,
+                  ",  tp =", plate.plate_prop.tp, "mm", type(plate.plate_prop.tp),
+                  ", tp_net =", PlateProperty.tp_net(grillage.corrosion_addition()[1], plate.plate_prop.tp),
+                  ",  Reh =", plate.plate_prop.plate_mat.Reh,
+                  ", long seg1", grillage.plating()[plate_id].long_seg1.id, "psm", grillage.plating()[plate_id].long_seg1.primary_supp_mem.id,
+                  ", long seg2", grillage.plating()[plate_id].long_seg2.id, "psm", grillage.plating()[plate_id].long_seg2.primary_supp_mem.id,
+                  ", tran seg1", grillage.plating()[plate_id].trans_seg1.id, "psm", grillage.plating()[plate_id].trans_seg1.primary_supp_mem.id,
+                  ", tran seg2", grillage.plating()[plate_id].trans_seg2.id, "psm", grillage.plating()[plate_id].trans_seg2.primary_supp_mem.id,
+                  ", def type: ", plate.stiff_layout.definition_type,
+                  ", iznos: ", plate.stiff_layout.definition_value, type(plate.stiff_layout.definition_value),
+                  " ,", plate.stiff_dir, type(plate.stiff_dir))
+
 
 class SGDCommand(Command):
     def __init__(self):
@@ -1036,11 +1064,11 @@ class SGDCommand(Command):
         analysis_gui.exec()
         pass
 
-    def onNewHatchCover(self, grillage: Grillage):
-        if isinstance(grillage, Grillage):
+    def onNewHatchCover(self, grillgeo: GrillageGeometry):
+        if isinstance(grillgeo, GrillageGeometry):
             QApplication.changeOverrideCursor(QCursor(Qt.WaitCursor))
             old_grillgeo = self._grillgeo
-            self._grillgeo = GrillageGeometry(grillage, 'New hatch cover name')
+            self._grillgeo = grillgeo
             if old_grillgeo is not None:
                 manager.remove_geometry([old_grillgeo])
             if self._grillgeo is not None:

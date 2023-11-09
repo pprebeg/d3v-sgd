@@ -18,8 +18,8 @@ Run as: Path_to_d3v\src\main.py -a Path_to_d3v-sgd<br>
 e.g. if d3v is located in D:/dev/d3v, and d3v-sgd in D:/dev/d3v-sgd: <br>
 python D:/dev/d3v/main.py -a D:/dev/d3v-sgd
 
-Note: 1 "-a Path_to_d3v-sgd" is the argument
-2 the "commands" folder needs to be the subfolder in d3v-sgd folder
+Note: -1 "-a Path_to_d3v-sgd" is the argument<br>
+-2 the "commands" folder needs to be the subfolder in d3v-sgd folder
 
 ## List of contributors:
 Gordan Kos

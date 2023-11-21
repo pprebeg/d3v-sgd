@@ -178,16 +178,22 @@ class ResponseAnalysis:
 class ModelNode:
     def __init__(self, id_: int, x=0.0, y=0.0, z=0.0):
         self._id = id_
-        self._coords = np.array([x, y, z])
+        self._coords: np.ndarray = np.array([x, y, z])
 
     @property
     def id(self):
         return self._id
 
     @property
-    def coords(self):
+    def coords(self)->np.ndarray:
         return self._coords
 
+    def get_distance(self, node):
+        return np.linalg.norm(node.cords - self._cords)
+
+    @staticmethod
+    def get_distance(node1, node2):
+        return np.linalg.norm(node1.cords - node2.cords)
 
 class MaterialProperty:
     def __init__(self, id_, E, v, ro, Reh, name):
@@ -298,8 +304,9 @@ class PlateProperty:
 
 
 class BeamProperty:
-    def __init__(self, id_):
-        self._id_ = id_
+    def __init__(self, id, mat: MaterialProperty):
+        self._id_ = id
+        self._mat:MaterialProperty = mat  # Material
 
     @property
     def id(self):
@@ -357,15 +364,22 @@ class BeamProperty:
         elif isinstance(self, HatBeamProperty):
             return BeamType.Hat
 
+    @property
+    def mat(self):
+        return self._mat
+
+    @mat.setter
+    def mat(self, value):
+        self._mat = value
+
 
 class TBeamProperty(BeamProperty):
     def __init__(self, id_, hw, tw, bf, tf, mat: MaterialProperty):
-        super().__init__(id_)
+        super().__init__(id_,mat)
         self._hw = float(hw)  # Web height
         self._tw = float(tw)  # Web thickness
         self._bf = float(bf)  # Flange width
         self._tf = float(tf)  # Flange thickness
-        self._mat = mat       # Material
 
     @property
     def hw(self):
@@ -399,13 +413,7 @@ class TBeamProperty(BeamProperty):
     def tf(self, value):
         self._tf = value
 
-    @property
-    def mat(self):
-        return self._mat
 
-    @mat.setter
-    def mat(self, value):
-        self._mat = value
 
     def hw_net(self, corr_add: CorrosionAddition, tp):
         # Net web height of a T profile with attached plating
@@ -518,7 +526,6 @@ class FBBeamProperty(TBeamProperty):
         self._tw = float(tw)  # Flat Bar thickness
         self._bf = float(bf)  # Second plate attached plating width, default bf=0.0 as ordinary FB stiffner
         self._tf = float(tf)  # Second plate attached plating thickness, default tf=0.0 as ordinary FB stiffner
-        self._mat = mat       # Material
 
     def get_Iw(self, corr_add: CorrosionAddition):  # Sectorial moment of inertia in [cm6]
         hw = self._hw + corr_add.tc
@@ -542,11 +549,6 @@ class FBBeamProperty(TBeamProperty):
 class LBeamProperty(TBeamProperty):
     def __init__(self, id_, hw, tw, bf, tf, mat: MaterialProperty):
         super().__init__(id_, hw, tw, bf, tf, mat)
-        self._hw = float(hw)  # Web height
-        self._tw = float(tw)  # Web thickness
-        self._bf = float(bf)  # Flange width
-        self._tf = float(tf)  # Flange thickness
-        self._mat = mat       # Material
 
     def get_Iw(self, corr_add: CorrosionAddition):  # Sectorial moment of inertia in [cm6]
         hw = self.hw + corr_add.tc
@@ -560,11 +562,10 @@ class LBeamProperty(TBeamProperty):
 
 class BulbBeamProperty(BeamProperty):
     def __init__(self, id_, hw_HP, tw_HP, mat: MaterialProperty):
-        super().__init__(id_)
+        super().__init__(id_,mat)
         self._id_ = id_
         self._hw_HP = float(hw_HP)  # HP profile height
         self._tw_HP = float(tw_HP)  # Web thickness (net)
-        self._mat = mat  # Material
 
     @property
     def hw_HP(self):
@@ -581,14 +582,6 @@ class BulbBeamProperty(BeamProperty):
     @tw_HP.setter
     def tw_HP(self, value):
         self._tw_HP = value
-
-    @property
-    def mat(self):
-        return self._mat
-
-    @mat.setter
-    def mat(self, value):
-        self._mat = value
 
     # Equivalent angle calculation according to:
     # IACS Common Structural Rules, July 2012, Chapter 3, Section 6, 4.1.1 Stiffener profile with a bulb section
@@ -716,13 +709,12 @@ class BulbBeamProperty(BeamProperty):
 
 class HatBeamProperty(BeamProperty):
     def __init__(self, id_, h, t, bf, fi, mat):
-        super().__init__(id_)
+        super().__init__(id_,mat)
         self._id_ = id_
         self._h = float(h)      # Profile height - distance between inner flange surface and closest plating surface
         self._t = float(t)      # Web and flange thickness
         self._bf = float(bf)    # Flange width between outer corners of the Hat profile
         self._fi = float(fi)    # Web angle between plating and web
-        self._mat = mat         # Material
 
     @property
     def h(self):
@@ -756,13 +748,6 @@ class HatBeamProperty(BeamProperty):
     def fi(self, value):
         self._fi = value
 
-    @property
-    def mat(self):
-        return self._mat
-
-    @mat.setter
-    def mat(self, value):
-        self._mat = value
 
     def x_tc(self, corr_add: CorrosionAddition):
         # Reduction of flange width due to corrosion addition
@@ -887,7 +872,7 @@ class HatBeamProperty(BeamProperty):
 
 class VariableSection(BeamProperty):
     def __init__(self, id_, hw_min, hw_max, hw_l1, tw, bf_min, bf_max, bf_l1, tf, mat: MaterialProperty):
-        super().__init__(id_)
+        super().__init__(id_,mat)
         self._hw_min = float(hw_min)        # Minimum web height
         self._hw_max = float(hw_max)        # Maximum web height
         self._hw_l1 = float(hw_l1)          # Distance of web height change from the end with dimension hw_min
@@ -896,7 +881,6 @@ class VariableSection(BeamProperty):
         self._bf_max = float(bf_max)        # Maximum flange width
         self._bf_l1 = float(bf_l1)          # Distance of flange width change from the end with dimension bf_min
         self._tf = float(tf)                # Flange thickness
-        self._mat = mat                     # Material
 
     # dodati:
     #   property i setteri

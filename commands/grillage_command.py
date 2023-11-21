@@ -22,7 +22,8 @@ from grillage.grillage_model import *
 from grillage.grillage_visualizer import GrillageGeometry
 from grillage.grillage_mesher import *
 from timeit import default_timer as timer
-
+from grillage.grilage_beam_anan import generate_grillage_analysis
+from grillage.grillage_beam_optimization import prepare_and_run_optimization
 from core import geometry_manager as manager
 import logging
 from tests.test_mesh import *
@@ -1013,6 +1014,8 @@ class SGDCommand(Command):
         self.menuMain.addMenu(self.menuModel)
         self.menuAnalysis = QMenu("&Analysis")
         self.menuMain.addMenu(self.menuAnalysis)
+        self.menuOptimization = QMenu("&Optimization")
+        self.menuMain.addMenu(self.menuOptimization)
         self.menuTests = QMenu("&Tests")
         self.menuMain.addMenu(self.menuTests)
         mb.addMenu(self.menuMain)
@@ -1020,8 +1023,14 @@ class SGDCommand(Command):
         actionNewHatch = self.menuModel.addAction("&New Hatch Cover")
         actionNewHatch.triggered.connect(self.onNewHatchCoverGUI)
 
-        actionGenerateFEM = self.menuAnalysis.addAction("&Generate FEM...")
+        actionGenerateFEM = self.menuAnalysis.addAction("Generate &FE Model")
         actionGenerateFEM.triggered.connect(self.onGenerateFEM)
+
+        actionGenerateAnalyticalAnalysisModel = self.menuAnalysis.addAction("&Generate &Analytical Analysis Model")
+        actionGenerateAnalyticalAnalysisModel.triggered.connect(self.onGenerateAnalyticalAnalysisModel)
+
+        actionGenerateBeamOptimization = self.menuOptimization.addAction("&Generate &Beams Optimization")
+        actionGenerateBeamOptimization.triggered.connect(self.onGenerateBeamOptimization)
 
         actionRunTest = self.menuTests.addAction("&Generate Test Mesh V1")
         actionRunTest.triggered.connect(self.onActionGenerateTestMeshV1)
@@ -1059,9 +1068,20 @@ class SGDCommand(Command):
         pass
 
     def onGenerateFEM(self):
-        analysis_gui = GrillageAnalysisGUI(self.mainwin, self._grillgeo)
+        analysis_gui = GrillageFEModelGUI(self.mainwin, self._grillgeo)
         analysis_gui.mesh_parameters_gui()
         analysis_gui.exec()
+        pass
+    def onGenerateAnalyticalAnalysisModel(self):
+        grillmod = self._grillgeo.grillage
+        grillan = generate_grillage_analysis(grillmod)
+        R= grillan.calculate_reactions()
+        print(R)
+        pass
+
+    def onGenerateBeamOptimization(self):
+        grillmod=self._grillgeo.grillage
+        prepare_and_run_optimization(grillmod)
         pass
 
     def onNewHatchCover(self, grillgeo: GrillageGeometry):
@@ -1130,7 +1150,7 @@ class SGDImporter(IOHandler):
         return (".gin")
 
 
-class GrillageAnalysisGUI(QDialog):
+class GrillageFEModelGUI(QDialog):
     def __init__(self, parent, grillgeo: GrillageGeometry):
         super().__init__(parent)
         self.mainwin = parent

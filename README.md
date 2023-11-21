@@ -8,7 +8,9 @@ conda activate d3vsgd_env
 pip install pyside6  
 pip install openmesh  
 pip install pyopengl  
-pip install scipy  
+pip install scipy
+
+install moobench following instructions on https://github.com/pprebeg/moobench
 
 clone d3v repository: (e.g. https://github.com/linaetal-fsb/d3v.git)  
 clone d3v-sgd repository: (e.g. https://github.com/pprebeg/d3v-sgd.git)  

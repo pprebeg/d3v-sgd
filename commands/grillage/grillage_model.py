@@ -962,7 +962,11 @@ class PrimarySuppMem:
 
     @property
     def end_nodes(self):
-        return Segment.end_nodes(self)
+        return Segment.end_nodes_coords(self)
+
+    @property
+    def end_nodes_coords(self):
+        return Segment.end_nodes_coords(self)
 
     @property
     def grillage(self):
@@ -1061,6 +1065,16 @@ class Segment:
         self.analysis_results = value
 
     @staticmethod
+    def end_nodes_coords(member: PrimarySuppMem):
+        """
+        :param member: Primary supporting member.
+        :return: Primary supporting member end node coordinates in [mm], at the point of connection with plating.
+                Flange of the primary supporting member is at vertical coordinate z = 0.
+        """
+        node1, node2 = Segment.end_nodes(member)
+        return node1.coords, node2.coords
+
+    @staticmethod
     def end_nodes(member: PrimarySuppMem):
         """
         :param member: Primary supporting member.
@@ -1068,18 +1082,19 @@ class Segment:
                 Flange of the primary supporting member is at vertical coordinate z = 0.
         """
         grillage = member.grillage
-        hw_end1 = member.segments[0].beam_prop.hw                           # Primary supporting member web height at x or y = 0
-        hw_end2 = member.segments[len(member.segments) - 1].beam_prop.hw    # Primary supporting member web height at x = L or y = B
+        hw_end1 = member.segments[0].beam_prop.hw  # Primary supporting member web height at x or y = 0
+        hw_end2 = member.segments[
+            len(member.segments) - 1].beam_prop.hw  # Primary supporting member web height at x = L or y = B
 
         if member.direction == BeamDirection.LONGITUDINAL:  # Longitudinal primary supporting members
             node1 = ModelNode(1, 0, member.rel_dist * grillage.B_overall * 1000, hw_end1)
             node2 = ModelNode(2, grillage.L_overall * 1000, member.rel_dist * grillage.B_overall * 1000, hw_end2)
-            return node1.coords, node2.coords
+            return node1, node2
 
         if member.direction == BeamDirection.TRANSVERSE:  # Transverse primary supporting members
             node1 = ModelNode(1, member.rel_dist * grillage.L_overall * 1000, 0, hw_end1)
             node2 = ModelNode(2, member.rel_dist * grillage.L_overall * 1000, grillage.B_overall * 1000, hw_end2)
-            return node1.coords, node2.coords
+            return node1, node2
 
     def get_segment_node1(self):
         return self.get_segment_node(self._cross_member1)
@@ -1088,8 +1103,8 @@ class Segment:
         return self.get_segment_node(self._cross_member2)
 
     def get_segment_node(self, cross_member):
-        (n1, n2) = self._primary_supp_mem.end_nodes
-        (n3, n4) = cross_member.end_nodes
+        (n1, n2) = self._primary_supp_mem.end_nodes_coords
+        (n3, n4) = cross_member.end_nodes_coords
         node = self._primary_supp_mem.grillage.get_intersection(n1, n2, n3, n4)
         return node
 
@@ -1733,6 +1748,15 @@ class Grillage:
         self._stiffener_layouts = {}
         self._plating = {}
         self._corrosion_add = {}
+        self._pressure = 0.0
+
+    @property
+    def pressure(self):
+        return self._pressure
+
+    @pressure.setter
+    def pressure(self, value):
+        self._pressure = value
 
     @property
     def L_overall(self):

@@ -1,7 +1,14 @@
-from typing import Dict, List
+from typing import Dict, List,Tuple
 import numpy as np
 from collections import Counter
+from enum import Enum
+import matplotlib.pyplot as plt
 
+class BeamBC(Enum):
+    SS_SS=1
+    C_C=2
+    SS_C = 3
+    C_SS = 4
 
 class BeamProperty:
     def __init__(self,id):
@@ -15,10 +22,13 @@ class BeamProperty:
 
     def getE(self):
         return 0.0
+    @property
+    def id(self):
+        return self._id
 
 class IBeamProperty(BeamProperty):
     def __init__(self, id, hw, tw, bf, tf, bp, tp, E):
-        super.__init__(id)
+        super().__init__(id)
         self._hw = hw
         self._tw = tw
         self._bf = bf
@@ -27,9 +37,7 @@ class IBeamProperty(BeamProperty):
         self._tp = tp
         self._E = E
 
-    @property
-    def id(self):
-        return self._id
+
 
     def getW(self):
         hw = self._hw
@@ -71,50 +79,57 @@ class BeamLoad:
         self._id = id
         self._q0 = q0
 
-    def getMx(self, x, L):
+    def getMx(self, x, L, bc=BeamBC.SS_SS):
         pass
 
-    def get_xcrit(self, L):
+    def get_x_Mcrit(self, L, bc=BeamBC.SS_SS):
         pass
 
-    def get_moment_clamped_beam_end(self, L, is2:bool):
+    def get_moment_clamped_beam_end(self, L, is2:bool, bc=BeamBC.SS_SS):
         pass
 
-    def get_beam_deflection(self, x, E, I, L ):
+    def get_beam_deflection(self, x, E, I, L , bc=BeamBC.SS_SS):
         pass
 
 
 class BeamLoadNoLoad(BeamLoad):
-    def __init__(self, id: int, q0):
+    def __init__(self, id: int, q0 = 0.0):
         super().__init__(id, q0)
         pass
 
-    def getMx(self, x, L):
+    def getMx(self, x, L, bc=BeamBC.SS_SS):
+        if isinstance(x, np.ndarray):
+            return np.zeros(x.size)
+        else:
+            return 0.0
+
+    def get_x_Mcrit(self, L, bc=BeamBC.SS_SS):
         return 0.0
 
-    def get_xcrit(self, L):
+    def get_moment_clamped_beam_end(self, L, is2:bool, bc=BeamBC.SS_SS):
         return 0.0
-
-    def get_moment_clamped_beam_end(self, L, is2:bool):
+    def get_beam_deflection(self, x, E, I, L , bc=BeamBC.SS_SS):
         return 0.0
-
 
 class BeamLoadConstContLoad(BeamLoad):
     def __init__(self, id: int, q0):
         super().__init__(id, q0)
         pass
+    @property
+    def q0(self):
+        return self._q0
 
-    def getMx(self, x, L):
-        return (self._q0 * x) / 2. * (L - x)
+    def getMx(self, x, L, bc=BeamBC.SS_SS):
+        return (self.q0 * x) / 2. * (L - x)
 
-    def get_xcrit(self, L):
+    def get_x_Mcrit(self, L, bc=BeamBC.SS_SS):
         return L / 2
 
-    def get_moment_clamped_beam_end(self, L, is2:bool):
-        return self._q0*L**2.0/12.0
+    def get_moment_clamped_beam_end(self, L, is2:bool, bc=BeamBC.SS_SS):
+        return self.q0*L**2.0/12.0
 
-    def get_beam_deflection(self, x, E, I, L ):
-        return ((self.q0*x)/(24.0*E*I))*(L**2.0 - 2.0*L*x**2.0+x**3.0)
+    def get_beam_deflection(self, x, E, I, L , bc=BeamBC.SS_SS):
+        return ((self.q0*x)/(24.0*E*I))*(L**3.0 - 2.0*L*x**2.0+x**3.0)
 
 
 class BeamLoadTriangleContLoad(BeamLoad):
@@ -122,30 +137,97 @@ class BeamLoadTriangleContLoad(BeamLoad):
         super().__init__(id, q0)
         self._is2 = is2 # true if q0 is on second node
 
-    def getMx(self, x, L):
+    def getMx(self, x, L, bc=BeamBC.SS_SS):
         W = self._q0 * L / 2.
         if not self._is2:
             x = L - x
         Mx = W * x * (L ** 2.0 - x ** 2.0) / (3.0 * L ** 2.0)
         return Mx
 
-    def get_xcrit(self, L):
+    def get_x_Mcrit(self, L, bc=BeamBC.SS_SS):
         x = 0.5774 * L
         if not self._is2:
             x = L - x
         return x
 
-    def get_moment_clamped_beam_end(self, L, is2:bool):
+    def get_moment_clamped_beam_end(self, L, is2:bool, bc=BeamBC.SS_SS):
         if (is2 and self._is2) or ((not is2) and (not self._is2)):
             return self._q0*L**2.0 / 20.0
         else:
             return self._q0 * L ** 2.0 / 30.0
 
+class BeamLoadPointLoadAnyPoint(BeamLoad):
+    def __init__(self, id: int, P,a):
+        super().__init__(id, P)
+        self._a = a
+        pass
+
+    @property
+    def a(self):
+        return self._a
+
+    @property
+    def P(self):
+        return self._q0
+
+    def getMx(self, x, L, bc=BeamBC.SS_SS):
+        a = self.a
+        b = L - a
+        if isinstance(x, (int, float)):
+            if x < a:
+                Mx = self.P * b * x / L
+            else:
+                Mx = self.P * a / L * (L - x)
+        elif isinstance(x, np.ndarray):
+            Mx = np.where(x < a, self.P * b * x / L, self.P * a / L * (L - x))
+        else:
+            raise ValueError("Unsupported input type for 'x'.")
+
+        return Mx
+
+    def get_x_Mcrit(self, L, bc=BeamBC.SS_SS):
+        return self.a
+
+    def get_moment_clamped_beam_end(self, L, is2:bool, bc=BeamBC.SS_SS):
+        a = self.a
+        b = L - a
+        if is2:
+            Mx = self.P * b **2.0* a/ L**2.0
+        else:
+            Mx = self.P * b  * a** 2.0 / L ** 2.0
+        return Mx
+
+    @staticmethod
+    def get_any_beam_deflection(a,P, x, E, I, L, bc=BeamBC.SS_SS ):
+        if bc == BeamBC.SS_SS:
+            b = L - a
+            if x < a:
+                wx = (P * b * x) / (6 * L * E * I) * (L**2 - b**2 - x**2)
+            else:
+                wx = (P * a * (L - x)) / (6 * L * E * I) * (2*L*x - x**2 - a**2)
+            return wx
+        else:
+            return 0.0
+    def get_beam_deflection(self, x, E, I, L, bc=BeamBC.SS_SS ):
+        a = self.a
+        P = self.P
+        return BeamLoadPointLoadAnyPoint.get_any_beam_deflection(a,P, x, E, I, L,bc)
+
+class BeamLoadReaction(BeamLoadPointLoadAnyPoint):
+    def __init__(self, id: int, R,a):
+        super().__init__(id, R,a)
+
+    @property
+    def R(self):
+        return self._q0
 
 class Node:
-    def __init__(self, id: int, x=0.0, y=0.0, z=0.0):
+    def __init__(self, id: int, x=0.0, y=0.0, z=0.0,cords:np.ndarray=None):
         self._id = id
-        self._cords: np.ndarray = np.array([x, y, z])
+        if cords is None:
+            self._cords: np.ndarray = np.array([x, y, z])
+        else:
+            self._cords = cords
 
     @property
     def id(self):
@@ -165,6 +247,7 @@ class Node:
 
 
 class AnalyticBeam():
+    npdiag=40
     def __init__(self, id: int, prop=None, node1=None, node2=None):
         self._id = id
         self._nodes: List[Node] = []
@@ -173,6 +256,7 @@ class AnalyticBeam():
         if node2 is not None:
             self._nodes.append(node2)
         self._loads:List[BeamLoad] = []
+        self._elastic_reaction_loads: List[BeamLoad] = []
         self._prop: BeamProperty = prop
         self._M1:float = 0.0 # internal moment on the node 1 end calculated by displacement method
         self._M2:float = 0.0 # internal moment on the node 2 end calculated by displacement method
@@ -204,6 +288,12 @@ class AnalyticBeam():
     def add_load(self, load: BeamLoad):
         self._loads.append(load)
 
+    def add_elastic_reaction_load(self, load: BeamLoad):
+        self._elastic_reaction_loads.append(load)
+
+    def clear_elastic_reaction_loads(self):
+        self._elastic_reaction_loads.clear()
+
     def set_prop(self, prop: BeamProperty):
         self._prop = prop
 
@@ -220,11 +310,16 @@ class AnalyticBeam():
         W = self._prop.getW()
         return Mcrit / W
 
+    def getSigmax_crit_from_diagram(self):
+        Mcrit = self.getMx_crit_from_diagram()
+        W = self._prop.getW()
+        return Mcrit / W
+
     def getMx_crit(self):
         Mxcrit = 0
         xcand = []
         for load in self._loads:
-            xcand.append(load.get_xcrit(self.L))
+            xcand.append(load.get_x_Mcrit(self.L))
 
         for x in xcand:
             Mx = abs(self.get_Mx(x) - self._M1)
@@ -236,10 +331,21 @@ class AnalyticBeam():
             Mxcrit = self._M2
         return Mxcrit
 
+    def getMx_crit_from_diagram(self):
+        x = np.linspace(0.0,self.L,AnalyticBeam.npdiag)
+        Mx = np.abs(self.get_Mx(x))
+        Mxcrit = np.max(Mx)
+        return Mxcrit
+
     def get_Mx(self, x):
         Mx = 0
         for load in self._loads:
             Mx = Mx + load.getMx(x, self.L)
+        for load in self._elastic_reaction_loads:
+            Mx = Mx + load.getMx(x, self.L)
+#        if isinstance(x, np.ndarray):
+#            plt.plot(x, Mx)
+#            plt.show()
         return Mx
 
     def get_k(self):
@@ -283,17 +389,46 @@ class AnalyticBeam():
         C = (p1[0] * p2[1] - p2[0] * p1[1])
         return A, B, -C
 
-    def beam_deflection(self, b, a, x):
-        if a < x:
-            return ((a * (self.L-x))/(6 * self._prop.getIy() * self._prop.getE())) * (2*self.L*x - x**2 - a**2) #fali l u nazivniku
-        else:
-            return ((b * x)/(6 * self._prop.getIy() * self._prop.getE())) * (self.L**2 - b**2 - x**2)
+    def find_intersection_with_beam(self, beam):
+        """
+        Returns:
+        Intersection point (x, y, z), or None if there is no unique intersection.
+        """
+        P1, D1 = self.node1.cords, self.node2.cords - self.node1.cords
+        P2, D2 = beam.node1.cords, beam.node2.cords - beam.node1.cords
 
-    def beam_CL_deflection(self, x):
+        # Matrix A composed of direction vectors D1 and D2 and the difference between start points
+        A = np.column_stack((D1, -D2, P2 - P1))
+
+        # Check if there is a solution
+        if np.linalg.matrix_rank(A[:, :2]) < 2 or np.linalg.matrix_rank(A) != np.linalg.matrix_rank(A[:, :2]):
+            return None
+
+        # Solve for parameters t and s
+        params, _, _, _ = np.linalg.lstsq(A[:, :2], A[:, 2], rcond=None)
+        t, s = params[:2]
+
+        # Compute the intersection point
+        intersection_point = P1 + t * D1
+        return intersection_point
+
+    def beam_deflection_unit_point_load(self, b, a, x):
+        unit_defl = BeamLoadPointLoadAnyPoint.get_any_beam_deflection(a,1.0,x,self._prop.getE(),self._prop.getIy(),self.L)
+        return unit_defl
+
+    def beam_deflection_original_loads(self, x):
+        total=0.0
         for load in self._loads:
-            return ((load._q0 * x) / (24.0 * self._prop.getE() * self._prop.getIy())) * ((self.L ** 3.0) - 2.0 * self.L * x ** 2.0 + x ** 3.0)
+            total += load.get_beam_deflection(x, self._prop.getE(), self._prop.getIy(), self.L)
+        return total
 
-
+    def beam_deflection_original_and_elastic(self, x):
+        total=0.0
+        for load in self._loads:
+            total += load.get_beam_deflection(x, self._prop.getE(), self._prop.getIy(), self.L)
+        for load in self._elastic_reaction_loads:
+            total += load.get_beam_deflection(x, self._prop.getE(), self._prop.getIy(), self.L)
+        return total
 
 class WebFrame():
     def __init__(self):
@@ -403,8 +538,9 @@ class GrillageAnalysis():
         self._nodes: Dict[int, Node] = {}
         self._beams: Dict[int, AnalyticBeam] = {}
         self._props: Dict[int, BeamProperty] = {}
-        self._cross_beams = {}
-        self._main_beams = {}
+        self._cross_beams:Dict[AnalyticBeam] = {}
+        self._main_beams:Dict[AnalyticBeam] = {}
+        self._intersections:List[Tuple[int]] = []
         self._intersections_main = {}
         self._intersections_cross = {}
         self._deflection_in_every_point_main_beams = {}
@@ -428,166 +564,92 @@ class GrillageAnalysis():
                 self._main_beams[id_beam] = beam
                 id_beam += 1
 
-    # cramer's rule,
-    def beam_intersection(self, main, cross):
-        D = main[0] * cross[1] - main[1] * cross[0]
-        Dx = main[2] * cross[1] - main[1] * cross[2]
-        Dy = main[0] * cross[2] - main[2] * cross[0]
-        if D != 0:
-            x = Dx / D
-            y = Dy / D
-            return (x, y)
 
-    def deflection_of_main_beams(self):
-        idx_of_intersection_main = 1
-        idx_for_one_x = 1.0
+    def identify_intersections(self):
+        self._intersections.clear()
         for keys_main, main in self._main_beams.items():
-            if keys_main > 0.0 and keys_main != (len(self._main_beams)-1.0):
-                M = main.line(main.node1.cords, main.node2.cords)
-                idx = 0.0
-                for keys_cross, cross in self._cross_beams.items():
-                    if keys_cross > 0.0 and keys_cross != (len(self._cross_beams)-1.0):
-                        C = cross.line(cross.node1.cords, cross.node2.cords)
-                        x, y = self.beam_intersection(M, C)
-                        self._intersections_main[idx] = x, y
-                        idx += 1.0
-                for x in self._intersections_main.values():
-                     idx_for_one_x0 = idx_for_one_x
-                     count = 1.0
-                     a = main.L / (len(self._cross_beams) - 1.0)
-                     deflection_for_one_x_main = {}
-                     while count <= len(self._cross_beams) - 2.0:
-                          b = main.L - a
-                          w_on_cords = main.beam_deflection(b, a, x[0])
-                          a = a + main.L/(len(self._cross_beams) - 1.0)
-                          count += 1.0
-                          deflection_for_one_x_main[idx_for_one_x0] = w_on_cords
-                          idx_for_one_x0 += 1.0
-                     self._deflection_in_every_point_main_beams[idx_of_intersection_main] = deflection_for_one_x_main
-                     idx_of_intersection_main += 1
-                idx_for_one_x = idx_for_one_x0
-        #print(self._deflection_in_every_point_main_beams)
-
-    def deflection_of_cross_beams(self):
-        idx_for_one_x = 1.0
-        for keys_cross, cross in self._cross_beams.items():
-            if keys_cross > 0 and keys_cross != (len(self._cross_beams) - 1):
-                C = cross.line(cross.node1.cords, cross.node2.cords)
-                idx = 0.0
-                for keys_main, main in self._main_beams.items():
-                    if keys_main > 0 and keys_main != (len(self._main_beams) - 1):
-                        M = main.line(main.node1.cords, main.node2.cords)
-                        x, y = self.beam_intersection(M, C)
-                        self._intersections_cross[idx] = x, y
-                        idx += 1.0
-                for x in self._intersections_cross.values():
-                    idx_for_one_x0 = idx_for_one_x
-                    count = 1.0
-                    a = cross.L / (len(self._main_beams) - 1.0)
-                    deflection_for_one_x_cross = {}
-                    w_on_CL = cross.beam_CL_deflection(x[1])
-                    self._deflection_CL[keys_cross] = w_on_CL
-                    while count <= len(self._main_beams) - 2.0:
-                        b = (cross.L - a)
-                        w_on_R = cross.beam_deflection(b, a, x[1])
-                        a = a + cross.L / (len(self._main_beams) - 1.0)
-                        count += 1.0
-                        deflection_for_one_x_cross[idx_for_one_x0] = w_on_R
-                        idx_for_one_x0 += (len(self._cross_beams) - 2.0)
-                    self._deflection_in_every_point_cross_beams[keys_cross] = deflection_for_one_x_cross
-                    keys_cross = keys_cross + (len(self._cross_beams) - 2)
-                idx_for_one_x += 1.0
-        print(self._deflection_in_every_point_cross_beams)
-        print(self._deflection_CL)
+            for keys_cross, cross in self._cross_beams.items():
+                    P = main.find_intersection_with_beam(cross)
+                    if P is not None:
+                        self._intersections.append((keys_main,keys_cross))
+        print(self._intersections)
 
     def assemble_matrix(self):
-        idx_row = 1
-        for key_main, main_deflection_for_one_x_main in self._deflection_in_every_point_main_beams.items():
-             for key_cross, main_deflection_for_one_x_cross in self._deflection_in_every_point_cross_beams.items():
-                 if key_main == key_cross:
-                     value_main = Counter(main_deflection_for_one_x_main)
-                     value_cross = Counter(main_deflection_for_one_x_cross)
-                     res = value_main + value_cross
-                     self._K[idx_row] = res
-             idx_row += 1.0
-
-    def calculate_reaction_on_intersections(self):
-        n = len(self._K)
-        k = np.zeros((n,n))
-        m = np.zeros(n)
-        ids = [-1]*n
-        indexes = {}
-        index = 0
-        for id_row, rowvals in self._K.items():
-            indexes[id_row] = index
-            ids[index] = id_row
-            index += 1
-
-        for id_row,rowvals in self._K.items():
-            for id_col,kxx in rowvals.items():
-                irow=indexes[id_row]
-                icol = indexes[id_col]
-                k[irow,icol] = kxx
-
-        for id_row,mrow in self._deflection_CL.items():
-            irow = indexes[id_row]
-            m[irow] = mrow
-
-        R = np.linalg.solve(k,m)
+        n = len(self._intersections)
+        kij = np.zeros((n, n))
+        bi = np.zeros(n)
         for i in range(n):
-            self._reactions[ids[i]] = R[i]
+            (idmi,idci) = self._intersections[i]
+            mbi:AnalyticBeam = self._main_beams[idmi]
+            cbi:AnalyticBeam = self._cross_beams[idci]
+            P = mbi.find_intersection_with_beam(cbi)
+            xlocm = np.linalg.norm(P - mbi.node1.cords)
+            xlocc = np.linalg.norm(P - cbi.node1.cords)
+            bi[i] = cbi.beam_deflection_original_loads(xlocc)
+            bi[i] +=mbi.beam_deflection_original_loads(xlocm)
+            for j in range(n):
+                (idmj, idcj) = self._intersections[j]
+                if idmi == idmj:
+                    cbj:AnalyticBeam = self._cross_beams[idcj]
+                    P = mbi.find_intersection_with_beam(cbj)
+                    a = np.linalg.norm(P - mbi.node1.cords)
+                    b=mbi.L-a
+                    kij[i,j] += mbi.beam_deflection_unit_point_load(b,a,xlocm)
+                if idci == idcj:
+                    mbj:AnalyticBeam = self._main_beams[idmj]
+                    P = cbi.find_intersection_with_beam(mbj)
+                    a = np.linalg.norm(P - cbi.node1.cords)
+                    b = cbi.L - a
+                    kij[i,j] += cbi.beam_deflection_unit_point_load(b,a,xlocc)
+        return kij,bi
 
-        return self._reactions
+    def check_equivalence_of_displacements_at_intersection(self):
+        n = len(self._intersections)
+        wm = np.zeros(n)
+        wc = np.zeros(n)
+        for i in range(n):
+            (idmi,idci) = self._intersections[i]
+            mbi:AnalyticBeam = self._main_beams[idmi]
+            cbi:AnalyticBeam = self._cross_beams[idci]
+            P = mbi.find_intersection_with_beam(cbi)
+            xlocm = np.linalg.norm(P - mbi.node1.cords)
+            xlocc = np.linalg.norm(P - cbi.node1.cords)
+            wc[i] = cbi.beam_deflection_original_and_elastic(xlocc)
+            wm[i] = mbi.beam_deflection_original_and_elastic(xlocm)
+        is_close = np.allclose(wm,wc)
+        return is_close,wc,wm,self._intersections
 
-    def deflection_value_main(self, location):
-        main_beam_deflection_value = []
-        sum_box_main = []
-        n = len(self._cross_beams) - 2.0
-        bound = 0
-        for keys_main, main in self._main_beams.items():
-             if keys_main > 0.0 and keys_main != (len(self._main_beams)-1.0):
-                 part_Reactions = {k: v for k, v in self._reactions.items() if k <= n and k > bound}
-                 a = main.L / (len(self._cross_beams) - 1.0)
-                 for _R in part_Reactions.values():
-                     b = main.L - a
-                     w_value_one = main.beam_deflection(b, a, location) * _R
-                     a = a + main.L / (len(self._cross_beams) - 1.0)
-                     sum_box_main.append(w_value_one)
-                 Sum = sum(sum_box_main)
-                 main_beam_deflection_value.append(Sum)
-                 n += n
-                 bound+= len(self._cross_beams) - 2.0
-        return main_beam_deflection_value
+    def calculate_reaction_on_intersections(self,kij,bi):
 
-    def deflection_value_cross(self,location):
-        cross_beam_deflection_value = []
-        sum_box_cross =[]
-        n = len(self._cross_beams) - 1.0
-        bound = 1
-        for keys_cross, cross in self._cross_beams.items():
-            if keys_cross > 0.0 and keys_cross != (len(self._cross_beams) - 1.0):
-                part_Reactions_cross = {key: self._reactions[key] for key in self._reactions.keys() & {bound, n}}
-                a = cross.L / (len(self._main_beams) - 1.0)
-                for _R_cross in part_Reactions_cross.values():
-                    b = (cross.L - a)
-                    w_value_one_cross = cross.beam_deflection(b, a, location) * _R_cross
-                    a = a + cross.L / (len(self._main_beams) - 1.0)
-                    sum_box_cross.append(w_value_one_cross)
-                Sum_cross = sum(sum_box_cross)
-                sum_Reaction = cross.beam_CL_deflection(location) - Sum_cross
-                cross_beam_deflection_value.append(sum_Reaction)
-                n += 1
-                bound += 1
-        return cross_beam_deflection_value
+        R = np.linalg.solve(kij,bi)
+        n= len(bi)
+        for i in range(n):
+            self._reactions[i] = R[i]
 
-    def calculate_reactions(self):
+
+    def set_elastic_reaction_loads(self):
+        n = len(self._intersections)
+        idrl = 0
+        for beam in self._beams.values():
+            beam.clear_elastic_reaction_loads()
+        for i in range(n):
+            (idmi, idci) = self._intersections[i]
+            mbi: AnalyticBeam = self._main_beams[idmi]
+            cbi: AnalyticBeam = self._cross_beams[idci]
+            P = mbi.find_intersection_with_beam(cbi)
+            am = np.linalg.norm(P - mbi.node1.cords)
+            mbi.add_elastic_reaction_load(BeamLoadReaction(idrl, self._reactions[i], am))
+            ac = np.linalg.norm(P - cbi.node1.cords)
+            cbi.add_elastic_reaction_load(BeamLoadReaction(idrl, -self._reactions[i], ac))
+
+
+    def calculate_and_apply_elastic_reactions(self):
         self.beam_arrangement_main()
         self.beam_arrangement_cross()
-        self.deflection_of_main_beams()
-        self.deflection_of_cross_beams()
-        self.assemble_matrix()
-        R = self.calculate_reaction_on_intersections()
-        return R
+        self.identify_intersections()
+        kij,bi = self.assemble_matrix()
+        self.calculate_reaction_on_intersections(kij,bi)
+        self.set_elastic_reaction_loads()
 
     def read_file(self, file_path):
         with open(file_path, 'r') as f:
@@ -675,9 +737,23 @@ def _test_grillage():
     print('Test Grillage Analysis')
     grillage = GrillageAnalysis()
     grillage.read_file("grillage_analysis_test.txt")
-    grillage.calculate_reactions()
-    print(grillage.deflection_value_main(2))  # x koordinata lokalna s crteza
-    print(grillage.deflection_value_cross(2))  # x koordinata lokalna s crteza
+    grillage.calculate_and_apply_elastic_reactions()
+    isEq,wc,wm,itsec = grillage.check_equivalence_of_displacements_at_intersection()
+    print ('Main beams and cross beams deformation equivalent on interesctions = {:}'.format(isEq))
     print(grillage._reactions)
+    for i in range(len(wc)):
+        print('Deformation on intersection {0:}, main beam =  {1:.3f}, cross beam = {2:.3f}'.format(itsec[i],wm[i],wc[i]))
+    for beam in grillage._main_beams.values():
+        Mx = beam.getMx_crit_from_diagram()
+        print('Main beam {0:.1f} Mx = {1:.1f}'.format(beam.id, Mx))
+    for beam in grillage._cross_beams.values():
+        Mx = beam.getMx_crit_from_diagram()
+        print('Cross beam {0:.1f} Mx = {1:.1f}'.format(beam.id, Mx))
+    for beam in grillage._main_beams.values():
+        Sx = beam.getSigmax_crit_from_diagram()
+        print('Main beam {0:.1f} Sigmax = {1:.1f}'.format(beam.id, Sx))
+    for beam in grillage._cross_beams.values():
+        Sx = beam.getSigmax_crit_from_diagram()
+        print('Cross beam {0:.1f} Sigmax = {1:.1f}'.format(beam.id, Sx))
 if __name__ == "__main__":
     _test_grillage()

@@ -8,7 +8,7 @@ from PySide6.QtWidgets import QTreeWidget,QTreeWidgetItem,QDockWidget,QWidget,QG
 from PySide6.QtWidgets import QLabel, QSpinBox, QLineEdit, QDoubleSpinBox, QTableWidgetItem
 from PySide6.QtGui import QCursor
 from PySide6 import QtCore, QtGui, QtWidgets, QtUiTools
-
+from PySide6.QtWidgets import QInputDialog
 import os
 from PySide6.QtCore import Slot,Qt,QPoint
 #d3v imports
@@ -1016,6 +1016,8 @@ class SGDCommand(Command):
         self.menuMain.addMenu(self.menuAnalysis)
         self.menuOptimization = QMenu("&Optimization")
         self.menuMain.addMenu(self.menuOptimization)
+        self.menuLoad = QMenu("&Load")
+        self.menuMain.addMenu(self.menuLoad)
         self.menuTests = QMenu("&Tests")
         self.menuMain.addMenu(self.menuTests)
         mb.addMenu(self.menuMain)
@@ -1031,6 +1033,9 @@ class SGDCommand(Command):
 
         actionGenerateBeamOptimization = self.menuOptimization.addAction("&Generate &Beams Optimization")
         actionGenerateBeamOptimization.triggered.connect(self.onGenerateBeamOptimization)
+
+        actionSetPressure = self.menuLoad.addAction("&Set Pressure")
+        actionSetPressure.triggered.connect(self.onSetPressure)
 
         actionRunTest = self.menuTests.addAction("&Generate Test Mesh V1")
         actionRunTest.triggered.connect(self.onActionGenerateTestMeshV1)
@@ -1075,8 +1080,15 @@ class SGDCommand(Command):
     def onGenerateAnalyticalAnalysisModel(self):
         grillmod = self._grillgeo.grillage
         grillan = generate_grillage_analysis(grillmod)
-        R= grillan.calculate_reactions()
+        R= grillan.calculate_and_apply_elastic_reactions()
         print(R)
+        pass
+
+    def onSetPressure(self):
+        grillmod=self._grillgeo.grillage
+        num, ok = QInputDialog.getDouble(None, "Hatch cover presure", "Set hatch cover pressure:", value=grillmod.pressure, decimals=5)
+        if ok:
+            grillmod.pressure = num
         pass
 
     def onGenerateBeamOptimization(self):

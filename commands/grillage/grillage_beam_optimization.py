@@ -1,9 +1,12 @@
 try:
     from moobench.optbase import *
-except ImportError:
+    from moobench.optlib_scipy import ScipyOptimizationAlgorithm
+except ImportError as error:
+    print('An exception occurred: {}'.format(error))
     pass
+
 from grillage.grillage_model import Grillage
-from moobench.optlib_scipy import ScipyOptimizationAlgorithm
+
 from grillage.grilage_beam_anan import generate_grillage_analysis,BeamPropertAnAn
 from grillage.grillage_model import TBeamProperty,LBeamProperty
 
@@ -35,7 +38,7 @@ class GrillageBeam_AnMod(AnalysisExecutor):
 
 
     def analyze(self):
-        self.grill_anan.calculate_reactions()
+        self.grill_anan.calculate_and_apply_elastic_reactions()
 
         return AnalysisResultType.OK
 

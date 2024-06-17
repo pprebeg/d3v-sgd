@@ -1424,7 +1424,7 @@ class MeshExtent:
         end_coords = []
 
         for member in self.longitudinal_psm_extent().values():
-            end1_coords, end2_coords = member.end_nodes
+            end1_coords, end2_coords = member.end_nodes_coords
             if symmetry is AOS.TRANSVERSE or symmetry is AOS.BOTH:
                 end_coords.append(end1_coords * [1, 1, 0])
             else:
@@ -1432,7 +1432,7 @@ class MeshExtent:
                 end_coords.append(end2_coords * [1, 1, 0])
 
         for member in self.transverse_psm_extent().values():
-            end1_coords, end2_coords = member.end_nodes
+            end1_coords, end2_coords = member.end_nodes_coords
             if symmetry is AOS.LONGITUDINAL or symmetry is AOS.BOTH:
                 end_coords.append(end1_coords * [1, 1, 0])
             else:
